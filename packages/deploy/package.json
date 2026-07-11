@@ -1,0 +1,12 @@
+{
+  "name": "@rach/deploy",
+  "version": "0.1.0",
+  "description": "Deploy engine (git-over-SSH) + GitHub App. Shared by RachDev & RachBase.",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@rach/core": "*",
+    "node-ssh": "^13.2.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "rachdev-backend",
+  "version": "0.1.0",
+  "description": "RachDev — AI agent builder API. Consumes the shared @rach/* packages.",
+  "private": true,
+  "main": "src/app.js",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "@rach/core": "*",
+    "@rach/identity": "*",
+    "@rach/billing": "*",
+    "@rach/llm": "*",
+    "express": "^4.18.2",
+    "cookie-parser": "^1.4.6",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "razorpay": "^2.9.4",
+    "dotenv": "^16.4.5"
+  }
+}

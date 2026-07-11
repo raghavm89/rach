@@ -1,0 +1,13 @@
+{
+  "name": "@rach/llm",
+  "version": "0.1.0",
+  "description": "LLM gateway + provider adapters + metering. Shared by RachDev & RachBase.",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@rach/core": "*",
+    "@rach/billing": "*",
+    "@anthropic-ai/sdk": "^0.30.1"
+  }
+}

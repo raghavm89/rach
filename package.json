@@ -1,0 +1,14 @@
+{
+  "name": "rach-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachDev (AI Agent Builder) + RachBase (Cloud Management / BaaS) monorepo. Shared @rach/* packages consumed by both apps.",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "core:migrate": "npm run migrate -w @rach/core"
+  }
+}

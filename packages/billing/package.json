@@ -1,0 +1,17 @@
+{
+  "name": "@rach/billing",
+  "version": "0.1.0",
+  "description": "Payments (Razorpay) + credits/metering. Shared by RachDev & RachBase.",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@rach/core": "*",
+    "@rach/identity": "*",
+    "razorpay": "^2.9.4",
+    "express-validator": "^7.0.0"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0"
+  }
+}

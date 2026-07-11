@@ -1,0 +1,19 @@
+{
+  "name": "@rach/identity",
+  "version": "0.1.0",
+  "description": "Auth, users, roles, tenancy (identity provider). Shared by RachDev & RachBase.",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@rach/core": "*",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "express-validator": "^7.0.0",
+    "libphonenumber-js": "^1.11.0",
+    "ms": "^2.1.3"
+  },
+  "peerDependencies": {
+    "express": "^4.18.0"
+  }
+}

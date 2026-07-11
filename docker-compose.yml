@@ -1,0 +1,53 @@
+# Local / staging orchestration for the Rach platform.
+# Boot order matters: RachBase is the dependency (identity + infra API), so it
+# starts before RachDev. See DEPLOYMENT.md for the production cutover.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rach_db
+      POSTGRES_PASSWORD: change_me
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rachbase-backend:
+    build: { context: ., dockerfile: apps/rachbase-backend/Dockerfile }
+    env_file: apps/rachbase-backend/.env.example
+    environment:
+      DB_HOST: db
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["8080:8080"]
+
+  rachdev-backend:
+    build: { context: ., dockerfile: apps/rachdev-backend/Dockerfile }
+    env_file: apps/rachdev-backend/.env.example
+    environment:
+      DB_HOST: db
+      RACHBASE_API_URL: http://rachbase-backend:8080
+    depends_on:
+      - rachbase-backend        # RachDev calls RachBase's internal API
+    ports: ["8081:8081"]
+
+  rachbase-web:
+    build: { context: ., dockerfile: apps/rachbase-web/Dockerfile }
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on: [rachbase-backend]
+    ports: ["3002:3002"]
+
+  rachdev-web:
+    build: { context: ., dockerfile: apps/rachdev-web/Dockerfile }
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8081
+    depends_on: [rachdev-backend]
+    ports: ["3001:3001"]
+
+volumes:
+  pgdata:
