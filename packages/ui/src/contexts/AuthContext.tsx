@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, User, RegisterResponse } from '@/lib/api';
+import { auth, User, RegisterResponse } from '../lib/api';
 
 interface AuthState {
   user: User | null;
