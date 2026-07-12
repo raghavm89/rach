@@ -1,69 +1,211 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import Image from "next/image";
 import {
-  SectionHeader,
-  GradientText,
-  Button,
-  Card,
-  Badge,
-  StatBlock,
-} from "@rach/ui";
+  LayoutTemplate,
+  MessageSquare,
+  FlaskConical,
+  Rocket,
+  UserCheck,
+  ShoppingCart,
+  Heart,
+  Home,
+  Scale,
+  Landmark,
+  GraduationCap,
+  Hotel,
+  Cloud,
+  Users,
+  Briefcase,
+  Shield,
+  Car,
+  HeartHandshake,
+  Dumbbell,
+  UtensilsCrossed,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { SectionWrapper } from "@rach/ui/components/ui/SectionWrapper";
+import { SectionHeader } from "@rach/ui/components/ui/SectionHeader";
+import { AnimateIn } from "@rach/ui/components/ui/AnimateIn";
+import { Card } from "@rach/ui/components/ui/Card";
+import { FeatureDetailCard } from "@rach/ui/components/ui/FeatureDetailCard";
+import { IndustryCard } from "@rach/ui/components/ui/IndustryCard";
+import { CTABanner } from "@rach/ui/components/sections/CTABanner";
+import { features } from "@/data/features";
+import { industries } from "@/data/industries";
 
-export default function HomePage() {
+export const metadata: Metadata = {
+  title: "AI Agent Builder",
+  description:
+    "Deploy intelligent AI agents in minutes. 60 production-tested templates across 15 industries. Configure via natural language, test in a sandbox, and deploy with one click.",
+};
+
+const agentIconMap: Record<string, LucideIcon> = {
+  LayoutTemplate,
+  MessageSquare,
+  FlaskConical,
+  Rocket,
+  UserCheck,
+};
+
+const industryIconMap: Record<string, LucideIcon> = {
+  ShoppingCart,
+  Heart,
+  Home,
+  Scale,
+  Landmark,
+  GraduationCap,
+  Hotel,
+  Cloud,
+  Users,
+  Briefcase,
+  Shield,
+  Car,
+  HeartHandshake,
+  Dumbbell,
+  UtensilsCrossed,
+};
+
+const workflow = [
+  {
+    number: "01",
+    title: "Choose a Template",
+    description:
+      "Browse 60 production-tested templates organized across 15 industries. Each one includes a tuned system prompt, conversation flows, guardrails, and integration scaffolding.",
+  },
+  {
+    number: "02",
+    title: "Customize via Chat",
+    description:
+      "Describe your agent's behavior in plain English. Adjust the tone, add business rules, set escalation triggers — no flowcharts or code required.",
+  },
+  {
+    number: "03",
+    title: "Test in Sandbox",
+    description:
+      "Interact with your agent in a production-identical sandbox. Trace every decision, share preview links with stakeholders, and replay edge cases.",
+  },
+  {
+    number: "04",
+    title: "Deploy with One Click",
+    description:
+      "Your sandbox runs on production infrastructure. Going live is flipping a switch — zero downtime, instant rollback, and automatic scaling.",
+  },
+];
+
+export default function AgentBuilderPage() {
+  const agentFeatures = features.filter((f) => f.category === "agents");
+  const displayedIndustries = industries.slice(0, 6);
+
   return (
-    <main className="min-h-screen bg-page text-ink">
+    <>
       {/* Hero */}
-      <section className="mx-auto max-w-5xl px-6 pt-24 pb-16 text-center">
-        <Badge>AI Agent Builder</Badge>
-        <h1 className="mt-6 text-5xl font-display font-extrabold tracking-tight">
-          Build agents that <GradientText>do real work</GradientText>.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary">
-          RachDev lets you design, run, and deploy autonomous AI agents — running
-          on managed infrastructure by RachBase.
-        </p>
-        <div className="mt-8 flex justify-center gap-4">
-          <Button href="/demo">Try the demo</Button>
-          <Button href="/products/agent-builder">Learn more</Button>
+      <SectionWrapper>
+        <div className="grid items-center gap-10 md:grid-cols-2">
+          <SectionHeader
+            centered={false}
+            className="mb-0"
+            eyebrow="AI Agent Builder"
+            title="Deploy intelligent agents in minutes"
+            subtitle="60 production-tested templates across 15 industries. Configure with natural language, test in a live sandbox, and deploy with a single click."
+          />
+          <AnimateIn direction="right">
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-line bg-band">
+              <Image
+                src="/illustrations/rach-illus-agent-hub.png"
+                alt="AI agent connected to chat, calendar, analytics, database and documents"
+                fill
+                className="object-contain p-8"
+                priority
+              />
+            </div>
+          </AnimateIn>
         </div>
-      </section>
+      </SectionWrapper>
 
-      {/* Stats */}
-      <section className="mx-auto max-w-5xl px-6 py-12">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <StatBlock value="60+" label="Agent templates" />
-          <StatBlock value="15" label="Industries" />
-          <StatBlock value="<90s" label="Deploy time" />
+      {/* Workflow */}
+      <SectionWrapper>
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {workflow.map((step, i) => (
+            <AnimateIn key={step.number} delay={i * 0.1}>
+              <Card className="h-full">
+                <span className="font-mono text-4xl font-bold text-accent">
+                  {step.number}
+                </span>
+                <h3 className="mt-4 font-display text-lg font-bold text-ink">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-ink-2">
+                  {step.description}
+                </p>
+              </Card>
+            </AnimateIn>
+          ))}
         </div>
-      </section>
+      </SectionWrapper>
 
-      {/* Feature cards */}
-      <section className="mx-auto max-w-5xl px-6 py-16">
+      {/* Agent Features Grid */}
+      <SectionWrapper band>
         <SectionHeader
-          eyebrow="How it works"
-          title="From prompt to production"
-          subtitle="Everything you need to ship an agent, on one platform."
-          centered
+          eyebrow="Capabilities"
+          title="Everything your agents need"
+          subtitle="From templates to testing to deployment — the full agent lifecycle in one platform."
         />
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-          <Card hoverLift>
-            <h3 className="text-lg font-semibold">Build</h3>
-            <p className="mt-2 text-text-secondary">
-              Compose agents from templates, tools, and your own prompts.
-            </p>
-          </Card>
-          <Card hoverLift>
-            <h3 className="text-lg font-semibold">Run</h3>
-            <p className="mt-2 text-text-secondary">
-              Credit-metered model calls through one gateway, any provider.
-            </p>
-          </Card>
-          <Card hoverLift>
-            <h3 className="text-lg font-semibold">Deploy</h3>
-            <p className="mt-2 text-text-secondary">
-              Ship to managed containers provisioned by RachBase.
-            </p>
-          </Card>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {agentFeatures.map((feature, i) => {
+            const Icon = agentIconMap[feature.icon] || LayoutTemplate;
+            return (
+              <AnimateIn key={feature.id} delay={i * 0.08}>
+                <FeatureDetailCard
+                  name={feature.name}
+                  slug={feature.slug}
+                  icon={Icon}
+                  shortDescription={feature.shortDescription}
+                  category="Agents"
+                  image={feature.image}
+                />
+              </AnimateIn>
+            );
+          })}
         </div>
-      </section>
-    </main>
+      </SectionWrapper>
+
+      {/* Industries */}
+      <SectionWrapper>
+        <SectionHeader
+          eyebrow="INDUSTRIES"
+          title="Built for your industry"
+          subtitle="Pre-built templates with industry-specific compliance, guardrails, and integrations."
+        />
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {displayedIndustries.map((industry, i) => {
+            const Icon = industryIconMap[industry.icon] || Briefcase;
+            return (
+              <AnimateIn key={industry.id} delay={i * 0.08}>
+                <IndustryCard
+                  name={industry.name}
+                  slug={industry.slug}
+                  icon={Icon}
+                  description={industry.description}
+                  templateCount={industry.templateSlugs.length}
+                  image={industry.image}
+                />
+              </AnimateIn>
+            );
+          })}
+        </div>
+        <div className="mt-10 text-center">
+          <Link
+            href="/industries"
+            className="text-sm font-semibold text-accent transition-colors hover:underline"
+          >
+            View all 15 industries &rarr;
+          </Link>
+        </div>
+      </SectionWrapper>
+
+      {/* CTA */}
+      <CTABanner />
+    </>
   );
 }

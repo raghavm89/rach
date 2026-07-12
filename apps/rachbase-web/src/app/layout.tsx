@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider, AuthProvider } from "@rach/ui";
-import { TerminalProvider } from "@/contexts/TerminalContext";
+import { SiteChrome } from "@/components/SiteChrome";
 import "./globals.css";
 
 const bricolageGrotesque = Bricolage_Grotesque({
@@ -50,7 +50,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <QueryProvider>
-            <TerminalProvider>{children}</TerminalProvider>
+            <SiteChrome>{children}</SiteChrome>
           </QueryProvider>
         </AuthProvider>
       </body>

@@ -1,39 +1,82 @@
-import { SectionHeader, Card, StatBlock, Badge } from "@rach/ui";
+'use client';
+
+import { useAuth } from '@rach/ui/contexts/AuthContext';
+import { Monitor, CreditCard, User } from 'lucide-react';
+import Link from 'next/link';
+import { cn } from '@rach/ui/lib/utils';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+
+  const cards = [
+    ...(user?.role === 'admin' ? [{
+      title: 'Monitoring',
+      description: 'View real-time CPU, memory, and uptime for all VMs across the cluster.',
+      href: '/dashboard/monitoring',
+      icon: <Monitor size={22} />,
+      gradient: true,
+    }] : []),
+    {
+      title: 'Billing',
+      description: 'Manage your subscription, view invoices, and update payment details.',
+      href: '/dashboard/billing',
+      icon: <CreditCard size={22} />,
+      gradient: false,
+    },
+    {
+      title: 'Profile',
+      description: 'Update your account information and security settings.',
+      href: '/dashboard/profile',
+      icon: <User size={22} />,
+      gradient: false,
+    },
+  ];
+
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <SectionHeader title="Overview" subtitle="Your infrastructure at a glance." />
-        <Badge>RachBase</Badge>
+    <div className="max-w-4xl">
+      {/* Welcome */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold font-display text-text-primary">
+          Welcome back, {user?.name.split(' ')[0]} 👋
+        </h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Here&apos;s an overview of your account.
+        </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatBlock value="—" label="Active VMs" />
-        <StatBlock value="—" label="Containers" />
-        <StatBlock value="—" label="Deployments today" />
-        <StatBlock value="—" label="Open alerts" />
+      {/* Quick access cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className={cn(
+              'group relative flex flex-col gap-3 rounded-xl border border-neutral-border bg-white p-6 transition-all duration-200',
+              'hover:-translate-y-1 hover:shadow-md',
+            )}
+          >
+            {/* Gradient accent top line */}
+            <div
+              className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              style={{ background: 'var(--gradient-cta)' }}
+            />
+            <div
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-lg',
+                card.gradient
+                  ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white'
+                  : 'bg-bg-secondary text-text-secondary',
+              )}
+            >
+              {card.icon}
+            </div>
+            <div>
+              <p className="font-semibold text-text-primary">{card.title}</p>
+              <p className="mt-1 text-xs text-text-muted leading-relaxed">{card.description}</p>
+            </div>
+          </Link>
+        ))}
       </div>
-
-      <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card>
-          <h3 className="text-lg font-semibold">Infrastructure</h3>
-          <p className="mt-2 text-text-secondary">VMs, containers, tenant pools.</p>
-        </Card>
-        <Card>
-          <h3 className="text-lg font-semibold">Deployments</h3>
-          <p className="mt-2 text-text-secondary">GitHub-connected services + logs.</p>
-        </Card>
-        <Card>
-          <h3 className="text-lg font-semibold">Monitoring</h3>
-          <p className="mt-2 text-text-secondary">Metrics, uptime, and alerts.</p>
-        </Card>
-      </div>
-
-      <p className="mt-8 text-sm text-text-muted">
-        Dashboard modules (my-vms, monitoring, tenants, billing, credit-usage)
-        migrate into this shell incrementally.
-      </p>
-    </main>
+    </div>
   );
 }

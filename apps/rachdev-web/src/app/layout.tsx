@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
-// Shared providers now come from the design-system package.
 import { QueryProvider, AuthProvider } from "@rach/ui";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { SiteChrome } from "@/components/SiteChrome";
 import "./globals.css";
 
 const bricolageGrotesque = Bricolage_Grotesque({
@@ -27,16 +27,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://rachdev.example"),
+  metadataBase: new URL("https://rach.dev"),
   title: {
     default: "RachDev — AI Agent Builder",
     template: "%s | RachDev",
   },
   description:
-    "Design, run, and deploy autonomous AI agents. RachDev turns models into working software — running on managed infrastructure by RachBase.",
+    "Deploy intelligent AI agents in minutes. 60 production-tested templates across 15 industries. Configure via natural language, test in a sandbox, and deploy with one click.",
   openGraph: {
     type: "website",
     siteName: "RachDev",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: { card: "summary_large_image" },
 };
@@ -51,7 +52,9 @@ export default function RootLayout({
       >
         <AuthProvider>
           <QueryProvider>
-            <ChatProvider>{children}</ChatProvider>
+            <ChatProvider>
+              <SiteChrome>{children}</SiteChrome>
+            </ChatProvider>
           </QueryProvider>
         </AuthProvider>
       </body>
