@@ -78,10 +78,10 @@ export default function AboutPage() {
       <SectionWrapper band>
         <SectionHeader
           eyebrow="The Team"
-          title="Meet the founders"
-          subtitle="Two builders who got tired of solving the same infrastructure problems from scratch."
+          title="Meet the team"
+          subtitle="Builders across infrastructure and AI who got tired of solving the same problems from scratch — so we built the agent platform we wished existed, and put a decade of hands-on agent experience behind it."
         />
-        <div className="mx-auto grid max-w-3xl gap-8 md:grid-cols-2">
+        <div className="mx-auto grid max-w-5xl gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {team.map((member, i) => (
             <AnimateIn key={member.name} delay={i * 0.15}>
               <TeamCard
