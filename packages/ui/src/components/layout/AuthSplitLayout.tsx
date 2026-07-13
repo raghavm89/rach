@@ -20,6 +20,7 @@ export interface AuthSplitLayoutProps {
   features?: AuthFeature[];
   logoSrc?: string;
   logoAlt?: string;
+  logo?: React.ReactNode;
   trustText?: string;
   quote?: string;
   quoteAuthor?: string;
@@ -47,6 +48,7 @@ export function AuthSplitLayout({
   features = DEFAULT_FEATURES,
   logoSrc = '/brand/rach-dev-logo-side.svg',
   logoAlt = 'Rach Dev LLP',
+  logo,
   trustText = 'Trusted by 10+ businesses',
   quote = 'From zero to a live backend in minutes. The dashboard, the support, the pricing — everything just works.',
   quoteAuthor = '— Rach Dev LLP Customer',
@@ -59,7 +61,7 @@ export function AuthSplitLayout({
         {/* Logo */}
         <div className="mb-8 w-full max-w-md">
           <Link href="/" className="inline-flex items-center" aria-label={`${logoAlt} home`}>
-            <Image src={logoSrc} alt={logoAlt} width={160} height={32} className="h-8 w-auto" />
+            {logo ?? <Image src={logoSrc} alt={logoAlt} width={160} height={32} className="h-8 w-auto" />}
           </Link>
         </div>
 

@@ -31,6 +31,7 @@ import { Card } from "@rach/ui/components/ui/Card";
 import { FeatureDetailCard } from "@rach/ui/components/ui/FeatureDetailCard";
 import { IndustryCard } from "@rach/ui/components/ui/IndustryCard";
 import { CTABanner } from "@rach/ui/components/sections/CTABanner";
+import { Hero } from "@rach/ui/components/home/Hero";
 import { features } from "@/data/features";
 import { industries } from "@/data/industries";
 
@@ -99,29 +100,8 @@ export default function AgentBuilderPage() {
 
   return (
     <>
-      {/* Hero */}
-      <SectionWrapper>
-        <div className="grid items-center gap-10 md:grid-cols-2">
-          <SectionHeader
-            centered={false}
-            className="mb-0"
-            eyebrow="AI Agent Builder"
-            title="Deploy intelligent agents in minutes"
-            subtitle="60 production-tested templates across 15 industries. Configure with natural language, test in a live sandbox, and deploy with a single click."
-          />
-          <AnimateIn direction="right">
-            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-line bg-band">
-              <Image
-                src="/illustrations/rach-illus-agent-hub.png"
-                alt="AI agent connected to chat, calendar, analytics, database and documents"
-                fill
-                className="object-contain p-8"
-                priority
-              />
-            </div>
-          </AnimateIn>
-        </div>
-      </SectionWrapper>
+      {/* Hero — agent-only variant of the shared home hero */}
+      <Hero variant="agent" />
 
       {/* Workflow */}
       <SectionWrapper>

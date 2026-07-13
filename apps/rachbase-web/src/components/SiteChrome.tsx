@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "@rach/ui/components/layout/Navbar";
 import { Footer } from "@rach/ui/components/layout/Footer";
 import { navGroups, footerColumns, footerTagline } from "@/config/nav";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // Routes that supply their own full-screen shell (no marketing Navbar/Footer):
 // the dashboard (sidebar) and the auth pages (split layout).
@@ -28,9 +29,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   }
   return (
     <div className="bg-page text-ink">
-      <Navbar navGroups={navGroups} />
+      <Navbar navGroups={navGroups} logo={<BrandLogo />} />
       <main>{children}</main>
-      <Footer columns={footerColumns} tagline={footerTagline} />
+      <Footer columns={footerColumns} tagline={footerTagline} logo={<BrandLogo />} />
     </div>
   );
 }

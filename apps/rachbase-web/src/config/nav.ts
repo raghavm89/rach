@@ -7,7 +7,6 @@ export const navGroups = [
     label: "Product",
     links: [
       { label: "BaaS Platform", href: "/products/baas" },
-      { label: "Integrations", href: "/integrations" },
     ],
   },
   {
@@ -32,7 +31,6 @@ export const footerColumns = [
     title: "Product",
     links: [
       { label: "BaaS Platform", href: "/products/baas" },
-      { label: "Integrations", href: "/integrations" },
       { label: "Pricing", href: "/pricing" },
     ],
   },

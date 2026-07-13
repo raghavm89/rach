@@ -23,6 +23,8 @@ export interface NavbarProps {
   navGroups?: NavGroup[];
   logoSrc?: string;
   logoAlt?: string;
+  /** Custom logo node — overrides the image logo when provided (e.g. a wordmark). */
+  logo?: React.ReactNode;
 }
 
 const DEFAULT_NAV_GROUPS: NavGroup[] = [
@@ -148,6 +150,7 @@ export function Navbar({
   navGroups = DEFAULT_NAV_GROUPS,
   logoSrc = "/brand/rach-dev-logo-side.svg",
   logoAlt = "Rach Dev LLP",
+  logo,
 }: NavbarProps = {}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
@@ -158,14 +161,16 @@ export function Navbar({
       <nav className="mx-auto flex h-16 max-w-site items-center gap-[34px] px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center" aria-label={`${logoAlt} home`}>
-          <Image
-            src={logoSrc}
-            alt={logoAlt}
-            width={172}
-            height={32}
-            priority
-            className="h-8 w-auto"
-          />
+          {logo ?? (
+            <Image
+              src={logoSrc}
+              alt={logoAlt}
+              width={172}
+              height={32}
+              priority
+              className="h-8 w-auto"
+            />
+          )}
         </Link>
 
         {/* Desktop Nav — Mega Menu */}

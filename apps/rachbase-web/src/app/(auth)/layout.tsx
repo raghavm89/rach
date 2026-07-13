@@ -2,10 +2,12 @@
 
 import { AuthSplitLayout } from '@rach/ui/components/layout/AuthSplitLayout';
 import { Database, Server, Zap, Shield } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthSplitLayout
+      logo={<BrandLogo />}
       eyebrow="RachBase"
       title={
         <>

@@ -27,6 +27,7 @@ import { AnimateIn } from "@rach/ui/components/ui/AnimateIn";
 import { FeatureDetailCard } from "@rach/ui/components/ui/FeatureDetailCard";
 import { Card } from "@rach/ui/components/ui/Card";
 import { CTABanner } from "@rach/ui/components/sections/CTABanner";
+import { Hero } from "@rach/ui/components/home/Hero";
 import { features } from "@/data/features";
 
 export const metadata: Metadata = {
@@ -196,29 +197,8 @@ export default function BaaSPage() {
 
   return (
     <>
-      {/* Hero */}
-      <SectionWrapper>
-        <div className="grid items-center gap-10 md:grid-cols-2">
-          <SectionHeader
-            centered={false}
-            className="mb-0"
-            eyebrow="Backend as a Service"
-            title="Infrastructure that just works"
-            subtitle="Managed PostgreSQL, authentication, auto-generated APIs, object storage, and automated backups — all on dedicated infrastructure with no noisy neighbors."
-          />
-          <AnimateIn direction="right">
-            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-line bg-band">
-              <Image
-                src="/illustrations/rach-illus-baas-stack.png"
-                alt="Backend stack: Database, Auth, Storage and APIs"
-                fill
-                className="object-contain p-8"
-                priority
-              />
-            </div>
-          </AnimateIn>
-        </div>
-      </SectionWrapper>
+      {/* Hero — backend-only variant of the shared home hero */}
+      <Hero variant="backend" />
 
       {/* ARKA Microstacks partnership banner */}
       <SectionWrapper>
