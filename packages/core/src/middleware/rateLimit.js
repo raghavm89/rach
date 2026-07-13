@@ -1,5 +1,9 @@
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
+// ipKeyGenerator (IPv6 normalization helper) exists only in newer express-rate-limit
+// versions. Fall back to the raw IP so this works across versions.
+const ipKey = typeof ipKeyGenerator === 'function' ? ipKeyGenerator : (ip) => ip || '';
+
 const jsonError = (message) => (req, res) => res.status(429).json({ error: message });
 
 // Login: 5 attempts / 15 min / IP — keyed by IP+email so attackers can't lock a user out.
@@ -8,7 +12,7 @@ const loginLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${(req.body?.email || '').toLowerCase()}`,
+  keyGenerator: (req) => `${ipKey(req.ip)}:${(req.body?.email || '').toLowerCase()}`,
   handler: jsonError('Too many login attempts. Try again in 15 minutes.'),
 });
 
@@ -27,7 +31,7 @@ const otpVerifyLimiter = rateLimit({
   max: 6,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.user_id || 'anon'}`,
+  keyGenerator: (req) => `${ipKey(req.ip)}:${req.body?.user_id || 'anon'}`,
   handler: jsonError('Too many verification attempts. Request a new code.'),
 });
 
@@ -37,7 +41,7 @@ const otpResendLimiter = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.user_id || 'anon'}`,
+  keyGenerator: (req) => `${ipKey(req.ip)}:${req.body?.user_id || 'anon'}`,
   handler: jsonError('Too many resend requests. Try again in 10 minutes.'),
 });
 
