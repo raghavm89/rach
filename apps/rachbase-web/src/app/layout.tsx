@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider, AuthProvider } from "@rach/ui";
 import { SiteChrome } from "@/components/SiteChrome";
@@ -38,6 +38,11 @@ export const metadata: Metadata = {
     siteName: "RachBase",
   },
   twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

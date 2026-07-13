@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, AudioLines, Mic, PhoneOff } from "lucide-react";
+import { Sparkles, AudioLines, Mic, PhoneOff, Server, GitBranch, Database, Layers, Package, Archive, X } from "lucide-react";
 import { HomeButton } from "./HomeButton";
 import { StartBuildingButton } from '../ui/StartBuildingButton';
 
@@ -157,6 +157,46 @@ export function Hero({ variant = "full" }: { variant?: HeroVariant } = {}) {
     </div>
   );
 
+  const deployCard = (cls: string) => {
+    const soon: [string, typeof Database][] = [
+      ["Database", Database],
+      ["Template", Layers],
+      ["Docker Image", Package],
+      ["Bucket", Archive],
+    ];
+    return (
+      <div className={`${cls} animate-pop overflow-hidden rounded-[15px] border border-line bg-surface opacity-0 shadow-well motion-reduce:animate-none motion-reduce:opacity-100 max-[960px]:static max-[960px]:w-full max-[960px]:max-w-[420px]`}>
+        <div className="flex items-center gap-2 border-b border-row px-[15px] py-[11px]">
+          <Server className="h-[14px] w-[14px] text-ink-3" />
+          <span className="font-mono text-[12px] text-ink-2">acme-vm-01</span>
+          <X className="ml-auto h-[14px] w-[14px] text-ink-3" />
+        </div>
+        <div className="px-[15px] pt-[13px]">
+          <div className="text-[14px] font-semibold text-ink">What would you like to create?</div>
+          <div className="mt-[10px] rounded-[9px] border border-line-2 px-[11px] py-2 text-[12px] text-ink-3">Search&hellip;</div>
+        </div>
+        <div className="px-[8px] py-2">
+          <div className="flex items-center gap-3 rounded-[9px] px-[11px] py-[9px]">
+            <GitBranch className="h-[16px] w-[16px] text-ink" />
+            <span className="text-[13px] font-medium text-ink">GitHub Repository</span>
+          </div>
+          {soon.map(([label, Icon]) => (
+            <div key={label} className="flex items-center gap-3 px-[11px] py-[9px]">
+              <Icon className="h-[16px] w-[16px] text-ink-3" />
+              <span className="text-[13px] text-ink-3">{label}</span>
+              <span className="ml-auto rounded-md bg-row px-2 py-[2px] text-[10.5px] text-ink-3">Soon</span>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-row px-[15px] py-3">
+          <div className="flex w-full items-center justify-center gap-2 rounded-[9px] border border-dashed border-line-2 py-[9px] text-[13px] font-medium text-ink-2">
+            <span className="text-[15px] leading-none">+</span> Deploy
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const agentChat = (cls: string) => (
     <div className={`${cls} animate-pop rounded-[15px] border border-line bg-surface opacity-0 shadow-well motion-reduce:animate-none motion-reduce:opacity-100 max-[960px]:static max-[960px]:w-full max-[960px]:max-w-[420px]`}>
       <div className="flex items-center gap-[9px] border-b border-row px-[14px] py-3">
@@ -256,8 +296,9 @@ export function Hero({ variant = "full" }: { variant?: HeroVariant } = {}) {
         <div className="relative min-h-[600px] max-[960px]:flex max-[960px]:min-h-0 max-[960px]:flex-col max-[960px]:gap-4">
           {variant === "backend" && (
             <>
-              {usersTable("absolute left-0 top-0 z-[1] w-[300px] [animation-delay:0.3s]")}
-              {vmPool("absolute right-0 top-[168px] z-[2] w-[372px] [animation-delay:0.42s]")}
+              {usersTable("absolute left-0 top-0 z-[2] w-[288px] [animation-delay:0.3s]")}
+              {deployCard("absolute left-[18px] top-[196px] z-[1] w-[340px] [animation-delay:0.54s]")}
+              {vmPool("absolute right-0 top-[92px] z-[3] w-[360px] [animation-delay:0.42s]")}
             </>
           )}
 

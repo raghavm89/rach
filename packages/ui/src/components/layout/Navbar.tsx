@@ -157,6 +157,7 @@ export function Navbar({
   const isLoggedIn = !!user;
 
   return (
+    <>
     <header className="sticky top-0 z-50 border-b border-line bg-page/80 backdrop-blur-md backdrop-saturate-150">
       <nav className="mx-auto flex h-16 max-w-site items-center gap-[34px] px-8">
         {/* Logo */}
@@ -222,8 +223,11 @@ export function Navbar({
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </nav>
+    </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — rendered OUTSIDE <header> because the header's
+          backdrop-blur would otherwise become the containing block for this
+          position:fixed drawer, collapsing it to the header's height. */}
       {mobileOpen && (
         <div className="fixed inset-0 top-16 z-40 overflow-y-auto bg-page min-[860px]:hidden">
           <div className="flex flex-col items-start px-8 pt-4">
@@ -268,6 +272,6 @@ export function Navbar({
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }

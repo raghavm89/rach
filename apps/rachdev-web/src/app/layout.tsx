@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider, AuthProvider } from "@rach/ui";
 import { ChatProvider } from "@/contexts/ChatContext";
@@ -40,6 +40,11 @@ export const metadata: Metadata = {
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: { card: "summary_large_image" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

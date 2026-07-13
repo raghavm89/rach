@@ -24,6 +24,7 @@ import { cn } from '@rach/ui/lib/utils';
 import { TerminalProvider, useTerminal } from '@/contexts/TerminalContext';
 import { ChatProvider, useChat } from '@/contexts/ChatContext';
 import { Terminal } from '@/components/dashboard/Terminal';
+import { BrandLogo } from '@/components/BrandLogo';
 
 interface NavItem {
   label: string;
@@ -83,8 +84,8 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
     <>
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-neutral-border px-6">
-        <Link href="/" className="flex items-center" aria-label="Rach Dev LLP home">
-          <Image src="/brand/rach-dev-logo.svg" alt="Rach Dev LLP" width={48} height={40} className="h-9 w-auto" />
+        <Link href="/" className="flex items-center" aria-label="RachBase home">
+          <BrandLogo />
         </Link>
       </div>
 
