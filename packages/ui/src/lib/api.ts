@@ -673,3 +673,132 @@ export const deployment = {
       '/api/deployment/vm-ssh-config', {}, token
     ),
 };
+
+// ─── Projects / Services (Railway-style) ──────────────────────────────────────
+
+export interface Project {
+  id: number;
+  name: string;
+  slug: string;
+  service_count?: number;
+  online_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Environment {
+  id: number;
+  project_id: number;
+  name: string;
+  is_default: boolean;
+}
+
+export interface Service {
+  id: number;
+  project_id: number;
+  name: string;
+  source_type: string;
+  repo_full_name: string | null;
+  branch: string;
+  image: string | null;
+  units?: number;
+  cpu: string | number;
+  memory_mb: number;
+  disk_gb: string | number;
+  replicas: number;
+  compute_target?: string;
+  vm_id?: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface Deployment {
+  id: number;
+  service_id: number;
+  environment_id: number | null;
+  commit_sha: string | null;
+  image_tag: string | null;
+  status: string;
+  triggered_by: string;
+  created_at: string;
+}
+
+export interface NewServiceInput {
+  name: string;
+  source_type?: string;
+  repo_full_name?: string;
+  branch?: string;
+  image?: string;
+  compute_target?: string;
+  vm_id?: string;
+}
+
+export interface ServiceUnit {
+  id: number;
+  service_id: number;
+  status: string;
+  price_cents: number;
+  currency: string;
+  created_at: string;
+  activated_at: string | null;
+}
+
+export interface UnitCheckout {
+  message: string;
+  unit_id: number;
+  razorpay_order_id: string;
+  razorpay_key_id: string;
+  amount: number;
+  currency: string;
+}
+
+export const projects = {
+  list: (token: string) =>
+    apiFetch<{ projects: Project[] }>('/api/projects', {}, token),
+
+  create: (token: string, name: string) =>
+    apiFetch<{ project: Project }>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }, token),
+
+  get: (token: string, id: number) =>
+    apiFetch<{ project: Project; services: Service[]; environments: Environment[] }>(
+      `/api/projects/${id}`, {}, token,
+    ),
+
+  createService: (token: string, projectId: number, input: NewServiceInput) =>
+    apiFetch<{ service: Service; quota?: { used: number; limit: number } }>(
+      `/api/projects/${projectId}/services`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }, token,
+    ),
+
+  getService: (token: string, projectId: number, sid: number) =>
+    apiFetch<{ service: Service; deployments: Deployment[]; units: ServiceUnit[] }>(
+      `/api/projects/${projectId}/services/${sid}`, {}, token,
+    ),
+
+  deploy: (token: string, projectId: number, sid: number, body: { commit_sha?: string; image_tag?: string } = {}) =>
+    apiFetch<{ message: string; deployment: Deployment }>(
+      `/api/projects/${projectId}/services/${sid}/deploy`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }, token,
+    ),
+
+  // Buy one Service Unit ($15/mo) — used both to bring a draft online and to "Add power".
+  checkoutUnit: (token: string, projectId: number, sid: number) =>
+    apiFetch<UnitCheckout>(
+      `/api/projects/${projectId}/services/${sid}/units/checkout`, { method: 'POST' }, token,
+    ),
+
+  verifyUnit: (token: string, projectId: number, sid: number, payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch<{ message: string; service: Service; unit: ServiceUnit }>(
+      `/api/projects/${projectId}/services/${sid}/units/verify`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }, token,
+    ),
+};

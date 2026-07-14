@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s | RachBase",
   },
   description:
-    "Provision VMs and containers, deploy from GitHub, monitor in real time, and manage tenants and billing — from one dashboard.",
+    "Deploy services from GitHub or Postgres, provision VMs, monitor in real time, and manage tenants and billing — from one dashboard.",
   openGraph: {
     type: "website",
     siteName: "RachBase",

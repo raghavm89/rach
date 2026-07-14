@@ -15,6 +15,11 @@ export const pricingFAQs: FAQ[] = [
       "Each VM comes with 2 vCPUs, 8 GB RAM, and 50 GB of SSD disk at $100/month. If you need more storage, you can attach additional block storage at $0.15/GB/month. All VMs run on dedicated hardware with full resource isolation — no noisy neighbours.",
   },
   {
+    question: "What is included in a Service?",
+    answer:
+      "Each service comes with 0.5 vCPU, 0.5 GB RAM, and 0.5 GB of SSD disk at $15/month. A service runs your app from a GitHub repository or a managed Postgres database. Need more power? Add another unit (0.5 vCPU / 0.5 GB / 0.5 GB) to a running service with zero downtime — you only pay for the units you add.",
+  },
+  {
     question: "What does the Managed PostgreSQL service include?",
     answer:
       "The $200/month DB instance includes WAL archival, automated daily backups with 7-day retention, and on-demand point-in-time recovery. Daily backups run at pre-agreed times. If you need an additional on-demand backup (e.g. before a planned maintenance window), you can request one at least 24 hours in advance — these are billed at $0.10/GB with a 30-day retention.",

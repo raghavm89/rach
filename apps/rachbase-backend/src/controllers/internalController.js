@@ -13,6 +13,8 @@
 const { pool } = require('@rach/core');
 const { runDeploy, getSshPrivateKey } = require('@rach/deploy');
 const { NodeSSH } = require('node-ssh');
+const { ServiceUsage } = require('../models/serviceAlert');
+const alerting = require('../services/alerting');
 
 // POST /internal/deploy  { tenant_id, service_id }
 exports.deploy = async (req, res) => {
@@ -62,4 +64,23 @@ exports.runCommand = async (req, res) => {
   } finally {
     ssh.dispose();
   }
+};
+
+// POST /internal/usage  { service_id, cpu_pct, mem_pct, disk_pct }
+// The orchestrator / metrics agent posts a usage sample (percent 0..100).
+exports.recordUsage = async (req, res) => {
+  const { service_id, cpu_pct, mem_pct, disk_pct } = req.body;
+  const nums = [cpu_pct, mem_pct, disk_pct].map(Number);
+  if (!service_id || nums.some((n) => !Number.isFinite(n))) {
+    return res.status(400).json({ error: 'service_id, cpu_pct, mem_pct, disk_pct required' });
+  }
+  const sample = await ServiceUsage.record({ serviceId: service_id, cpu: nums[0], mem: nums[1], disk: nums[2] });
+  res.status(201).json({ sample });
+};
+
+// POST /internal/alerts/evaluate — sweep online services and email on sustained breach.
+// Intended to be driven by a scheduled task (~every minute).
+exports.evaluateAlerts = async (_req, res) => {
+  const summary = await alerting.evaluateAllOnline();
+  res.json(summary);
 };

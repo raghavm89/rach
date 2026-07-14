@@ -28,6 +28,7 @@ const tenantRoutes     = require('./routes/tenants');
 const expansionRoutes  = require('./routes/expansion');
 const planRoutes       = require('./routes/plans');
 const vmAssignmentRoutes = require('./routes/vmAssignment');
+const projectRoutes    = require('./routes/projects');   // Railway-style Project → Service model
 const internalRoutes   = require('./routes/internal');   // service-to-service (RachDev → RachBase)
 
 const app = express();
@@ -90,6 +91,7 @@ app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/expansion',  expansionRoutes);
 app.use('/api/plans',      planRoutes);
+app.use('/api/projects',   projectRoutes);
 
 // Internal service API (protected by service token, not user auth)
 app.use('/internal', internalRoutes);

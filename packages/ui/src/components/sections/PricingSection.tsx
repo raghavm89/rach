@@ -4,7 +4,7 @@ import { AnimateIn } from '../ui/AnimateIn';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
-  Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Layers,
+  Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Layers, Box,
 } from "lucide-react";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -18,6 +18,16 @@ const coreServices = [
     spec: "2 vCPUs · 8 GB RAM · 50 GB disk",
     price: "$100",
     unit: "per VM / month",
+    accent: false,
+  },
+  {
+    icon: Box,
+    bg: "bg-blue-50",
+    color: "text-blue-600",
+    name: "Service",
+    spec: "0.5 vCPU · 0.5 GB RAM · 0.5 GB disk · from GitHub or Postgres",
+    price: "$15",
+    unit: "per service / month",
     accent: false,
   },
   {

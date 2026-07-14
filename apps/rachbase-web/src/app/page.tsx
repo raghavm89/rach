@@ -19,6 +19,7 @@ import {
   BarChart2,
   Activity,
   Copy,
+  Box,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SectionWrapper } from "@rach/ui/components/ui/SectionWrapper";
@@ -78,6 +79,11 @@ const coreServices = [
     icon: Server,    bg: "bg-blue-50",    color: "text-primary-blue",
     name: "Virtual Machines",
     spec: "Dedicated VMs provisioned on enterprise-grade hardware with full resource isolation and no noisy neighbours.",
+  },
+  {
+    icon: Box,       bg: "bg-blue-50",    color: "text-primary-blue",
+    name: "Services",
+    spec: "Deploy an app from GitHub or a managed Postgres — 0.5 vCPU, 0.5 GB RAM, 0.5 GB disk at $15/mo. Scale live by adding more units.",
   },
   {
     icon: HardDrive, bg: "bg-blue-50",    color: "text-primary-blue",

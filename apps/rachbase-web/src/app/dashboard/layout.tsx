@@ -18,6 +18,7 @@ import {
   X,
   Network,
   Coins,
+  FolderGit2,
 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { cn } from '@rach/ui/lib/utils';
@@ -36,13 +37,14 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',   href: '/dashboard',             icon: <LayoutDashboard size={18} /> },
+  { label: 'Projects',   href: '/dashboard/projects',    icon: <FolderGit2 size={18} /> },
   { label: 'Monitoring', href: '/dashboard/monitoring',  icon: <Monitor size={18} />,   roles: ['admin'] },
   { label: 'VM Monitor', href: '/dashboard/vm-monitor',  icon: <Monitor size={18} />,   roles: ['tenant_admin'] },
   { label: 'My VMs',     href: '/dashboard/my-vms',      icon: <Monitor size={18} />,   roles: ['tenant_user', 'developer'] },
   { label: 'Users',      href: '/dashboard/users',       icon: <Users size={18} />,     roles: ['admin', 'tenant_admin'] },
   { label: 'Tenants',    href: '/dashboard/tenants',     icon: <Users size={18} />,     roles: ['admin'] },
   { label: 'Orders',     href: '/dashboard/orders',      icon: <ShoppingBag size={18} />, roles: ['admin', 'tenant_admin', 'tenant_user'] },
-  { label: 'Deployment',      href: '/dashboard/deployment',      icon: <Rocket size={18} />,  roles: ['tenant_admin'], desktopOnly: true },
+  { label: 'VM Deployment',   href: '/dashboard/deployment',      icon: <Rocket size={18} />,  roles: ['tenant_admin'], desktopOnly: true },
   { label: 'Infrastructure',  href: '/dashboard/infrastructure',  icon: <Network size={18} />, roles: ['admin'] },
   { label: 'Billing',      href: '/dashboard/billing',       icon: <CreditCard size={18} />, roles: ['tenant_admin', 'tenant_user'] },
   { label: 'Credit Usage', href: '/dashboard/credit-usage',  icon: <Coins size={18} />,      roles: ['tenant_admin'] },

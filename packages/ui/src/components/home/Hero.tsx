@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, AudioLines, Mic, PhoneOff, Server, GitBranch, Database, Layers, Package, Archive, X } from "lucide-react";
+import { Sparkles, AudioLines, Mic, PhoneOff, Server, GitBranch, Database, Layers, Package, Archive, X, Box, Globe } from "lucide-react";
 import { HomeButton } from "./HomeButton";
 import { StartBuildingButton } from '../ui/StartBuildingButton';
 
@@ -157,6 +157,37 @@ export function Hero({ variant = "full" }: { variant?: HeroVariant } = {}) {
     </div>
   );
 
+  const serviceCard = (cls: string) => (
+    <div className={`${cls} animate-pop overflow-hidden rounded-[15px] border border-line bg-surface opacity-0 shadow-well motion-reduce:animate-none motion-reduce:opacity-100 max-[960px]:static max-[960px]:w-full max-[960px]:max-w-[420px]`}>
+      <div className="flex items-center gap-[10px] border-b border-row px-[15px] py-[12px]">
+        <div className="grid h-8 w-8 place-items-center rounded-lg bg-accent-weak text-accent"><Box className="h-[16px] w-[16px]" /></div>
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-semibold leading-tight text-ink">acme-api</div>
+          <div className="mt-[1px] flex items-center gap-[5px] text-[11px] text-ok">
+            <span className="h-[5px] w-[5px] rounded-full bg-ok motion-safe:animate-pulse2" /> Online
+          </div>
+        </div>
+        <span className="ml-auto rounded-full border border-accent-line bg-accent-weak px-2 py-[2px] font-mono text-[10px] text-accent">production</span>
+      </div>
+      <div className="space-y-[9px] px-[15px] py-[13px]">
+        <div className="flex items-center gap-[7px] text-[12px] text-ink-2"><GitBranch className="h-[13px] w-[13px] text-ink-3" /> acme/api <span className="text-ink-3">· main</span></div>
+        <div className="flex items-center gap-[7px] text-[12px] text-ink-2"><Globe className="h-[13px] w-[13px] text-ink-3" /> acme-api.rachbase.app</div>
+        <div className="grid grid-cols-3 gap-[7px] pt-[3px]">
+          {[["CPU", "1.0 vCPU"], ["RAM", "1 GB"], ["Units", "2"]].map(([k, v]) => (
+            <div key={k} className="rounded-[9px] bg-[#F4F3EE] px-2 py-[7px]">
+              <div className="font-mono text-[9px] uppercase tracking-[0.05em] text-ink-3">{k}</div>
+              <div className="mt-[1px] text-[12px] font-semibold text-ink">{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-[6px] border-t border-row px-[15px] py-[9px] text-[11px] text-ink-3">
+        <span className="h-[5px] w-[5px] rounded-full bg-ok" /> Deployed 2m ago
+        <span className="ml-auto font-mono">build #47</span>
+      </div>
+    </div>
+  );
+
   const deployCard = (cls: string) => {
     const soon: [string, typeof Database][] = [
       ["Database", Database],
@@ -296,9 +327,9 @@ export function Hero({ variant = "full" }: { variant?: HeroVariant } = {}) {
         <div className="relative min-h-[600px] max-[960px]:flex max-[960px]:min-h-0 max-[960px]:flex-col max-[960px]:gap-4">
           {variant === "backend" && (
             <>
-              {usersTable("absolute left-0 top-0 z-[2] w-[288px] [animation-delay:0.3s]")}
-              {deployCard("absolute left-[18px] top-[196px] z-[1] w-[340px] [animation-delay:0.54s]")}
-              {vmPool("absolute right-0 top-[92px] z-[3] w-[360px] [animation-delay:0.42s]")}
+              {serviceCard("absolute left-0 top-0 z-[3] w-[300px] [animation-delay:0.3s]")}
+              {deployCard("absolute left-[24px] top-[236px] z-[1] w-[336px] [animation-delay:0.54s]")}
+              {vmPool("absolute right-0 top-[86px] z-[2] w-[352px] [animation-delay:0.42s]")}
             </>
           )}
 
