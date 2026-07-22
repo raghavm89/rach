@@ -27,6 +27,8 @@ const { User, ROLES }    = require('./src/models/user');
 const RefreshToken       = require('./src/models/refreshToken');
 const VerificationCode   = require('./src/models/verification');
 
+const { runAuthCleanup, startAuthCleanup, stopAuthCleanup } = require('./src/jobs/authCleanup');
+
 module.exports = {
   // routers
   authRoutes,
@@ -46,4 +48,9 @@ module.exports = {
   ROLES,
   RefreshToken,
   VerificationCode,
+
+  // jobs
+  runAuthCleanup,
+  startAuthCleanup,
+  stopAuthCleanup,
 };

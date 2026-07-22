@@ -2,87 +2,203 @@
 
 /**
  * OAuth 2.0 routes — Google and GitHub.
+ *
  * Flow:
- *   1. Browser hits GET /api/auth/google  → redirect to provider
- *   2. Provider redirects to /api/auth/google/callback with ?code=xxx
- *   3. We exchange code → access token → user profile
- *   4. Find or create local user, issue JWT, redirect to frontend /auth/callback
+ *   1. Browser hits GET /api/auth/google
+ *      → we mint a random `state`, persist it, redirect to the provider
+ *   2. Provider redirects to /api/auth/google/callback with ?code=xxx&state=yyy
+ *   3. We verify `state`, exchange code → provider token → profile
+ *   4. Resolve the local user via oauth_identities (never by email alone)
+ *   5. Issue the same access + refresh token pair as password login, set the
+ *      HttpOnly refresh cookie, and redirect to /auth-callback with NO
+ *      credentials in the URL. The client calls /api/auth/refresh to hydrate.
+ *
+ * Notes on what changed and why:
+ *   - `state` was absent entirely, leaving both providers open to login-CSRF.
+ *   - The callback redirected to /auth/callback; the Next route is
+ *     /auth-callback, so every OAuth sign-in landed on a 404.
+ *   - Only an access token was issued (no refresh cookie), so the very next
+ *     page load called /api/auth/refresh, got a 401, and signed the user out.
+ *   - The access token and the full user object were passed in the query
+ *     string, putting credentials in browser history, Referer headers and
+ *     every proxy log on the path.
+ *   - Users were matched on email alone with no provider record, so anyone
+ *     controlling an IdP account bearing a victim's address inherited the
+ *     victim's account. Google's `email_verified` was never checked.
+ *   - INSERT targeted users.password_hash, which did not exist until
+ *     migration 027 — new OAuth users always failed.
  */
 
 const { Router } = require('express');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const pool = require('@rach/core').pool;
+const asyncHandler = require('@rach/core').asyncHandler;
+const { oauthLimiter } = require('@rach/core').rateLimit;
+const { User } = require('../models/user');
+const { issueTokens, normalizeEmail } = require('../controllers/authController');
 
 const router = Router();
 
-const APP_URL      = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-const BACKEND_URL  = (process.env.BACKEND_URL || 'http://localhost:8080').replace(/\/$/, '');
+/**
+ * Absolute origins, normalized.
+ *
+ * A schemeless value here is silently destructive: `res.redirect('rachbase.com/x')`
+ * is a *relative* redirect, so the user lands on
+ * `http://<backend-host>/rachbase.com/x` instead of the frontend. Same class of
+ * bug in reset emails. Coerce a bare host to https:// and warn loudly.
+ */
+function normalizeOrigin(value, fallback, name) {
+  let url = (value || fallback).trim().replace(/\/$/, '');
+  if (!/^https?:\/\//i.test(url)) {
+    console.warn(`[oauth] ${name} has no scheme ("${url}") — assuming https://. Set it explicitly.`);
+    url = `https://${url}`;
+  }
+  return url;
+}
 
-// ── Token helper (same pattern as authController) ────────────────────────────
+const APP_URL     = normalizeOrigin(process.env.APP_URL,     'http://localhost:3002', 'APP_URL');
+const BACKEND_URL = normalizeOrigin(process.env.BACKEND_URL, 'http://localhost:3000', 'BACKEND_URL');
 
-function issueAccessToken(user) {
-  return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name },
-    process.env.JWT_ACCESS_SECRET,
-    { expiresIn: '8h' }
+const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes to complete the handshake
+
+// ── CSRF state ────────────────────────────────────────────────────────────────
+
+async function createState(provider) {
+  const state = crypto.randomBytes(32).toString('hex');
+  await pool.query(
+    `INSERT INTO oauth_states (state, provider, expires_at) VALUES ($1, $2, $3)`,
+    [state, provider, new Date(Date.now() + STATE_TTL_MS)]
   );
+  return state;
 }
 
-// ── Redirect helper ───────────────────────────────────────────────────────────
-
-function redirectWithToken(res, user, accessToken) {
-  const userData = encodeURIComponent(JSON.stringify({
-    id:           user.id,
-    name:         user.name,
-    email:        user.email,
-    role:         user.role,
-    phone_number: user.phone_number || '',
-    address:      user.address || null,
-    tenant_id:    user.tenant_id || null,
-    tenant_name:  user.tenant_name || null,
-  }));
-  res.redirect(`${APP_URL}/auth/callback?token=${accessToken}&user=${userData}`);
-}
-
-function redirectWithError(res, msg) {
-  res.redirect(`${APP_URL}/auth/callback?error=${encodeURIComponent(msg)}`);
-}
-
-// ── Find or create user from OAuth profile ────────────────────────────────────
-
-async function findOrCreateOAuthUser({ email, name, provider }) {
-  // Check if user already exists
+// Single-use: the row is deleted as it is read, so a replayed callback fails.
+async function consumeState(state, provider) {
+  if (!state || typeof state !== 'string') return false;
   const { rows } = await pool.query(
-    'SELECT * FROM users WHERE email = $1 LIMIT 1',
-    [email.toLowerCase()]
+    `DELETE FROM oauth_states
+      WHERE state = $1 AND provider = $2 AND expires_at > NOW()
+      RETURNING state`,
+    [state, provider]
   );
+  return rows.length > 0;
+}
 
-  if (rows.length) {
-    const user = rows[0];
-    // Mark email as verified if not already (OAuth providers verify emails)
-    if (!user.email_verified) {
-      await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [user.id]);
-      user.email_verified = true;
-    }
-    return user;
+// Opportunistic cleanup of expired rows.
+async function pruneStates() {
+  try {
+    await pool.query('DELETE FROM oauth_states WHERE expires_at < NOW()');
+  } catch (e) {
+    console.error('[oauth] state prune failed:', e.message);
+  }
+}
+
+// ── Redirect helpers ──────────────────────────────────────────────────────────
+
+// No token, no profile — just a signal. The refresh cookie carries the session.
+function redirectSuccess(res) {
+  res.redirect(`${APP_URL}/auth-callback?status=ok`);
+}
+
+// Only ever emit codes from this map. Raw exception text used to be forwarded
+// straight into the user-facing URL.
+const ERROR_MESSAGES = {
+  cancelled:       'Sign-in was cancelled.',
+  invalid_state:   'This sign-in link expired or was already used. Please try again.',
+  exchange_failed: 'We could not complete sign-in with that provider. Please try again.',
+  no_email:        'That account has no verified email address we can use.',
+  unverified:      'Your email address is not verified. Verify it first, then try again.',
+  server_error:    'Something went wrong during sign-in. Please try again.',
+};
+
+function redirectError(res, code) {
+  const safe = ERROR_MESSAGES[code] ? code : 'server_error';
+  res.redirect(`${APP_URL}/auth-callback?error=${safe}`);
+}
+
+// ── Identity resolution ───────────────────────────────────────────────────────
+
+/**
+ * Resolve a provider profile to a local user.
+ *
+ * Precedence:
+ *   1. Existing oauth_identities row for (provider, provider_user_id) — the
+ *      only truly stable identifier a provider gives us. Emails change; the
+ *      subject id does not.
+ *   2. An existing local user with the same email, but ONLY when the provider
+ *      asserts the email is verified AND the local account is email-verified.
+ *      Anything weaker lets an IdP account claim a local one.
+ *   3. Otherwise create a fresh, password-less user.
+ */
+async function resolveOAuthUser({ provider, providerUserId, email, name, emailVerified }) {
+  const normalized = normalizeEmail(email);
+
+  const { rows: linked } = await pool.query(
+    `SELECT u.*, t.name AS tenant_name
+       FROM oauth_identities oi
+       JOIN users u ON u.id = oi.user_id
+       LEFT JOIN tenants t ON t.id = u.tenant_id
+      WHERE oi.provider = $1 AND oi.provider_user_id = $2`,
+    [provider, String(providerUserId)]
+  );
+  if (linked.length) return linked[0];
+
+  if (!emailVerified) {
+    throw Object.assign(new Error('provider email unverified'), { code: 'unverified' });
   }
 
-  // Create new user — no password (OAuth users can use forgot-password to set one later)
-  const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
-  const { rows: created } = await pool.query(
-    `INSERT INTO users (name, email, password_hash, role, email_verified)
-     VALUES ($1, $2, $3, 'tenant_user', true)
-     RETURNING *`,
-    [name, email.toLowerCase(), dummyHash]
+  const existing = await User.findByEmail(normalized);
+
+  if (existing) {
+    if (!existing.email_verified) {
+      // A local account exists but has never proven ownership of the address.
+      // Linking here would let whoever holds the IdP account step into it.
+      throw Object.assign(new Error('local email unverified'), { code: 'unverified' });
+    }
+    await pool.query(
+      `INSERT INTO oauth_identities (user_id, provider, provider_user_id, email)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (provider, provider_user_id) DO NOTHING`,
+      [existing.id, provider, String(providerUserId), normalized]
+    );
+    return existing;
+  }
+
+  const created = await User.create({
+    name          : name || normalized.split('@')[0],
+    email         : normalized,
+    password      : null,        // OAuth-only; a password can be set via forgot-password
+    phone_number  : null,
+    role          : 'tenant_user',
+    email_verified: true,
+  });
+
+  await pool.query(
+    `INSERT INTO oauth_identities (user_id, provider, provider_user_id, email)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (provider, provider_user_id) DO NOTHING`,
+    [created.id, provider, String(providerUserId), normalized]
   );
-  return created[0];
+
+  // OAuth accounts have no phone to verify, and password login gates on
+  // phone_verified — mark it so the account isn't stuck in limbo.
+  await User.markPhoneVerified(created.id);
+
+  return await User.findById(created.id);
 }
 
-// ── Google OAuth ──────────────────────────────────────────────────────────────
+// Shared tail: issue the session, then redirect with nothing sensitive in the URL.
+async function completeSignIn(res, profile) {
+  const user = await resolveOAuthUser(profile);
+  await issueTokens(user, res);
+  return redirectSuccess(res);
+}
 
-router.get('/google', (req, res) => {
+// ── Google ────────────────────────────────────────────────────────────────────
+
+router.get('/google', oauthLimiter, asyncHandler(async (req, res) => {
+  await pruneStates();
+  const state = await createState('google');
   const params = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID,
     redirect_uri:  `${BACKEND_URL}/api/auth/google/callback`,
@@ -90,16 +206,17 @@ router.get('/google', (req, res) => {
     scope:         'openid email profile',
     access_type:   'offline',
     prompt:        'select_account',
+    state,
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
-});
+}));
 
-router.get('/google/callback', async (req, res) => {
-  const { code, error } = req.query;
-  if (error || !code) return redirectWithError(res, 'Google sign-in was cancelled or failed.');
+router.get('/google/callback', asyncHandler(async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error || !code) return redirectError(res, 'cancelled');
+  if (!(await consumeState(state, 'google'))) return redirectError(res, 'invalid_state');
 
   try {
-    // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -112,46 +229,53 @@ router.get('/google/callback', async (req, res) => {
       }),
     });
     const tokens = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error(tokens.error_description || 'Token exchange failed');
+    if (!tokenRes.ok) {
+      throw Object.assign(new Error(tokens.error_description || 'exchange'), { code: 'exchange_failed' });
+    }
 
-    // Get user profile
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     const profile = await profileRes.json();
-    if (!profile.email) throw new Error('Could not retrieve email from Google');
+    if (!profile.email || !profile.sub) {
+      throw Object.assign(new Error('no email'), { code: 'no_email' });
+    }
 
-    const user = await findOrCreateOAuthUser({
-      email:    profile.email,
-      name:     profile.name || profile.email.split('@')[0],
-      provider: 'google',
+    return await completeSignIn(res, {
+      provider      : 'google',
+      providerUserId: profile.sub,
+      email         : profile.email,
+      name          : profile.name,
+      // Returned as a boolean or the string "true" depending on endpoint
+      // version. This was never checked at all before.
+      emailVerified : profile.email_verified === true || profile.email_verified === 'true',
     });
-
-    const accessToken = issueAccessToken(user);
-    redirectWithToken(res, user, accessToken);
   } catch (err) {
     console.error('[oauth/google]', err.message);
-    redirectWithError(res, err.message || 'Google sign-in failed. Please try again.');
+    return redirectError(res, err.code || 'server_error');
   }
-});
+}));
 
-// ── GitHub OAuth ──────────────────────────────────────────────────────────────
+// ── GitHub ────────────────────────────────────────────────────────────────────
 
-router.get('/github', (req, res) => {
+router.get('/github', oauthLimiter, asyncHandler(async (req, res) => {
+  await pruneStates();
+  const state = await createState('github');
   const params = new URLSearchParams({
     client_id:    process.env.GITHUB_CLIENT_ID,
     redirect_uri: `${BACKEND_URL}/api/auth/github/callback`,
-    scope:        'user:email',
+    scope:        'read:user user:email',
+    state,
   });
   res.redirect(`https://github.com/login/oauth/authorize?${params}`);
-});
+}));
 
-router.get('/github/callback', async (req, res) => {
-  const { code, error } = req.query;
-  if (error || !code) return redirectWithError(res, 'GitHub sign-in was cancelled or failed.');
+router.get('/github/callback', asyncHandler(async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error || !code) return redirectError(res, 'cancelled');
+  if (!(await consumeState(state, 'github'))) return redirectError(res, 'invalid_state');
 
   try {
-    // Exchange code for access token
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -163,38 +287,45 @@ router.get('/github/callback', async (req, res) => {
       }),
     });
     const tokens = await tokenRes.json();
-    if (tokens.error) throw new Error(tokens.error_description || 'Token exchange failed');
-
-    // Get user profile
-    const profileRes = await fetch('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${tokens.access_token}`, 'User-Agent': 'RachDev' },
-    });
-    const profile = await profileRes.json();
-
-    // GitHub may not expose email publicly — fetch from emails endpoint
-    let email = profile.email;
-    if (!email) {
-      const emailsRes = await fetch('https://api.github.com/user/emails', {
-        headers: { Authorization: `Bearer ${tokens.access_token}`, 'User-Agent': 'RachDev' },
-      });
-      const emails = await emailsRes.json();
-      const primary = emails.find((e) => e.primary && e.verified);
-      email = primary?.email;
+    if (tokens.error) {
+      throw Object.assign(new Error(tokens.error_description || 'exchange'), { code: 'exchange_failed' });
     }
-    if (!email) throw new Error('Could not retrieve a verified email from GitHub');
 
-    const user = await findOrCreateOAuthUser({
-      email,
-      name:     profile.name || profile.login || email.split('@')[0],
-      provider: 'github',
+    const ghHeaders = {
+      Authorization: `Bearer ${tokens.access_token}`,
+      'User-Agent':  'Rachbase',
+      Accept:        'application/vnd.github+json',
+    };
+
+    const profileRes = await fetch('https://api.github.com/user', { headers: ghHeaders });
+    const profile = await profileRes.json();
+    if (!profile.id) {
+      throw Object.assign(new Error('no profile'), { code: 'exchange_failed' });
+    }
+
+    // profile.email is whatever the user made public and is not necessarily
+    // verified — always resolve the primary verified address instead.
+    const emailsRes = await fetch('https://api.github.com/user/emails', { headers: ghHeaders });
+    const emails = await emailsRes.json();
+    const primary = Array.isArray(emails)
+      ? emails.find((e) => e.primary && e.verified)
+      : null;
+
+    if (!primary?.email) {
+      throw Object.assign(new Error('no verified email'), { code: 'no_email' });
+    }
+
+    return await completeSignIn(res, {
+      provider      : 'github',
+      providerUserId: profile.id,
+      email         : primary.email,
+      name          : profile.name || profile.login,
+      emailVerified : true,   // guaranteed by the `verified` filter above
     });
-
-    const accessToken = issueAccessToken(user);
-    redirectWithToken(res, user, accessToken);
   } catch (err) {
     console.error('[oauth/github]', err.message);
-    redirectWithError(res, err.message || 'GitHub sign-in failed. Please try again.');
+    return redirectError(res, err.code || 'server_error');
   }
-});
+}));
 
 module.exports = router;

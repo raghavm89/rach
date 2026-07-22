@@ -1,11 +1,28 @@
 'use strict';
 
-const crypto    = require('crypto');
 const geoip     = require('geoip-lite');
 const pool      = require('@rach/core').pool;
 const razorpay  = require('@rach/billing').razorpay;
+const { priceCart, PricingError } = require('@rach/billing').catalog;
+const { verifyOrderPayment } = require('@rach/billing').paymentSecurity;
+const purchase = require('@rach/billing').purchase;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { sendInvoiceEmail } = require('@rach/core').brevo;
+
+/**
+ * This controller owns FULFILMENT, not billing.
+ *
+ * It used to implement its own parallel billing stack — pricing, Razorpay plan
+ * and subscription creation, signature checking — writing everything into
+ * vm_expansion_requests. Because the webhook resolves subscriptions through the
+ * `subscriptions` table, those subscriptions were invisible to it: renewals
+ * recorded nothing and a dead subscription still read 'active'.
+ *
+ * Money now goes through `@rach/billing`'s purchase service, which writes the
+ * canonical plans/subscriptions/orders/payments rows. What remains here is the
+ * provisioning workflow — a vm_expansion_requests row linked to those billing
+ * rows by FK (migration 029), moving pending → fulfilled by an admin.
+ */
 
 // Resolve the real client IP, accounting for reverse proxies / ngrok.
 function clientIp(req) {
@@ -135,16 +152,9 @@ async function verifyExpansionPayment(req, res) {
   if (!pkgRows.length) return res.status(404).json({ error: 'Package not found' });
   const pkg = pkgRows[0];
 
-  // Verify signature if Razorpay payment IDs are present
-  if (razorpay_order_id && razorpay_payment_id && razorpay_signature) {
-    const expected = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-    if (expected !== razorpay_signature) {
-      return res.status(400).json({ error: 'Payment signature verification failed' });
-    }
-  }
+  // Unconditional — see verifyOrderPayment. This check used to be skippable by
+  // omitting any one of the three fields.
+  verifyOrderPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
 
   // Create expansion request
   const { rows } = await pool.query(
@@ -327,38 +337,33 @@ async function myExpansionRequests(req, res) {
 
 // ── Custom (line-item) Orders ─────────────────────────────────────────────────
 
-// Prices in cents — single source of truth shared with the frontend catalog
-const SERVICE_PRICES = {
-  vm: 10000,  // $100
-  lb:  2500,  // $25
-  db: 10000,  // $100
-};
+// NOTE: the local SERVICE_PRICES map that used to live here has been removed.
+// It claimed to be the "single source of truth shared with the frontend
+// catalog" but nothing enforced that, and it had drifted: Managed PostgreSQL
+// was priced at $100 against an advertised $200, and five of the eight
+// advertised services were missing entirely so they could not be ordered.
+// Pricing now comes from packages/billing/catalog.json via priceCart().
 
-// POST /api/expansion/custom/orders — tenant_admin
-// Creates a Razorpay order for an arbitrary basket of services
+// POST /api/expansion/custom/orders — tenant_admin / tenant_user
+// Creates a Razorpay order for an arbitrary basket of services.
 async function createCustomOrder(req, res) {
-  const { items, currency = 'USD' } = req.body;
+  const { items } = req.body;
   const caller = req.user;
 
-  // tenant_id may be null — still allow
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'items must be a non-empty array' });
+  // Server-side pricing. Only `id` and `qty` are read from the request; any
+  // price the client sends is ignored.
+  let priced;
+  try {
+    priced = priceCart(items);
+  } catch (err) {
+    if (err instanceof PricingError) return res.status(400).json({ error: err.message, code: err.code });
+    throw err;
   }
 
-  let totalCents = 0;
-  const lineItems = [];
-
-  for (const item of items) {
-    const unitPrice = SERVICE_PRICES[item.id];
-    if (!unitPrice) return res.status(400).json({ error: `Unknown service: ${item.id}` });
-    if (!Number.isInteger(item.qty) || item.qty < 1) {
-      return res.status(400).json({ error: `Invalid quantity for ${item.id}` });
-    }
-    totalCents += unitPrice * item.qty;
-    lineItems.push({ id: item.id, name: item.name, qty: item.qty, unit_price_cents: unitPrice });
-  }
-
-  const description = lineItems.map((li) => `${li.qty}× ${li.name}`).join(', ');
+  const totalCents = priced.subtotal_cents;
+  const lineItems  = priced.lines;
+  const currency   = priced.currency;
+  const description = priced.description;
   const receipt = `custom_${caller.tenant_id}_${Date.now()}`;
 
   let razorpayOrderId = null;
@@ -383,23 +388,26 @@ async function createCustomOrder(req, res) {
 // POST /api/expansion/custom/verify — tenant_admin
 // Verifies payment and records the expansion request (no package_id)
 async function verifyCustomPayment(req, res) {
-  const { items, total_cents, currency = 'USD', razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const { items, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
   const caller = req.user;
 
   if (!caller.tenant_id) return res.status(403).json({ error: 'Forbidden' });
-  if (!total_cents || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'total_cents and items are required' });
-  }
 
-  if (razorpay_order_id && razorpay_payment_id && razorpay_signature) {
-    const expected = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-    if (expected !== razorpay_signature) {
-      return res.status(400).json({ error: 'Payment signature verification failed' });
-    }
+  // Re-price server-side. `total_cents` from the body is deliberately ignored —
+  // it used to be written straight to the ledger.
+  let priced;
+  try {
+    priced = priceCart(items);
+  } catch (err) {
+    if (err instanceof PricingError) return res.status(400).json({ error: err.message, code: err.code });
+    throw err;
   }
+  const total_cents = priced.subtotal_cents;
+  const currency = priced.currency;
+
+  // Unconditional. Previously this was wrapped in a truthiness check on the
+  // same fields it verifies, so omitting the signature skipped it entirely.
+  verifyOrderPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
 
   const description = items.map((i) => `${i.qty}× ${i.name}`).join(', ');
 
@@ -429,153 +437,130 @@ async function verifyCustomPayment(req, res) {
 
 // ── Subscription Orders ───────────────────────────────────────────────────────
 
-// POST /api/expansion/subscriptions — tenant_admin
-// Creates a Razorpay plan + subscription that starts immediately.
-// Razorpay handles all billing dates automatically — no manual proration.
-// No DB record is written until activateSubscription confirms payment.
+// POST /api/expansion/subscriptions
+// Prices the cart and creates the Razorpay plan + subscription through the
+// shared purchase service, which persists the canonical plans/subscriptions
+// rows. Persisting the subscription BEFORE payment is what lets the webhook
+// find it later; it stays in Razorpay's `created` state until activation.
 async function createSubscriptionOrder(req, res) {
-  const { items, description, total_cents, currency = 'USD', billing_country } = req.body;
-  const caller = req.user;
+  const { items, bundle_id, billing_country, allow_duplicate } = req.body;
 
-  // tenant_id may be null — still allow
-  if (!total_cents || !description) return res.status(400).json({ error: 'total_cents and description are required' });
-
-  // ── Currency: detect country, convert USD → INR for Indian customers ────────
-  // Map billing form country name → ISO code as fallback when IP detection fails
-  const COUNTRY_NAME_TO_ISO = { 'India': 'IN', 'United States': 'US', 'United Kingdom': 'GB', 'Singapore': 'SG', 'Australia': 'AU', 'Canada': 'CA', 'Germany': 'DE', 'UAE': 'AE' };
-  const ipCountry         = countryFromReq(req);
-  const formCountry       = billing_country ? (COUNTRY_NAME_TO_ISO[billing_country] ?? billing_country) : null;
-  const customerCountry   = ipCountry || formCountry;
-  const isIndia           = customerCountry === 'IN';
-  const USD_TO_INR        = parseFloat(process.env.USD_TO_INR || '90');
-
-  console.log(`[expansion] country: ${customerCountry || 'unknown'} → billing in ${isIndia ? 'INR' : currency}`);
-
-  let billingCurrency    = currency;
-  let monthlyAmountSmall = total_cents; // smallest unit of billing currency
-
-  if (currency === 'USD' && isIndia) {
-    billingCurrency    = 'INR';
-    monthlyAmountSmall = Math.round((total_cents / 100) * USD_TO_INR * 100);
-  }
-
-  let razorpayKeyId  = null;
-  let planId         = null;
-  let subscriptionId = null;
-
-  const hasRazorpay = !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-
-  if (hasRazorpay) {
-    try {
-      // Create plan for the monthly amount
-      const plan = await razorpay.plans.create({
-        period  : 'monthly',
-        interval: 1,
-        item    : { name: description, amount: monthlyAmountSmall, currency: billingCurrency, description },
+  let result;
+  try {
+    result = await purchase.createSubscriptionPurchase({
+      user          : req.user,
+      bundle_id,
+      items,
+      billingCountry: billing_country,
+      ipCountry     : countryFromReq(req),
+      // The client must opt in explicitly to run a second identical
+      // subscription; an accidental repeat is refused with 409.
+      allowDuplicate: allow_duplicate === true,
+    });
+  } catch (err) {
+    if (err instanceof PricingError) return res.status(400).json({ error: err.message, code: err.code });
+    if (err.code === 'duplicate_subscription') {
+      return res.status(409).json({
+        error: err.message,
+        code : err.code,
+        existing_subscription_id: err.existing_subscription_id,
+        // Retry with allow_duplicate: true to proceed anyway.
+        retry_with: { allow_duplicate: true },
       });
-      planId = plan.id;
-
-      // Create subscription — starts immediately, Razorpay charges on its own cycle
-      const sub = await razorpay.subscriptions.create({
-        plan_id        : plan.id,
-        customer_notify: 0,
-        quantity       : 1,
-        total_count    : 120, // 10 years max; Razorpay requires ≥ 1
-      });
-      subscriptionId = sub.id;
-      razorpayKeyId  = process.env.RAZORPAY_KEY_ID;
-    } catch (rzErr) {
-      console.error('[expansion] Razorpay setup failed:', rzErr.message || rzErr);
-      const rzMsg = rzErr?.error?.description || rzErr?.message || 'Razorpay error';
-      const err502 = new Error(`Payment gateway error: ${rzMsg}`);
-      err502.status = 502;
-      throw err502;
     }
-  } else {
-    console.warn('[expansion] Razorpay not configured — returning null IDs (dev mode)');
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    throw err;
   }
+
+  const { priced, billing, subscription, razorpay: rz } = result;
 
   res.status(201).json({
-    subscription_id : subscriptionId,
-    plan_id         : planId,
-    razorpay_key_id : razorpayKeyId,
-    description,
-    total_cents,
-    currency,
-    billing_currency: billingCurrency,
-    monthly_amount  : monthlyAmountSmall,
-    customer_country: customerCountry,
-    converted       : billingCurrency !== currency,
+    subscription_id : rz.subscription_id,
+    plan_id         : rz.plan_id,
+    razorpay_key_id : rz.key_id,
+    description     : priced.description,
+    total_cents     : priced.subtotal_cents,   // server-priced
+    currency        : priced.currency,
+    billing_currency: billing.currency,
+    monthly_amount  : billing.amountMinor,
+    customer_country: billing.country,
+    converted       : billing.currency !== priced.currency,
+    fx_rate         : billing.fxRate,
+    lines           : priced.lines,
+    db_subscription_id: subscription?.id ?? null,
+    // True when an unfinished checkout was resumed rather than a new Razorpay
+    // subscription created — i.e. the double-click case.
+    reused          : result.reused === true,
+    ...(priced.bundle_id ? {
+      bundle_id       : priced.bundle_id,
+      list_price_cents: priced.list_price_cents,
+      saving_cents    : priced.saving_cents,
+    } : {}),
   });
 }
 
-// POST /api/expansion/subscriptions/activate — tenant_admin
-// Called after Razorpay subscription checkout succeeds.
-// Verifies the subscription payment signature and creates the DB record.
+// POST /api/expansion/subscriptions/activate
+// Called after Razorpay subscription checkout succeeds. Billing is handled by
+// the shared purchase service (verification, order + payment rows, invoice);
+// this handler adds the FULFILMENT record and links it to the subscription.
 async function activateSubscription(req, res) {
-  const {
-    // Subscription payment (Razorpay subscription flow)
-    razorpay_subscription_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    razorpay_plan_id,
-    // Cart metadata
-    items,
-    description,
-    total_cents,
-    currency = 'USD',
-    billing_currency,
-    monthly_amount,
-  } = req.body;
+  const { razorpay_plan_id, items, bundle_id, billing_country } = req.body;
   const caller = req.user;
 
-  if (!description) return res.status(400).json({ error: 'description is required' });
-
-  const secret = process.env.RAZORPAY_KEY_SECRET || '';
-
-  // ── Verify subscription payment signature (payment_id|subscription_id) ───────
-  if (razorpay_subscription_id && razorpay_payment_id && razorpay_signature) {
-    const expected = crypto
-      .createHmac('sha256', secret)
-      .update(`${razorpay_payment_id}|${razorpay_subscription_id}`)
-      .digest('hex');
-    if (expected !== razorpay_signature) {
-      return res.status(400).json({ error: 'Subscription payment signature verification failed' });
-    }
+  let result;
+  try {
+    result = await purchase.activateSubscriptionPurchase({
+      user                    : caller,
+      razorpay_subscription_id: req.body.razorpay_subscription_id,
+      razorpay_payment_id     : req.body.razorpay_payment_id,
+      razorpay_signature      : req.body.razorpay_signature,
+      bundle_id,
+      items,
+      billingCountry          : billing_country,
+      ipCountry               : countryFromReq(req),
+      billing                 : req.body.billing || {},
+    });
+  } catch (err) {
+    if (err instanceof PricingError) return res.status(400).json({ error: err.message, code: err.code });
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    throw err;
   }
 
-  // ── Create DB record ─────────────────────────────────────────────────────────
-  const effectiveCurrency = billing_currency || currency;
-  const effectiveAmount   = monthly_amount   || total_cents || 0;
+  const { priced, billing, subscription, order: billingOrder, payment, invoice } = result;
 
-  const notes = `Monthly: ${(effectiveAmount / 100).toFixed(2)} ${effectiveCurrency}`;
+  const notes = `Monthly: ${(billing.amountMinor / 100).toFixed(2)} ${billing.currency}`;
 
+  // The fulfilment record. Amounts here mirror the billing rows for display;
+  // subscriptions/orders remain the source of truth for money.
   const { rows } = await pool.query(
     `INSERT INTO vm_expansion_requests
        (tenant_id, requested_by, amount_paid, currency, status,
         custom_description, items_json, notes,
-        razorpay_payment_id,
-        razorpay_plan_id, razorpay_subscription_id,
-        subscription_status)
-     VALUES ($1,$2,$3,$4,'pending',$5,$6,$7,$8,$9,$10,'active')
+        razorpay_payment_id, razorpay_plan_id, razorpay_subscription_id,
+        subscription_status, subscription_id, order_id)
+     VALUES ($1,$2,$3,$4,'pending',$5,$6,$7,$8,$9,$10,'active',$11,$12)
      RETURNING *`,
     [
       caller.tenant_id,
       caller.id,
-      effectiveAmount,
-      effectiveCurrency,
-      description,
-      JSON.stringify(items || []),
+      billing.amountMinor,
+      billing.currency,
+      priced.description,
+      JSON.stringify(priced.lines),
       notes,
-      razorpay_payment_id || null,
-      razorpay_plan_id    || null,
-      razorpay_subscription_id || null,
+      req.body.razorpay_payment_id || null,
+      razorpay_plan_id || null,
+      req.body.razorpay_subscription_id || null,
+      subscription?.id ?? null,
+      billingOrder?.id ?? null,
     ]
   );
 
   const order = rows[0];
+  if (invoice?.ok) order.invoice_number = invoice.invoice.invoice_number;
 
-  // Send invoice email to customer + admin (fire-and-forget)
+  // Order-confirmation email (fire-and-forget). The tax invoice with its PDF is
+  // sent separately by the purchase service.
   try {
     const userRow = await pool.query('SELECT name, email FROM users WHERE id = $1', [caller.id]);
     const customer = userRow.rows[0] || {};
@@ -583,20 +568,21 @@ async function activateSubscription(req, res) {
       orderId       : order.id,
       customerName  : customer.name  || caller.name  || 'Customer',
       customerEmail : customer.email || caller.email || '',
-      description,
-      items         : items || [],
-      amountPaid    : effectiveAmount,
-      currency      : effectiveCurrency,
-      subscriptionId: razorpay_subscription_id || null,
+      description   : priced.description,
+      items         : priced.lines,
+      amountPaid    : billing.amountMinor,
+      currency      : billing.currency,
+      subscriptionId: req.body.razorpay_subscription_id,
       requestedAt   : order.requested_at,
-    }).catch((err) => console.error('[invoice] email failed:', err.message));
-  } catch (err) {
-    console.error('[invoice] failed to send:', err.message);
+    }).catch((e) => console.error('[expansion] confirmation email failed:', e.message));
+  } catch (e) {
+    console.error('[expansion] confirmation email failed:', e.message);
   }
 
   res.status(201).json({
     message: 'Subscription activated. Resources will be provisioned shortly.',
     request: order,
+    payment_id: payment?.id ?? null,
   });
 }
 

@@ -1,0 +1,79 @@
+{
+  "_STATUS": [
+    "PREPARED FROM YOUR ORDER HISTORY — three fields still need filling.",
+    "Search for NEEDED below. Everything else is taken from the order row:",
+    "  Virtual Machine #4 · Jena McCaslin · ₹9,400/mo · Active · 4 Jun 2026",
+    "",
+    "Run when complete:",
+    "  cd apps/rachbase-backend",
+    "  node scripts/generate-invoice.js scripts/invoice-input.json ./invoices-out",
+    "",
+    "ON THE AMOUNT: ₹9,400 implies an FX rate of 94.00 (100 USD x 94).",
+    "Your .env now says USD_TO_INR=95, so recomputing today would give ₹9,500.",
+    "These invoices therefore use the AMOUNT ACTUALLY CHARGED (940000 paise),",
+    "never a recomputed figure. Confirm July's amount against Razorpay — if the",
+    "rate moved between cycles, that invoice must carry its own real amount."
+  ],
+
+  "seller": {
+    "legal_name": "Rach Dev LLP",
+    "gstin": "NEEDED — your 15-char GSTIN. Leave null if not GST-registered; the document then reads INVOICE, not TAX INVOICE, and shows no tax.",
+    "pan": null,
+    "region_code": "NEEDED — your GST state code, e.g. MH. Decides CGST+SGST (same state) vs IGST (different state).",
+    "country_code": "IN",
+    "address": "NEEDED — registered address as it should appear on a tax invoice",
+    "email": "billing@rachbase.com"
+  },
+
+  "defaults": {
+    "currency": "INR",
+    "gst_rate_bps": 1800,
+    "export_under_lut": true,
+    "buyer": {
+      "name": "Jena McCaslin",
+      "business_name": null,
+      "email": "NEEDED — customer email",
+      "gstin": null,
+      "country_code": "IN",
+      "region_code": "NEEDED — customer's state code, e.g. KA. Ignored if a buyer GSTIN is supplied, since the GSTIN is authoritative for place of supply.",
+      "city": null,
+      "postal_code": null,
+      "address_line": null
+    }
+  },
+
+  "invoices": [
+    {
+      "invoice_number": "RB/2026-27/000001",
+      "issued_at": "2026-06-04",
+      "status": "paid",
+      "currency": "INR",
+      "razorpay_payment_id": null,
+      "razorpay_subscription_id": null,
+      "notes": "Billing period 4 Jun 2026 – 3 Jul 2026",
+      "lines": [
+        {
+          "description": "Virtual Machine (2 vCPUs, 8 GB RAM, 50 GB SSD)",
+          "quantity": 1,
+          "unit_price_minor": 940000
+        }
+      ]
+    },
+    {
+      "invoice_number": "RB/2026-27/000002",
+      "issued_at": "2026-07-04",
+      "status": "paid",
+      "currency": "INR",
+      "razorpay_payment_id": null,
+      "razorpay_subscription_id": null,
+      "notes": "Billing period 4 Jul 2026 – 3 Aug 2026",
+      "lines": [
+        {
+          "description": "Virtual Machine (2 vCPUs, 8 GB RAM, 50 GB SSD)",
+          "quantity": 1,
+          "unit_price_minor": 940000
+        }
+      ]
+    }
+  ]
+}

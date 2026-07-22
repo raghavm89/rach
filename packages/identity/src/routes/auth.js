@@ -8,7 +8,33 @@ const {
   otpResendLimiter,
   refreshLimiter,
   forgotPasswordLimiter,
+  resetPasswordLimiter,
 } = require('@rach/core').rateLimit;
+
+// ── Shared validators ─────────────────────────────────────────────────────────
+
+// normalizeEmail with gmail dot/subaddress folding disabled: we want
+// case-insensitivity, not identity merging across distinct addresses.
+const emailField = (field = 'email') =>
+  body(field)
+    .isEmail().withMessage('Valid email is required')
+    .bail()
+    .normalizeEmail({
+      gmail_remove_dots:       false,
+      gmail_remove_subaddress: false,
+      all_lowercase:           true,
+    });
+
+// Minimum was 6 with no composition rules. 10 with a mixed-character
+// requirement is the floor; length carries most of the strength.
+const passwordField = (field = 'password') =>
+  body(field)
+    .isLength({ min: 10 }).withMessage('Password must be at least 10 characters')
+    .bail()
+    .matches(/[a-zA-Z]/).withMessage('Password must contain a letter')
+    .bail()
+    .matches(/[0-9!@#$%^&*(),.?":{}|<>_\-+=[\]\\/~`';]/)
+    .withMessage('Password must contain a number or symbol');
 const {
   register,
   verifyEmail,
@@ -29,11 +55,12 @@ router.post(
   '/register',
   registerLimiter,
   [
-    body('name').trim().notEmpty().withMessage('Name is required'),
-    body('email').isEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('name').trim().notEmpty().withMessage('Name is required')
+      .isLength({ max: 100 }).withMessage('Name is too long'),
+    emailField(),
+    passwordField(),
     body('phone_number').optional({ checkFalsy: true }).trim(),
-    body('address').optional().trim(),
+    body('address').optional().trim().isLength({ max: 500 }).withMessage('Address is too long'),
   ],
   register
 );
@@ -78,7 +105,10 @@ router.post(
   '/login',
   loginLimiter,
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    emailField(),
+    // Deliberately not passwordField(): the policy applies to passwords being
+    // set, not to ones being checked. Rejecting a short password at login would
+    // tell an attacker the policy predates the account.
     body('password').notEmpty().withMessage('Password is required'),
   ],
   login
@@ -95,15 +125,16 @@ router.post('/logout-all', authenticate, logoutAll);
 router.post(
   '/forgot-password',
   forgotPasswordLimiter,
-  [body('email').isEmail().withMessage('Valid email is required')],
+  [emailField()],
   forgotPassword
 );
 
 router.post(
   '/reset-password',
+  resetPasswordLimiter,
   [
     body('token').notEmpty().withMessage('Reset token is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    passwordField(),
   ],
   resetPassword
 );

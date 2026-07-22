@@ -1,7 +1,7 @@
 {
   "name": "rachbase-backend",
   "version": "0.1.0",
-  "description": "RachBase — Cloud Management / BaaS API. Consumes the shared @rach/* packages.",
+  "description": "RachBase \u2014 Cloud Management / BaaS API. Consumes the shared @rach/* packages.",
   "private": true,
   "main": "src/app.js",
   "license": "UNLICENSED",
@@ -11,7 +11,10 @@
     "migrate": "node ../../packages/core/src/db/migrate.js",
     "create-admin": "node scripts/create-admin.js",
     "test-email": "node scripts/test-email.js",
-    "evaluate-alerts": "node scripts/evaluate-alerts.js"
+    "evaluate-alerts": "node scripts/evaluate-alerts.js",
+    "adopt-legacy-subscription": "node scripts/adopt-legacy-subscription.js",
+    "setup-tax": "node scripts/setup-tax-registration.js",
+    "generate-invoice": "node scripts/generate-invoice.js"
   },
   "dependencies": {
     "@rach/core": "*",

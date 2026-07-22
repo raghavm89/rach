@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { User, ROLES } = require('../models/user');
+const RefreshToken = require('../models/refreshToken');
 const asyncHandler = require('@rach/core').asyncHandler;
 const { paginated } = require('@rach/core').paginate;
 
@@ -310,14 +311,26 @@ async function changePassword(req, res) {
   }
 
   const pool = require('@rach/core').pool;
-  const { rows } = await pool.query('SELECT password FROM users WHERE id = $1', [caller.id]);
+  const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [caller.id]);
   if (!rows.length) return res.status(404).json({ error: 'User not found' });
 
-  const valid = await bcrypt.compare(current_password, rows[0].password);
+  // OAuth-only accounts have no password to confirm against. Send them
+  // through the password-reset flow to set one for the first time.
+  if (!rows[0].password_hash) {
+    return res.status(400).json({
+      error  : 'No password set',
+      message: 'This account signs in with Google or GitHub. Use "Forgot password" to set a password.',
+    });
+  }
+
+  const valid = await bcrypt.compare(current_password, rows[0].password_hash);
   if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
 
   const hashed = await bcrypt.hash(new_password, BCRYPT_COST);
   await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, caller.id]);
+
+  // Changing a password invalidates every other session, matching reset-password.
+  await RefreshToken.revokeAll(caller.id);
 
   return res.json({ message: 'Password changed successfully' });
 }

@@ -1,0 +1,160 @@
+{
+  "$comment": [
+    "CANONICAL PRICE LIST. This file is the single pricing authority for Rachbase.",
+    "",
+    "It is consumed by:",
+    "  - packages/billing/src/catalog/index.js  (server-side pricing; the ONLY thing",
+    "    permitted to decide what a cart costs)",
+    "  - packages/ui/src/lib/catalog.ts         (typed re-export for display)",
+    "",
+    "Before this file existed the catalog was copy-pasted into four places and had",
+    "already drifted: Managed PostgreSQL was $200 on the marketing page and $100 in",
+    "the server's SERVICE_PRICES, and five of eight services were missing server-side",
+    "entirely so they could not be ordered.",
+    "",
+    "All prices are INTEGER CENTS. Never add a decimal price to this file.",
+    "Bundle savings are COMPUTED from contents — do not add an originalPrice field."
+  ],
+  "currency": "USD",
+  "sac_code": "998315",
+  "services": [
+    {
+      "id": "vm",
+      "name": "Virtual Machine",
+      "specs": "2 vCPUs · 8 GB RAM · 50 GB SSD",
+      "unit_price_cents": 10000,
+      "unit": "per VM / month",
+      "orderable": true
+    },
+    {
+      "id": "svc",
+      "name": "Service",
+      "specs": "0.5 vCPU · 0.5 GB RAM · 0.5 GB disk · from GitHub or Postgres",
+      "unit_price_cents": 1500,
+      "unit": "per service / month",
+      "orderable": true
+    },
+    {
+      "id": "disk",
+      "name": "Additional Disk",
+      "specs": "Expandable block storage",
+      "unit_price_cents": 15,
+      "unit": "per GB / month",
+      "orderable": true
+    },
+    {
+      "id": "lb",
+      "name": "Load Balancer",
+      "specs": "Layer 4 / Layer 7 traffic distribution",
+      "unit_price_cents": 2500,
+      "unit": "per LB / month",
+      "orderable": true
+    },
+    {
+      "id": "ip",
+      "name": "Additional Public IP",
+      "specs": "Static IPv4 address",
+      "unit_price_cents": 1000,
+      "unit": "per IP / month",
+      "orderable": true
+    },
+    {
+      "id": "db",
+      "name": "Managed PostgreSQL",
+      "specs": "WAL archival · daily backups · on-demand point-in-time recovery",
+      "unit_price_cents": 20000,
+      "unit": "per DB instance / month",
+      "orderable": true,
+      "featured": true
+    },
+    {
+      "id": "obs",
+      "name": "VM Resource Observability",
+      "specs": "24/7 real-time CPU, RAM, disk & network metrics",
+      "unit_price_cents": 2500,
+      "unit": "per VM / month",
+      "orderable": true
+    },
+    {
+      "id": "mon",
+      "name": "Application Workload Monitoring",
+      "specs": "24/7 endpoint observability & alerting",
+      "unit_price_cents": 2500,
+      "unit": "per endpoint / month",
+      "orderable": true
+    }
+  ],
+  "bundles": [
+    {
+      "id": "starter",
+      "name": "Starter Bundle",
+      "tagline": "Launch fast, stay lean.",
+      "best_for": "Early-stage projects & MVPs",
+      "price_cents": 29500,
+      "badge": null,
+      "highlight": false,
+      "items": {
+        "vm": 1,
+        "lb": 1,
+        "db": 1
+      }
+    },
+    {
+      "id": "growth",
+      "name": "Growth Bundle",
+      "tagline": "Scale your product with confidence.",
+      "best_for": "Growing startups & SaaS products",
+      "price_cents": 80000,
+      "badge": "Most Popular",
+      "highlight": true,
+      "items": {
+        "vm": 3,
+        "lb": 1,
+        "db": 2,
+        "ip": 3,
+        "obs": 3
+      }
+    },
+    {
+      "id": "scale",
+      "name": "Scale Bundle",
+      "tagline": "Enterprise-ready from day one.",
+      "best_for": "High-traffic apps & large teams",
+      "price_cents": 127000,
+      "badge": "Best Value",
+      "highlight": false,
+      "items": {
+        "vm": 5,
+        "lb": 1,
+        "db": 3,
+        "ip": 5,
+        "obs": 5
+      }
+    }
+  ],
+  "usage_based": [
+    {
+      "id": "pg_backup",
+      "name": "On-demand Postgres Backup",
+      "note": "Request ≥ 24 hrs in advance · 30-day retention",
+      "price_cents_per_gb": 10
+    },
+    {
+      "id": "vm_snapshot",
+      "name": "Daily VM Snapshot",
+      "note": "7-day retention · longer retention on request",
+      "price_cents_per_gb": 10
+    }
+  ],
+  "included": [
+    "Regular Cloud security patching",
+    "Regular Cloud CIS security audits",
+    "Anti-DDoS protection",
+    "On-demand VM cloning service"
+  ],
+  "footnotes": [
+    "Daily DB backups run at pre-decided times with a 7-day retention period.",
+    "On-demand Postgres backups require a request at least 24 hours in advance. Fixed 30-day retention.",
+    "VM snapshot retention is 7 days by default. Contact the Cloud Infra/Ops team for higher retention."
+  ]
+}

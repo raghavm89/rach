@@ -19,8 +19,8 @@ const helmet       = require('helmet');
 const morgan       = require('morgan');
 
 const { pool } = require('@rach/core');
-const { authRoutes, oauthRoutes, userRoutes } = require('@rach/identity');
-const { paymentRoutes } = require('@rach/billing');
+const { authRoutes, oauthRoutes, userRoutes, startAuthCleanup } = require('@rach/identity');
+const { paymentRoutes, invoiceRoutes, catalog: billingCatalog } = require('@rach/billing');
 
 const deploymentRoutes = require('./routes/deployment');
 const monitoringRoutes = require('./routes/monitoring');
@@ -78,12 +78,34 @@ app.get('/ready', async (req, res) => {
   catch (err) { res.status(503).json({ status: 'unavailable', error: err.message }); }
 });
 
+// Fail fast on a malformed price list rather than mispricing an order.
+billingCatalog.validateCatalog();
+
+// Refuse to boot in production with the payment-verification bypass enabled.
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_UNVERIFIED_PAYMENTS === 'true') {
+  throw new Error(
+    'ALLOW_UNVERIFIED_PAYMENTS=true is set in production. This would let anyone ' +
+    'provision services without paying. Remove it before starting the server.'
+  );
+}
+
+// Razorpay's webhook HMAC throws on an undefined secret, turning every webhook
+// into a 500 that Razorpay then retries.
+if (process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_WEBHOOK_SECRET) {
+  console.warn('[billing] RAZORPAY_WEBHOOK_SECRET is not set — webhook verification will fail');
+}
+
+// Hourly purge of stale pending registrations, expired OAuth state and
+// long-dead refresh tokens. RachBase is the identity provider, so it owns this.
+if (process.env.NODE_ENV !== 'test') startAuthCleanup();
+
 // Shared identity + billing
 app.use('/api/auth',     authRoutes);
 app.use('/api/auth',     oauthRoutes);
 app.use('/api/users',    userRoutes);
 app.use('/api/users',    vmAssignmentRoutes);   // /:id/vms
 app.use('/api/payments', paymentRoutes);
+app.use('/api/invoices', invoiceRoutes);
 
 // Cloud vertical
 app.use('/api/deployment', deploymentRoutes);

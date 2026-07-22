@@ -50,6 +50,60 @@ const Subscription = {
     return rows[0] || null;
   },
 
+  /**
+   * Find a subscription for the same user buying the same thing.
+   *
+   * The cart signature is the plan's (name, amount, currency). `plans.name` is
+   * set from the priced cart description, which is deterministic for a given
+   * cart — so this identifies "the same purchase" without needing an extra
+   * fingerprint column.
+   *
+   * @param {number}   userId
+   * @param {object}   signature  { name, amount, currency }
+   * @param {string[]} statuses   subscription statuses to match
+   * @param {number}   [withinMinutes]  only consider rows created this recently
+   */
+  async findByCartSignature(userId, signature, statuses, withinMinutes = null) {
+    const params = [userId, signature.name, signature.amount, String(signature.currency).toUpperCase(), statuses];
+    let ageClause = '';
+    if (withinMinutes != null) {
+      params.push(withinMinutes);
+      ageClause = `AND s.created_at > NOW() - ($${params.length} || ' minutes')::interval`;
+    }
+
+    const { rows } = await pool.query(
+      `SELECT s.*, p.name AS plan_name, p.amount, p.currency
+         FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+        WHERE s.user_id = $1
+          AND p.name = $2
+          AND p.amount = $3
+          AND upper(p.currency) = $4
+          AND s.status = ANY($5)
+          ${ageClause}
+        ORDER BY s.created_at DESC
+        LIMIT 1`,
+      params
+    );
+    return rows[0] || null;
+  },
+
+  /**
+   * Subscriptions that were created for a checkout the customer never
+   * completed. Razorpay does not charge a subscription in `created` state, but
+   * the objects linger and an old checkout link stays live — so these get
+   * cancelled by the cleanup job.
+   */
+  async findAbandoned(olderThanMinutes = 60) {
+    const { rows } = await pool.query(
+      `SELECT * FROM subscriptions
+        WHERE status = 'created'
+          AND created_at < NOW() - ($1 || ' minutes')::interval`,
+      [olderThanMinutes]
+    );
+    return rows;
+  },
+
   async findAll({ limit, offset }) {
     const { rows } = await pool.query(
       `SELECT s.*, p.name AS plan_name, u.name AS user_name, u.email

@@ -1,0 +1,86 @@
+{
+  "_README": [
+    "Input for scripts/generate-invoice.js — fill this in and run:",
+    "  node scripts/generate-invoice.js scripts/invoice-input.json ./invoices-out",
+    "",
+    "ALL AMOUNTS ARE INTEGER MINOR UNITS (paise for INR, cents for USD).",
+    "  $100.00 → 10000        ₹9,000.00 → 900000",
+    "Never write a decimal amount here.",
+    "",
+    "Tax is computed by the same engine the app uses:",
+    "  seller.gstin absent            → no tax charged, recorded as 'no_registration'",
+    "  seller state == buyer state    → CGST 9% + SGST 9%",
+    "  seller state != buyer state    → IGST 18%",
+    "  buyer outside India            → zero-rated export (set defaults.export_under_lut",
+    "                                   to false if you do NOT hold an LUT)",
+    "",
+    "Buyer state is taken from the buyer's GSTIN when present, otherwise region_code.",
+    "State codes are the two-letter GST codes: MH, KA, DL, TN, ...",
+    "",
+    "invoice_number: supply your own. This script does NOT touch the live",
+    "sequence, so pick numbers that do not collide with anything the app has",
+    "issued. Format used by the app is SERIES/FY/NNNNNN, e.g. RB/2026-27/000001."
+  ],
+
+  "seller": {
+    "legal_name": "Rach Dev LLP",
+    "gstin": "27AAAAA0000A1Z5",
+    "pan": "AAAAA0000A",
+    "region_code": "MH",
+    "country_code": "IN",
+    "address": "Street, City, State PINCODE",
+    "email": "billing@rachbase.com"
+  },
+
+  "defaults": {
+    "currency": "INR",
+    "gst_rate_bps": 1800,
+    "export_under_lut": true,
+    "buyer": {
+      "name": "Customer Name",
+      "business_name": "Customer Pvt Ltd",
+      "email": "customer@example.com",
+      "gstin": null,
+      "country_code": "IN",
+      "region_code": "KA",
+      "city": "Bengaluru",
+      "postal_code": "560001",
+      "address_line": "Street address"
+    }
+  },
+
+  "invoices": [
+    {
+      "invoice_number": "RB/2026-27/000001",
+      "issued_at": "2026-06-15",
+      "status": "paid",
+      "currency": "INR",
+      "razorpay_payment_id": "pay_XXXXXXXXXXXX",
+      "razorpay_subscription_id": "sub_XXXXXXXXXXXX",
+      "notes": "Billing period 15 Jun 2026 – 14 Jul 2026",
+      "lines": [
+        {
+          "description": "Virtual Machine (2 vCPUs, 8 GB RAM, 50 GB SSD)",
+          "quantity": 1,
+          "unit_price_minor": 900000
+        }
+      ]
+    },
+    {
+      "invoice_number": "RB/2026-27/000002",
+      "issued_at": "2026-07-15",
+      "status": "paid",
+      "currency": "INR",
+      "razorpay_payment_id": "pay_YYYYYYYYYYYY",
+      "razorpay_subscription_id": "sub_XXXXXXXXXXXX",
+      "notes": "Billing period 15 Jul 2026 – 14 Aug 2026",
+      "lines": [
+        {
+          "description": "Virtual Machine (2 vCPUs, 8 GB RAM, 50 GB SSD)",
+          "quantity": 1,
+          "unit_price_minor": 900000
+        }
+      ]
+    }
+  ]
+}

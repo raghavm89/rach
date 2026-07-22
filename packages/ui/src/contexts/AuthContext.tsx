@@ -4,10 +4,29 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { useRouter } from 'next/navigation';
 import { auth, User, RegisterResponse } from '../lib/api';
 
+/**
+ * Access tokens are short-lived (30m by default; the server reports the exact
+ * lifetime as `expires_in`). This used to be a fixed 7-hour interval based on
+ * an assumed 8h token, while the server actually issued 15m tokens — so
+ * sessions died a quarter of an hour in and nothing renewed them.
+ *
+ * We now refresh at 75% of the real lifetime, with a floor so a
+ * misconfigured TTL can't spin the timer.
+ */
+const DEFAULT_TTL_SECONDS = 1800;   // matches the server default of 30m
+const MIN_REFRESH_MS      = 60_000; // never poll faster than once a minute
+
+function refreshDelayMs(expiresIn?: number) {
+  const ttl = (expiresIn && expiresIn > 0 ? expiresIn : DEFAULT_TTL_SECONDS) * 1000;
+  return Math.max(MIN_REFRESH_MS, Math.floor(ttl * 0.75));
+}
+
 interface AuthState {
   user: User | null;
   token: string | null;
   loading: boolean;
+  /** Seconds the current access token was issued for. */
+  expiresIn?: number;
 }
 
 interface AuthContextValue extends AuthState {
@@ -15,7 +34,9 @@ interface AuthContextValue extends AuthState {
   register: (name: string, email: string, password: string, phone?: string) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
-  setSession: (token: string, user: User) => void;
+  setSession: (token: string, user: User, expiresIn?: number) => void;
+  /** Hydrate a session that already exists as a refresh cookie (OAuth return). */
+  hydrateFromCookie: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -52,7 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const refreshed = await auth.refresh();
             if (!cancelled) {
               localStorage.setItem(TOKEN_KEY, refreshed.access_token);
-              setState((prev) => ({ ...prev, token: refreshed.access_token }));
+              if (refreshed.user) localStorage.setItem(USER_KEY, JSON.stringify(refreshed.user));
+              setState((prev) => ({
+                ...prev,
+                token    : refreshed.access_token,
+                user     : refreshed.user ?? prev.user,
+                expiresIn: refreshed.expires_in,
+              }));
             }
           } catch (err) {
             // Only force logout on a definitive 401 — keep the existing session
@@ -75,19 +102,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Proactive silent refresh every 7 hours while the tab is open
-  // (access token lifetime is 8h, so this keeps sessions alive indefinitely)
+  // Proactive silent refresh at 75% of the token's actual lifetime.
   useEffect(() => {
     if (!state.token) return;
 
-    const SEVEN_HOURS = 7 * 60 * 60 * 1000;
     const id = setInterval(async () => {
       try {
         const refreshed = await auth.refresh();
         localStorage.setItem(TOKEN_KEY, refreshed.access_token);
-        setState((prev) => ({ ...prev, token: refreshed.access_token }));
+        if (refreshed.user) localStorage.setItem(USER_KEY, JSON.stringify(refreshed.user));
+        setState((prev) => ({
+          ...prev,
+          token    : refreshed.access_token,
+          user     : refreshed.user ?? prev.user,
+          expiresIn: refreshed.expires_in,
+        }));
       } catch (err) {
-        // Only clear session on definitive 401, not transient errors
+        // Only clear session on a definitive 401, not on transient errors.
         const status = (err as { status?: number })?.status;
         if (status === 401) {
           localStorage.removeItem(TOKEN_KEY);
@@ -95,18 +126,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setState({ user: null, token: null, loading: false });
         }
       }
-    }, SEVEN_HOURS);
+    }, refreshDelayMs(state.expiresIn));
 
     return () => clearInterval(id);
-  }, [state.token]);
+  }, [state.token, state.expiresIn]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { access_token, user } = await auth.login(email, password);
+    const { access_token, user, expires_in } = await auth.login(email, password);
     localStorage.setItem(TOKEN_KEY, access_token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    setState({ user, token: access_token, loading: false });
+    setState({ user, token: access_token, loading: false, expiresIn: expires_in });
     router.push('/dashboard');
   }, [router]);
+
+  /**
+   * Completes an OAuth sign-in. The provider callback sets only the HttpOnly
+   * refresh cookie and redirects with nothing sensitive in the URL, so we trade
+   * that cookie for an access token and the user profile here.
+   */
+  const hydrateFromCookie = useCallback(async () => {
+    try {
+      const { access_token, user, expires_in } = await auth.refresh();
+      if (!access_token || !user) return false;
+      localStorage.setItem(TOKEN_KEY, access_token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      setState({ user, token: access_token, loading: false, expiresIn: expires_in });
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const register = useCallback(async (name: string, email: string, password: string, phone?: string) => {
     const payload: { name: string; email: string; password: string; phone_number?: string } = { name, email, password };
@@ -116,10 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
-  const setSession = useCallback((token: string, user: User) => {
+  const setSession = useCallback((token: string, user: User, expiresIn?: number) => {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    setState({ user, token, loading: false });
+    setState({ user, token, loading: false, expiresIn });
   }, []);
 
   const updateUser = useCallback((patch: Partial<User>) => {
@@ -144,7 +193,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.token, router]);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, updateUser, setSession }}>
+    <AuthContext.Provider
+      value={{ ...state, login, register, logout, updateUser, setSession, hydrateFromCookie }}
+    >
       {children}
     </AuthContext.Provider>
   );
