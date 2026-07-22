@@ -1,171 +1,80 @@
 "use client";
 
+import Link from 'next/link';
 import { AnimateIn } from '../ui/AnimateIn';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
   Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Layers, Box,
 } from "lucide-react";
+import {
+  SERVICES, BUNDLES, USAGE_BASED, INCLUDED, FOOTNOTES, formatCents,
+} from '../../lib/catalog';
 
-// ─── Data ────────────────────────────────────────────────────────────────────
+/**
+ * Pricing is read from the shared catalog — the same catalog.json the server
+ * prices orders from.
+ *
+ * This file previously hardcoded its own copy, one of four in the codebase, and
+ * it had drifted: the Growth and Scale bundles advertised savings of $80 and
+ * $130 when their contents were worth $830 and $1,300 against prices of $800
+ * and $1,270 — a real saving of $30 in both cases. Savings are now derived from
+ * the contents, so that cannot recur.
+ */
 
-const coreServices = [
-  {
-    icon: Server,
-    bg: "bg-blue-50",
-    color: "text-blue-600",
-    name: "Virtual Machine",
-    spec: "2 vCPUs · 8 GB RAM · 50 GB disk",
-    price: "$100",
-    unit: "per VM / month",
-    accent: false,
-  },
-  {
-    icon: Box,
-    bg: "bg-blue-50",
-    color: "text-blue-600",
-    name: "Service",
-    spec: "0.5 vCPU · 0.5 GB RAM · 0.5 GB disk · from GitHub or Postgres",
-    price: "$15",
-    unit: "per service / month",
-    accent: false,
-  },
-  {
-    icon: HardDrive,
-    bg: "bg-blue-50",
-    color: "text-blue-600",
-    name: "Additional Disk",
-    spec: "Expandable block storage",
-    price: "$0.15",
-    unit: "per GB / month",
-    accent: false,
-  },
-  {
-    icon: Globe,
-    bg: "bg-emerald-50",
-    color: "text-emerald-600",
-    name: "Load Balancer",
-    spec: "Layer 4 / Layer 7 traffic distribution",
-    price: "$25",
-    unit: "per LB / month",
-    accent: false,
-  },
-  {
-    icon: Globe,
-    bg: "bg-emerald-50",
-    color: "text-emerald-600",
-    name: "Additional Public IP",
-    spec: "Static IPv4 address",
-    price: "$10",
-    unit: "per IP / month",
-    accent: false,
-  },
-  {
-    icon: Database,
-    bg: "bg-violet-50",
-    color: "text-violet-600",
-    name: "Managed PostgreSQL",
-    spec: "WAL archival · daily backups · on-demand point-in-time recovery",
-    price: "$200",
-    unit: "per DB instance / month",
-    accent: true,
-  },
-  {
-    icon: BarChart2,
-    bg: "bg-amber-50",
-    color: "text-amber-600",
-    name: "VM Resource Observability",
-    spec: "24/7 real-time CPU, RAM, disk & network metrics",
-    price: "$25",
-    unit: "per VM / month",
-    accent: false,
-  },
-  {
-    icon: Activity,
-    bg: "bg-amber-50",
-    color: "text-amber-600",
-    name: "Application Workload Monitoring",
-    spec: "24/7 endpoint observability & alerting",
-    price: "$25",
-    unit: "per endpoint / month",
-    accent: false,
-  },
-];
+// Presentation only — icons and colours keyed by catalog service id.
+const SERVICE_STYLE: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
+  vm:   { icon: Server,    bg: "bg-blue-50",    color: "text-blue-600" },
+  svc:  { icon: Box,       bg: "bg-blue-50",    color: "text-blue-600" },
+  disk: { icon: HardDrive, bg: "bg-blue-50",    color: "text-blue-600" },
+  lb:   { icon: Globe,     bg: "bg-emerald-50", color: "text-emerald-600" },
+  ip:   { icon: Globe,     bg: "bg-emerald-50", color: "text-emerald-600" },
+  db:   { icon: Database,  bg: "bg-violet-50",  color: "text-violet-600" },
+  obs:  { icon: BarChart2, bg: "bg-amber-50",   color: "text-amber-600" },
+  mon:  { icon: Activity,  bg: "bg-amber-50",   color: "text-amber-600" },
+};
 
-const usageBased = [
-  {
-    icon: Database,
-    bg: "bg-violet-50",
-    color: "text-violet-600",
-    name: "On-demand Postgres Backup",
-    note: "Request ≥ 24 hrs in advance · 30-day retention",
-    price: "$0.10 / GB",
-  },
-  {
-    icon: Copy,
-    bg: "bg-slate-50",
-    color: "text-slate-500",
-    name: "Daily VM Snapshot",
-    note: "7-day retention · longer retention on request",
-    price: "$0.10 / GB",
-  },
-];
+const USAGE_STYLE: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
+  pg_backup:   { icon: Database, bg: "bg-violet-50", color: "text-violet-600" },
+  vm_snapshot: { icon: Copy,     bg: "bg-slate-50",  color: "text-slate-500" },
+};
 
-const included = [
-  "Regular Cloud security patching",
-  "Regular Cloud CIS security audits",
-  "Anti-DDoS protection",
-  "On-demand VM cloning service",
-];
+const coreServices = SERVICES.map((s) => {
+  const style = SERVICE_STYLE[s.id] ?? { icon: Box, bg: "bg-blue-50", color: "text-blue-600" };
+  return {
+    ...style,
+    id: s.id,
+    name: s.name,
+    spec: s.specs,
+    price: formatCents(s.unit_price_cents),
+    unit: s.unit,
+    accent: Boolean(s.featured),
+  };
+});
 
-const bundles = [
-  {
-    name: "Starter Bundle",
-    price: 295,
-    originalPrice: 325,
-    badge: null,
-    highlight: false,
-    items: [
-      { icon: Server,   color: "text-blue-600",    label: "1× Virtual Machine" },
-      { icon: Globe,    color: "text-emerald-600",  label: "1× Load Balancer" },
-      { icon: Database, color: "text-violet-600",   label: "1× Managed PostgreSQL" },
-    ],
-  },
-  {
-    name: "Growth Bundle",
-    price: 800,
-    originalPrice: 880,
-    badge: "Most Popular",
-    highlight: true,
-    items: [
-      { icon: Server,   color: "text-blue-600",    label: "3× Virtual Machines" },
-      { icon: Globe,    color: "text-emerald-600",  label: "1× Load Balancer" },
-      { icon: Database, color: "text-violet-600",   label: "2× Managed PostgreSQL" },
-      { icon: Globe,    color: "text-emerald-600",  label: "3× Additional Public IP" },
-      { icon: BarChart2,color: "text-amber-600",    label: "24/7 VM Observability (3 VMs)" },
-    ],
-  },
-  {
-    name: "Scale Bundle",
-    price: 1270,
-    originalPrice: 1400,
-    badge: "Best Value",
-    highlight: false,
-    items: [
-      { icon: Server,   color: "text-blue-600",    label: "5× Virtual Machines" },
-      { icon: Globe,    color: "text-emerald-600",  label: "1× Load Balancer" },
-      { icon: Database, color: "text-violet-600",   label: "3× Managed PostgreSQL" },
-      { icon: Globe,    color: "text-emerald-600",  label: "5× Additional Public IP" },
-      { icon: BarChart2,color: "text-amber-600",    label: "24/7 VM Observability (5 VMs)" },
-    ],
-  },
-];
+const usageBased = USAGE_BASED.map((u) => ({
+  ...(USAGE_STYLE[u.id] ?? { icon: Copy, bg: "bg-slate-50", color: "text-slate-500" }),
+  name: u.name,
+  note: u.note,
+  price: `${formatCents(u.price_cents_per_gb)} / GB`,
+}));
 
-const footnotes = [
-  "Daily DB backups run at pre-decided times with a 7-day retention period.",
-  "On-demand Postgres backups require a request at least 24 hours in advance. Fixed 30-day retention.",
-  "VM snapshot retention is 7 days by default. Contact the Cloud Infra/Ops team for higher retention.",
-];
+const included = INCLUDED;
+const footnotes = FOOTNOTES;
+
+const bundles = BUNDLES.map((b) => ({
+  id: b.id,
+  name: b.name,
+  price: b.price_cents / 100,
+  originalPrice: b.listPriceCents / 100,
+  saving: b.savingCents / 100,
+  badge: b.badge,
+  highlight: b.highlight,
+  items: b.lines.map((l) => {
+    const style = SERVICE_STYLE[l.id] ?? { icon: Box, color: "text-blue-600" };
+    return { icon: style.icon, color: style.color, label: `${l.qty}× ${l.name}` };
+  }),
+}));
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -232,14 +141,31 @@ export function PricingSection() {
                       </span>
                       <span className="text-xs text-[color:var(--text-muted)]">/mo</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-[color:var(--text-muted)] line-through">
-                        ${bundle.originalPrice.toLocaleString()}
-                      </span>
-                      <span className="text-xs font-semibold text-emerald-600">
-                        Save ${(bundle.originalPrice - bundle.price).toLocaleString()}
-                      </span>
-                    </div>
+                    {bundle.saving > 0 && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-[color:var(--text-muted)] line-through">
+                          ${bundle.originalPrice.toLocaleString()}
+                        </span>
+                        <span className="text-xs font-semibold text-emerald-600">
+                          Save ${bundle.saving.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* The bundle cards previously had no CTA at all — the only
+                        conversion path on /pricing was "Contact Sales". */}
+                    <Link
+                      href={`/dashboard/billing/checkout?bundle=${bundle.id}`}
+                      className={[
+                        "mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5",
+                        "text-sm font-semibold transition-opacity hover:opacity-90",
+                        bundle.highlight
+                          ? "bg-gradient-to-r from-[var(--primary-blue)] to-[var(--primary-purple)] text-white"
+                          : "border border-[color:var(--neutral-border)] text-[color:var(--text-primary)] hover:bg-[color:var(--bg-secondary)]",
+                      ].join(" ")}
+                    >
+                      Get started →
+                    </Link>
                   </div>
                 </div>
               </AnimateIn>

@@ -1,4 +1,18 @@
 const pool = require('@rach/core').pool;
+const { catalog } = require('../catalog');
+
+/**
+ * Amounts are integers in the currency's minor unit. The currency itself must
+ * be stated — silently defaulting is how `orders` ended up defaulting to USD
+ * while `plans` defaulted to INR and the validators talked about paise.
+ */
+function requireCurrency(currency) {
+  const c = String(currency || '').toUpperCase();
+  if (!/^[A-Z]{3}$/.test(c)) {
+    throw new TypeError(`A 3-letter ISO currency is required, received: ${currency}. Catalog currency is ${catalog.currency}.`);
+  }
+  return c;
+}
 
 const Order = {
   async create({ user_id, subscription_id, razorpay_order_id, amount, currency, receipt, description }) {
@@ -6,7 +20,10 @@ const Order = {
       `INSERT INTO orders (user_id, subscription_id, razorpay_order_id, amount, currency, receipt, description)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [user_id, subscription_id || null, razorpay_order_id, amount, currency || 'USD', receipt || null, description || null]
+      // Currency must be explicit. The old positional default disagreed with
+      // the plans table ('INR') and with the "in paise" validator message,
+      // leaving four different assumptions across the codebase.
+      [user_id, subscription_id || null, razorpay_order_id, amount, requireCurrency(currency), receipt || null, description || null]
     );
     return rows[0];
   },
@@ -70,11 +87,19 @@ const Order = {
     return { rows, total: c[0].total };
   },
 
-  async updateStatus(razorpay_order_id, status) {
+  /**
+   * `paid` is terminal. A late-arriving `payment.failed` webhook for an order
+   * that already succeeded would otherwise regress it to `attempted` — the
+   * customer's paid order would look unpaid.
+   *
+   * Pass `{ force: true }` for an explicit admin correction.
+   */
+  async updateStatus(razorpay_order_id, status, { force = false } = {}) {
+    const guard = force || status === 'paid' ? '' : `AND status <> 'paid'`;
     const { rows } = await pool.query(
       `UPDATE orders
        SET    status = $1, updated_at = NOW()
-       WHERE  razorpay_order_id = $2
+       WHERE  razorpay_order_id = $2 ${guard}
        RETURNING *`,
       [status, razorpay_order_id]
     );

@@ -3,6 +3,10 @@
  * Base URL is controlled by NEXT_PUBLIC_API_URL env var (defaults to localhost:3000).
  */
 
+// Local dev: the backend listens on :3000 (apps/rachbase-backend/.env sets
+// PORT=3000) and this web app runs on :3002. Docker and .env.example use :8080.
+// apps/rachbase-web has no .env, so local development relies on this fallback —
+// it must match the local backend port, not the container one.
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,7 +58,27 @@ export interface TenantDetail extends Tenant {
 
 export interface LoginResponse {
   access_token: string;
+  /** Seconds until the access token expires — drives the silent-refresh timer. */
+  expires_in?: number;
   user: User;
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  expires_in?: number;
+  /** Returned so an OAuth callback can hydrate from the cookie alone. */
+  user?: User;
+}
+
+/** Thrown by apiFetch; carries the fields the auth screens branch on. */
+export interface AuthApiError extends Error {
+  status: number;
+  pending_id?: number;
+  no_account?: boolean;
+  expires_at?: string;
+  resends_remaining?: number;
+  attempts_left?: number;
+  locked?: boolean;
 }
 
 export interface RegisterResponse {
@@ -71,48 +95,119 @@ export interface ApiError {
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
-async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-  token?: string | null,
-): Promise<T> {
+const TOKEN_KEY = 'rd_access_token';
+const USER_KEY  = 'rd_user';
+
+/** Endpoints where a 401 means "bad credentials", not "session expired". */
+const CREDENTIAL_ENDPOINTS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/verify-email',
+  '/api/auth/reset-password',
+]);
+
+/**
+ * In-flight refresh, shared across callers.
+ *
+ * Without this, a dashboard that fires six requests on mount would kick off six
+ * concurrent refreshes. Because refresh tokens rotate and replaying a rotated
+ * token trips the reuse detector, that would revoke the whole family and log
+ * the user out — the exact failure the rotation scheme exists to catch.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as RefreshResponse;
+      if (data.access_token) {
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        if (data.user) localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        return data.access_token;
+      }
+      return null;
+    } catch {
+      return null;   // network blip — caller keeps the existing session
+    } finally {
+      // Cleared on the next tick so concurrent callers share this result.
+      setTimeout(() => { refreshInFlight = null; }, 0);
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+async function rawFetch(path: string, options: RequestInit, token?: string | null) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  return fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: 'include' });
+}
+
+async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string | null,
+  /** Internal: prevents an infinite refresh loop. */
+  _isRetry = false,
+): Promise<T> {
+  let res = await rawFetch(path, options, token);
+
+  // Access tokens are short-lived. On the first 401 from a token-authenticated
+  // request, silently refresh and replay once. Previously any expired token
+  // dumped the user straight to the marketing page mid-task.
+  if (res.status === 401 && token && !_isRetry && !CREDENTIAL_ENDPOINTS.has(path)) {
+    const fresh = await refreshAccessToken();
+    if (fresh) {
+      res = await rawFetch(path, options, fresh);
+    }
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
-
-  const data = await res.json();
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
 
   if (!res.ok) {
-    const errMsg = (data as ApiError).error || 'Request failed';
-    // Only treat 401 as "session expired" when it's an auth error (token missing/invalid).
-    // Gateway errors (e.g. Razorpay returning 401 proxied as 502) must NOT clear the session.
-    if (res.status === 401 && !errMsg.toLowerCase().startsWith('payment gateway')) {
-      // On the login/register endpoints a 401 means wrong credentials — don't
-      // treat it as session expiry; let the error propagate to the form.
-      const isAuthEndpoint = path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/refresh';
-      if (!isAuthEndpoint) {
-        localStorage.removeItem('rd_access_token');
-        localStorage.removeItem('rd_user');
-        window.location.href = '/';
-      }
-      throw new Error(errMsg);
+    const body = (data ?? {}) as Record<string, unknown>;
+    const errMsg = (body.error as string) || 'Request failed';
+
+    // Gateway errors (e.g. Razorpay 401 proxied through) must not clear the session.
+    const isGatewayError = errMsg.toLowerCase().startsWith('payment gateway');
+
+    if (res.status === 401 && !isGatewayError && !CREDENTIAL_ENDPOINTS.has(path)) {
+      // Refresh already had its chance above — this session is genuinely done.
+      clearSession();
+      if (typeof window !== 'undefined') window.location.href = '/login?error=session_expired';
     }
-    const err = new Error(errMsg) as Error & { status: number; pending_id?: number; no_account?: boolean };
+
+    const err = new Error(errMsg) as AuthApiError;
     err.status = res.status;
-    const body = data as Record<string, unknown>;
-    if (body.pending_id) err.pending_id = body.pending_id as number;
-    if (body.no_account)  err.no_account  = true;
+    if (body.pending_id)        err.pending_id        = body.pending_id as number;
+    if (body.no_account)        err.no_account        = true;
+    if (body.expires_at)        err.expires_at        = body.expires_at as string;
+    if (body.locked)            err.locked            = true;
+    if (typeof body.resends_remaining === 'number') err.resends_remaining = body.resends_remaining;
+    if (typeof body.attempts_left     === 'number') err.attempts_left     = body.attempts_left;
     throw err;
   }
 
@@ -142,7 +237,7 @@ export const auth = {
     }),
 
   resendVerification: (pendingId: number) =>
-    apiFetch<{ message: string; resends_remaining: number; expires_at: string }>(
+    apiFetch<{ message: string; email_sent: boolean; resends_remaining: number; expires_at: string }>(
       '/api/auth/resend-verification',
       { method: 'POST', body: JSON.stringify({ pending_id: pendingId }) },
     ),
@@ -150,8 +245,11 @@ export const auth = {
   logout: (token: string) =>
     apiFetch<{ message: string }>('/api/auth/logout', { method: 'POST' }, token),
 
+  logoutAll: (token: string) =>
+    apiFetch<{ message: string }>('/api/auth/logout-all', { method: 'POST' }, token),
+
   refresh: () =>
-    apiFetch<{ access_token: string }>('/api/auth/refresh', { method: 'POST' }),
+    apiFetch<RefreshResponse>('/api/auth/refresh', { method: 'POST' }),
 
   forgotPassword: (email: string) =>
     apiFetch<{ message: string }>('/api/auth/forgot-password', {
@@ -381,7 +479,12 @@ export interface ExpansionRequest {
 }
 
 export interface CustomOrderItem {
-  id: 'vm' | 'disk' | 'lb' | 'ip' | 'db' | 'obs' | 'mon';
+  /**
+   * A catalog service id. Not a closed union — adding a service to
+   * catalog.json must not require editing a type here. The server validates
+   * the id against the catalog and rejects unknown ones.
+   */
+  id: string;
   name: string;
   qty: number;
 }
@@ -504,12 +607,18 @@ export const expansion = {
       token
     ),
 
-  // Subscription endpoints
+  /**
+   * Create a subscription order.
+   *
+   * Send cart IDENTITY only — a `bundle_id` or a list of `{ id, qty }`. Prices
+   * are deliberately not part of this payload: the server prices the cart from
+   * `packages/billing/catalog.json` and ignores any amount a client sends.
+   * `total_cents` used to be accepted here and passed straight to
+   * razorpay.plans.create.
+   */
   createSubscription: (token: string, payload: {
-    items: CustomOrderItem[];
-    description: string;
-    total_cents: number;
-    currency?: string;
+    bundle_id?: string;
+    items?: CustomOrderItem[];
     billing_country?: string;
   }) =>
     apiFetch<{
@@ -517,35 +626,178 @@ export const expansion = {
       plan_id: string | null;
       razorpay_key_id: string | null;
       description: string;
+      /** Server-priced. */
       total_cents: number;
       currency: string;
       billing_currency: string;
       monthly_amount: number;
       customer_country: string | null;
       converted: boolean;
+      fx_rate: number | null;
+      lines: { id: string; name: string; qty: number; unit_price_cents: number; subtotal_cents: number }[];
+      bundle_id?: string;
+      list_price_cents?: number;
+      saving_cents?: number;
     }>('/api/expansion/subscriptions', {
       method: 'POST',
       body: JSON.stringify(payload),
     }, token),
 
-  // Called after subscription payment succeeds — creates the DB record.
+  /**
+   * Called after subscription payment succeeds — creates the DB record.
+   *
+   * The three `razorpay_*` signature fields are REQUIRED. They were optional,
+   * and the server skipped verification entirely when any were absent, which
+   * meant a request omitting them created an active subscription with no
+   * payment. Prices are again not accepted; the server re-prices from the cart.
+   */
   activateSubscription: (token: string, payload: {
-    razorpay_subscription_id?: string;
-    razorpay_payment_id?: string;
-    razorpay_signature?: string;
+    razorpay_subscription_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
     razorpay_plan_id?: string;
-    items: CustomOrderItem[];
-    description: string;
-    total_cents: number;
-    currency?: string;
-    billing_currency?: string;
-    monthly_amount?: number;
+    bundle_id?: string;
+    items?: CustomOrderItem[];
+    billing_country?: string;
   }) =>
     apiFetch<{ message: string; request: ExpansionRequest }>(
       '/api/expansion/subscriptions/activate',
       { method: 'POST', body: JSON.stringify(payload) },
       token
     ),
+};
+
+// ─── Invoices & tax ───────────────────────────────────────────────────────────
+
+/**
+ * All money is in the currency's MINOR unit (paise/cents) as an integer.
+ * Format with `formatMinor` rather than dividing in component code.
+ */
+export interface InvoiceSummary {
+  id:              number;
+  invoice_number:  string;
+  status:          'issued' | 'paid' | 'void';
+  currency:        string;
+  subtotal_minor:  number;
+  tax_total_minor: number;
+  total_minor:     number;
+  tax_treatment:   string | null;
+  place_of_supply: string | null;
+  issued_at:       string;
+  user_name?:      string;
+  email?:          string;
+}
+
+export interface InvoiceLine {
+  id:               number;
+  line_no:          number;
+  description:      string;
+  sac_code:         string | null;
+  quantity:         number;
+  unit_price_minor: number;
+  subtotal_minor:   number;
+  tax_rate_bps:     number;
+  tax_amount_minor: number;
+  tax_breakdown:    { name: string; rate_bps: number; amount_minor: number }[];
+  total_minor:      number;
+}
+
+export interface TaxComponent {
+  name:         string;
+  rate_bps:     number;
+  amount_minor: number;
+}
+
+export interface TaxQuote {
+  currency:        string;
+  subtotal_minor:  number;
+  tax_total_minor: number;
+  total_minor:     number;
+  treatment:       string;
+  place_of_supply: string;
+  notes:           string | null;
+  components:      TaxComponent[];
+  lines: {
+    description: string; quantity: number; unit_price_minor: number;
+    subtotal_minor: number; tax_rate_bps: number; tax_amount_minor: number; total_minor: number;
+  }[];
+}
+
+/** Format integer minor units. Never divide by 100 inline — see money.js. */
+export function formatMinor(amountMinor: number, currency = 'USD') {
+  const locale = currency === 'INR' ? 'en-IN' : 'en-US';
+  return new Intl.NumberFormat(locale, {
+    style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format((amountMinor ?? 0) / 100);
+}
+
+/** 1800 → "18%" */
+export function formatRateBps(rateBps: number) {
+  const pct = (rateBps ?? 0) / 100;
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(2).replace(/\.?0+$/, '')}%`;
+}
+
+/** Human label for the tax treatment recorded on an invoice. */
+export const TAX_TREATMENT_LABELS: Record<string, string> = {
+  intra_state:         'GST (CGST + SGST)',
+  inter_state:         'IGST',
+  export_zero_rated:   'Zero-rated export',
+  export_taxable:      'Export (IGST paid)',
+  us_state_tax:        'US sales tax',
+  no_registration:     'No tax charged',
+  provider_unavailable:'No tax charged',
+  exempt:              'Exempt',
+};
+
+export const invoices = {
+  list: (token: string, params: { limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit  != null) qs.set('limit', String(params.limit));
+    if (params.offset != null) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return apiFetch<{ data: InvoiceSummary[]; total: number }>(`/api/invoices${suffix}`, {}, token);
+  },
+
+  get: (token: string, id: number) =>
+    apiFetch<{ invoice: InvoiceSummary & { seller_json: unknown; buyer_json: unknown }; lines: InvoiceLine[] }>(
+      `/api/invoices/${id}`, {}, token
+    ),
+
+  /** Absolute URL for the PDF. Fetched with the bearer token by `download`. */
+  pdfUrl: (id: number) => `${BASE_URL}/api/invoices/${id}/pdf`,
+
+  /**
+   * Downloads the PDF. Uses fetch + blob rather than a plain link because the
+   * endpoint requires an Authorization header.
+   */
+  download: async (token: string, id: number, filename?: string) => {
+    const res = await fetch(`${BASE_URL}/api/invoices/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Could not download invoice');
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || `invoice-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  /** Tax preview for the checkout review step. */
+  quote: (token: string, payload: {
+    lines: { description: string; quantity: number; unit_price_minor: number }[];
+    currency?: string;
+    billing?: Record<string, unknown>;
+  }) =>
+    apiFetch<TaxQuote>('/api/invoices/quote', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token),
 };
 
 // ─── Deployment endpoints ─────────────────────────────────────────────────────

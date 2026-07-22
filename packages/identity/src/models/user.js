@@ -14,10 +14,13 @@ const SAFE_FIELDS = `
 const FROM_CLAUSE = `FROM users u LEFT JOIN tenants t ON t.id = u.tenant_id`;
 
 const User = {
+  // Email lookups are case-insensitive — migration 027 adds a matching
+  // unique index on lower(email), so this hits an index rather than scanning.
   async findByEmail(email) {
+    if (!email) return null;
     const { rows } = await pool.query(
-      `SELECT u.*, t.name AS tenant_name ${FROM_CLAUSE} WHERE u.email = $1`,
-      [email]
+      `SELECT u.*, t.name AS tenant_name ${FROM_CLAUSE} WHERE lower(u.email) = lower($1)`,
+      [String(email).trim()]
     );
     return rows[0] || null;
   },
@@ -79,18 +82,22 @@ const User = {
    * @param {object} fields
    * @param {string} fields.name
    * @param {string} fields.email
-   * @param {string} fields.password  - already bcrypt-hashed
+   * @param {string} fields.password  - already bcrypt-hashed; null for OAuth-only accounts
    * @param {string} fields.phone_number
    * @param {string} [fields.address]
    * @param {string} [fields.role]
    * @param {number} [fields.tenant_id]
+   * @param {boolean} [fields.email_verified]
    */
-  async create({ name, email, password, phone_number, address, role = 'tenant_user', tenant_id = null }) {
+  async create({
+    name, email, password, phone_number, address,
+    role = 'tenant_user', tenant_id = null, email_verified = false,
+  }) {
     const { rows } = await pool.query(
-      `INSERT INTO users (name, email, password, phone_number, address, role, tenant_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, email, phone_number, phone_verified, address, role, tenant_id, pve_pool, created_at, updated_at`,
-      [name, email, password, phone_number, address || null, role, tenant_id]
+      `INSERT INTO users (name, email, password_hash, phone_number, address, role, tenant_id, email_verified)
+       VALUES ($1, lower($2), $3, $4, $5, $6, $7, $8)
+       RETURNING id, name, email, phone_number, phone_verified, email_verified, address, role, tenant_id, pve_pool, created_at, updated_at`,
+      [name, email, password ?? null, phone_number, address || null, role, tenant_id, email_verified]
     );
     return rows[0];
   },

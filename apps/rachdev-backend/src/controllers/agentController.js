@@ -15,7 +15,7 @@
  */
 
 const { pool }    = require('@rach/core');
-const { credits } = require('@rach/billing');
+const { credits, purchase } = require('@rach/billing');
 const { gateway } = require('@rach/llm');
 const rachbase   = require('../services/rachbaseClient');
 
@@ -28,60 +28,74 @@ exports.getCredits = async (req, res) => {
 
 // ── POST /api/agent/credits/purchase ─────────────────────────────────────────
 
+/**
+ * Credit purchases go through the shared purchase service.
+ *
+ * This handler used to run its own billing stack: a private Razorpay SDK
+ * instance, its own USD→INR conversion via `price_usd * rate * 100` (a float
+ * path), no order or payment row, and — in verifyPurchase below — a
+ * non-constant-time signature check with no confirmation that the payment had
+ * actually been captured. It was a third money path, missed during the
+ * consolidation because it lives in this app rather than rachbase-backend.
+ */
 exports.purchaseCredits = async (req, res) => {
-  const { pack_id } = req.body;
-  const pack = credits.CREDIT_PACKS.find((p) => p.id === pack_id);
-  if (!pack) return res.status(400).json({ error: 'Invalid pack' });
+  const { pack_id, billing_country } = req.body;
 
-  const USD_TO_INR = Number(process.env.USD_TO_INR || 90);
-  const amountInr  = Math.round(pack.price_usd * USD_TO_INR * 100); // paise
+  let result;
+  try {
+    result = await purchase.createCreditPurchase({
+      user: req.user,
+      packId: pack_id,
+      billingCountry: billing_country,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    throw err;
+  }
 
-  const Razorpay = require('razorpay');
-  const rzp = new Razorpay({
-    key_id:     process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-  });
+  const { pack, billing, razorpay: rz } = result;
 
-  const order = await rzp.orders.create({
-    amount:   amountInr,
-    currency: 'INR',
-    notes:    { tenant_id: String(req.user.tenant_id), pack_id, credits: String(pack.credits) },
-  });
-
+  // Response shape unchanged — the billing dashboard reads order_id, amount,
+  // currency and razorpay_key_id.
   res.json({
-    order_id:        order.id,
-    amount:          amountInr,
-    currency:        'INR',
-    razorpay_key_id: process.env.RAZORPAY_KEY_ID,
+    order_id:        rz.order_id,
+    amount:          billing.amountMinor,
+    currency:        billing.currency,
+    razorpay_key_id: rz.key_id,
     pack,
+    fx_rate:         billing.fxRate,
   });
 };
 
 // ── POST /api/agent/credits/verify ───────────────────────────────────────────
 
 exports.verifyPurchase = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, pack_id } = req.body;
-  const crypto = require('crypto');
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, pack_id, billing } = req.body;
 
-  const expected = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-    .digest('hex');
-
-  if (expected !== razorpay_signature) {
-    return res.status(400).json({ error: 'Invalid payment signature' });
+  let result;
+  try {
+    result = await purchase.verifyCreditPurchase({
+      user: req.user,
+      packId: pack_id,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      billing: billing || {},
+    });
+  } catch (err) {
+    // PaymentVerificationError and the service's own errors both carry status.
+    if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
+    throw err;
   }
 
-  const pack = credits.CREDIT_PACKS.find((p) => p.id === pack_id);
-  if (!pack) return res.status(400).json({ error: 'Invalid pack' });
-
-  const balance = await credits.addCredits(req.user.tenant_id, req.user.id, pack.credits, {
-    description:       `Purchased ${pack.label} pack ($${pack.price_usd})`,
-    razorpayOrderId:   razorpay_order_id,
-    razorpayPaymentId: razorpay_payment_id,
+  res.json({
+    success: true,
+    credits_added: result.pack.credits,
+    balance: result.balance,
+    invoice: result.invoice?.ok
+      ? { number: result.invoice.invoice.invoice_number, emailed: result.invoice.emailed }
+      : null,
   });
-
-  res.json({ success: true, credits_added: pack.credits, balance });
 };
 
 // ── GET /api/agent/sessions ───────────────────────────────────────────────────

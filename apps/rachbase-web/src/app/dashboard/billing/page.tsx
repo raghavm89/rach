@@ -13,6 +13,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { expansion, ExpansionRequest, agent } from '@rach/ui/lib/api';
+import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
+import { InvoiceList } from '@rach/ui/components/billing/InvoiceList';
 import { cn } from '@rach/ui/lib/utils';
 
 // -- Razorpay types -----------------------------------------------------------
@@ -39,91 +41,48 @@ type RazorpayWindow = Window & {
 
 // -- Catalog ------------------------------------------------------------------
 
-type ServiceId = 'vm' | 'disk' | 'lb' | 'ip' | 'db' | 'obs' | 'mon';
+// Ids come from the shared catalog; adding a service there must not require
+// editing a union here.
+type ServiceId = string;
 
-const SERVICES: {
-  id: ServiceId;
-  name: string;
-  specs: string;
-  price: number;
-  unit: string;
-  Icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-}[] = [
-  {
-    id: 'vm',
-    name: 'Virtual Machine',
-    specs: '2 vCPUs · 8 GB RAM · 50 GB SSD',
-    price: 100,
-    unit: 'per VM / mo',
-    Icon: Server,
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-primary-blue',
-  },
-  {
-    id: 'disk',
-    name: 'Additional Disk',
-    specs: 'Expandable block storage',
-    price: 0.15,
-    unit: 'per GB / mo',
-    Icon: HardDrive,
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-primary-blue',
-  },
-  {
-    id: 'lb',
-    name: 'Load Balancer',
-    specs: 'Layer 4 / Layer 7 traffic distribution',
-    price: 25,
-    unit: 'per LB / mo',
-    Icon: Globe,
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-  },
-  {
-    id: 'ip',
-    name: 'Additional Public IP',
-    specs: 'Static IPv4 address',
-    price: 10,
-    unit: 'per IP / mo',
-    Icon: Globe,
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-  },
-  {
-    id: 'db',
-    name: 'Managed PostgreSQL',
-    specs: 'WAL archival · daily backups · point-in-time recovery',
-    price: 200,
-    unit: 'per DB / mo',
-    Icon: Database,
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
-  },
-  {
-    id: 'obs',
-    name: 'VM Resource Observability',
-    specs: '24/7 real-time CPU, RAM, disk & network metrics',
-    price: 25,
-    unit: 'per VM / mo',
-    Icon: BarChart2,
-    iconBg: 'bg-amber-50',
-    iconColor: 'text-amber-600',
-  },
-  {
-    id: 'mon',
-    name: 'Application Workload Monitoring',
-    specs: '24/7 endpoint observability & alerting',
-    price: 25,
-    unit: 'per endpoint / mo',
-    Icon: Activity,
-    iconBg: 'bg-amber-50',
-    iconColor: 'text-amber-600',
-  },
-];
+const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string }> = {
+  vm:   { Icon: Server,    iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  svc:  { Icon: Server,    iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  disk: { Icon: HardDrive, iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  lb:   { Icon: Globe,     iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+  ip:   { Icon: Globe,     iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+  db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
+  obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+};
 
-const EMPTY_QTY: Record<ServiceId, number> = { vm: 0, disk: 0, lb: 0, ip: 0, db: 0, obs: 0, mon: 0 };
+/**
+ * Catalog from the shared module — the same catalog.json the server prices
+ * from. This file used to carry its own copy (one of four), which had drifted
+ * from the server's prices.
+ *
+ * Display only: the server re-prices every cart and ignores client totals.
+ */
+const SERVICES = CATALOG_SERVICES.map((s) => ({
+  id: s.id as ServiceId,
+  name: s.name,
+  specs: s.specs,
+  price: s.unit_price_cents / 100,
+  priceCents: s.unit_price_cents,
+  unit: s.unit,
+  ...(SERVICE_ICONS[s.id] ?? { Icon: Server, iconBg: 'bg-blue-50', iconColor: 'text-primary-blue' }),
+}));
+
+const EMPTY_QTY: Record<ServiceId, number> = Object.fromEntries(
+  CATALOG_SERVICES.map((s) => [s.id, 0]),
+) as Record<ServiceId, number>;
+
+// Badge colours are presentation, so they stay here; the copy itself
+// (tagline / best_for) lives with the bundle in the catalog.
+const BADGE_CLASS: Record<string, string> = {
+  'Most Popular': 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
+  'Best Value'  : 'bg-gradient-to-r from-amber-400 to-orange-500 text-white',
+};
 
 interface BundleDef {
   id: string;
@@ -131,47 +90,31 @@ interface BundleDef {
   tagline: string;
   bestFor: string;
   price: number;
+  priceCents: number;
   originalPrice: number;
+  saving: number;
   badge?: string;
   badgeClass?: string;
   highlight?: boolean;
   items: Partial<Record<ServiceId, number>>;
 }
 
-const BUNDLES: BundleDef[] = [
-  {
-    id: 'starter',
-    name: 'Starter Bundle',
-    tagline: 'Launch fast, stay lean.',
-    bestFor: 'Early-stage projects & MVPs',
-    price: 295,
-    originalPrice: 325,
-    items: { vm: 1, lb: 1, db: 1 },
-  },
-  {
-    id: 'growth',
-    name: 'Growth Bundle',
-    tagline: 'Scale your product with confidence.',
-    bestFor: 'Growing startups & SaaS products',
-    price: 800,
-    originalPrice: 880,
-    badge: 'Most Popular',
-    badgeClass: 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
-    highlight: true,
-    items: { vm: 3, lb: 1, db: 2, ip: 3, obs: 3 },
-  },
-  {
-    id: 'scale',
-    name: 'Scale Bundle',
-    tagline: 'Enterprise-ready from day one.',
-    bestFor: 'High-traffic apps & large teams',
-    price: 1270,
-    originalPrice: 1400,
-    badge: 'Best Value',
-    badgeClass: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white',
-    items: { vm: 5, lb: 1, db: 3, ip: 5, obs: 5 },
-  },
-];
+const BUNDLES: BundleDef[] = CATALOG_BUNDLES.map((b) => ({
+  id: b.id,
+  name: b.name,
+  tagline: b.tagline,
+  bestFor: b.best_for,
+  price: b.price_cents / 100,
+  priceCents: b.price_cents,
+  // Derived from contents. The stored values were inflated by $50 (Growth) and
+  // $100 (Scale), overstating savings as $80/$130 when the real figure is $30.
+  originalPrice: b.listPriceCents / 100,
+  saving: b.savingCents / 100,
+  badge: b.badge ?? undefined,
+  badgeClass: b.badge ? BADGE_CLASS[b.badge] : undefined,
+  highlight: b.highlight,
+  items: b.items as Partial<Record<ServiceId, number>>,
+}));
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -443,7 +386,7 @@ function OrderHistory({ token }: { token: string }) {
 
 // -- Main page ----------------------------------------------------------------
 
-type Tab = 'starter' | 'custom' | 'bundles' | 'compare' | 'credits' | 'usage';
+type Tab = 'starter' | 'custom' | 'bundles' | 'compare' | 'credits' | 'usage' | 'invoices';
 
 // -- Agent Credit Packs --------------------------------------------------------
 
@@ -461,7 +404,7 @@ export default function BillingPage() {
 
   const [tab, setTab]                       = useState<Tab>(() => {
     const t = searchParams.get('tab');
-    return (t === 'credits') ? t : 'starter';
+    return (t === 'credits' || t === 'invoices') ? t : 'starter';
   });
   const [quantities, setQuantities]         = useState<Record<ServiceId, number>>(EMPTY_QTY);
   const [selectedBundle, setSelectedBundle] = useState<BundleDef | null>(null);
@@ -632,6 +575,7 @@ export default function BillingPage() {
           { id: 'compare' as Tab, label: 'Compare Plans',       icon: <GitCompare size={14} /> },
           { id: 'custom'  as Tab, label: 'Individual Services', icon: <Package size={14} /> },
           { id: 'credits' as Tab, label: 'Agent Credits',       icon: <Coins size={14} /> },
+          { id: 'invoices' as Tab, label: 'Invoices',           icon: <Receipt size={14} /> },
         ]).map((t) => (
           <button
             key={t.id}
@@ -1093,6 +1037,19 @@ export default function BillingPage() {
       {token && tab !== 'credits' && tab !== 'usage' && <OrderHistory token={token} />}
 
       {/* ---- Agent Credits ---- */}
+      {tab === 'invoices' && (
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-5">
+            <h3 className="text-lg font-bold font-display text-text-primary">Invoices</h3>
+            <p className="mt-1 text-sm text-text-muted">
+              Issued automatically when a payment is completed. Each PDF is a tax
+              invoice showing the tax treatment applied to that sale.
+            </p>
+          </div>
+          {token && <InvoiceList token={token} />}
+        </div>
+      )}
+
       {tab === 'credits' && (
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <div className="space-y-4">

@@ -16,7 +16,8 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.5.0",
     "lucide-react": "^1.11.0",
-    "framer-motion": "^12.38.0"
+    "framer-motion": "^12.38.0",
+    "@rach/billing": "*"
   },
   "peerDependencies": {
     "react": "^18 || ^19",

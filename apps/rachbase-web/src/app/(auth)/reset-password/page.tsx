@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { KeyRound, Eye, EyeOff, CheckCircle2, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { auth } from '@rach/ui/lib/api';
+import { PasswordStrength, isPasswordValid, PASSWORD_MIN_LENGTH } from '@rach/ui/components/auth/PasswordStrength';
 
 function ResetPasswordForm() {
   const router       = useRouter();
@@ -29,8 +30,9 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    // Mirrors the server policy in packages/identity/src/routes/auth.js.
+    if (!isPasswordValid(password)) {
+      setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters and include a letter plus a number or symbol.`);
       return;
     }
     if (password !== confirm) {
@@ -77,12 +79,14 @@ function ResetPasswordForm() {
                 <p className="text-sm text-text-muted">Choose a strong password for your account.</p>
               </div>
 
-              {error && (
-                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-                  <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+              <div aria-live="assertive">
+                {error && (
+                  <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+              </div>
 
               {!token ? (
                 <div className="text-center">
@@ -107,18 +111,23 @@ function ResetPasswordForm() {
                         type={showPw ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="At least 6 characters"
+                        placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
                         required
                         autoFocus
+                        aria-describedby="reset-pw-requirements"
                         className={inputCls}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPw(!showPw)}
+                        aria-label={showPw ? 'Hide password' : 'Show password'}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
                       >
                         {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
+                    </div>
+                    <div id="reset-pw-requirements">
+                      <PasswordStrength password={password} />
                     </div>
                   </div>
 
@@ -153,7 +162,7 @@ function ResetPasswordForm() {
 
                   <button
                     type="submit"
-                    disabled={loading || !password || !confirm}
+                    disabled={loading || !isPasswordValid(password) || password !== confirm}
                     className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-primary-blue to-primary-purple py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}

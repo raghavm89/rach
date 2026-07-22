@@ -21,9 +21,15 @@ const APP_URL    = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$
 
 /**
  * Low-level send.
- * @param {{ to: {email:string,name?:string}[], subject: string, htmlContent: string, textContent?: string }} opts
+ * @param {object}   opts
+ * @param {{email:string,name?:string}[]} opts.to
+ * @param {string}   opts.subject
+ * @param {string}   opts.htmlContent
+ * @param {string}   [opts.textContent]
+ * @param {{name:string, content:Buffer|string}[]} [opts.attachments]
+ *        Binary attachments; Buffers are base64-encoded for Brevo's API.
  */
-async function sendEmail({ to, subject, htmlContent, textContent }) {
+async function sendEmail({ to, subject, htmlContent, textContent, attachments }) {
   if (!API_KEY) {
     console.warn('[brevo] BREVO_API_KEY not set — email skipped (logged below)');
     console.warn(`  To: ${to.map(r => r.email).join(', ')}  |  Subject: ${subject}`);
@@ -40,6 +46,15 @@ async function sendEmail({ to, subject, htmlContent, textContent }) {
     trackOpens  : false,
     trackClicks : false,
   };
+
+  if (Array.isArray(attachments) && attachments.length) {
+    body.attachment = attachments.map((a) => ({
+      name   : a.name,
+      content: Buffer.isBuffer(a.content)
+        ? a.content.toString('base64')
+        : Buffer.from(a.content).toString('base64'),
+    }));
+  }
 
   try {
     const res = await fetch(API_URL, {
@@ -495,4 +510,134 @@ async function sendInvoiceEmail({ orderId, customerName, customerEmail, descript
   });
 }
 
-module.exports = { sendVerificationOtp, sendAlertEmail, sendPasswordResetEmail, sendContactEmail, sendInvoiceEmail };
+// ── Tax invoice ───────────────────────────────────────────────────────────────
+
+/**
+ * Sends the issued invoice with its PDF attached.
+ *
+ * Distinct from `sendInvoiceEmail` above, which is an order-confirmation
+ * receipt and not a tax document. (Note: that older template has a display bug —
+ * it renders the order total against every line item instead of the line's own
+ * price. This function renders from the invoice's real line rows.)
+ *
+ * @param {object} opts
+ * @param {object} opts.invoice   invoices row
+ * @param {Array}  opts.lines     invoice_line_items rows
+ * @param {Buffer} opts.pdfBuffer rendered PDF
+ * @param {string} opts.filename
+ */
+async function sendTaxInvoiceEmail({ invoice, lines, pdfBuffer, filename }) {
+  const buyer  = typeof invoice.buyer_json === 'string' ? JSON.parse(invoice.buyer_json) : invoice.buyer_json;
+  const seller = typeof invoice.seller_json === 'string' ? JSON.parse(invoice.seller_json) : invoice.seller_json;
+
+  const cur    = invoice.currency;
+  const locale = cur === 'INR' ? 'en-IN' : 'en-US';
+  const fmt = (minor) => new Intl.NumberFormat(locale, {
+    style: 'currency', currency: cur, minimumFractionDigits: 2,
+  }).format(Number(minor) / 100);
+
+  const isTaxInvoice = Number(invoice.tax_total_minor) > 0;
+  const heading = isTaxInvoice ? 'Tax Invoice' : 'Invoice';
+
+  const rows = (lines || []).map((l) => `
+    <tr>
+      <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">
+        ${escapeHtml(l.description)}${l.quantity > 1 ? ` × ${l.quantity}` : ''}
+      </td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;text-align:right;font-family:monospace;">
+        ${fmt(l.total_minor)}
+      </td>
+    </tr>`).join('');
+
+  // Aggregate tax components across lines (CGST/SGST/IGST/state tax).
+  const components = new Map();
+  for (const l of lines || []) {
+    const bd = typeof l.tax_breakdown === 'string' ? JSON.parse(l.tax_breakdown) : (l.tax_breakdown || []);
+    for (const b of bd) {
+      components.set(b.name, (components.get(b.name) ?? 0) + Number(b.amount_minor));
+    }
+  }
+
+  const taxRows = [...components.entries()].map(([name, amount]) => `
+    <tr>
+      <td style="padding:4px 16px;font-size:13px;color:#6b7280;text-align:right;">${escapeHtml(name)}</td>
+      <td style="padding:4px 16px;font-size:13px;color:#374151;text-align:right;font-family:monospace;width:120px;">${fmt(amount)}</td>
+    </tr>`).join('');
+
+  const htmlContent = `
+<!doctype html><html><body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr><td style="background:linear-gradient(135deg,#2563eb,#7c3aed);padding:24px 32px;">
+          <p style="margin:0;color:#fff;font-size:18px;font-weight:700;">${escapeHtml(seller?.legal_name || 'Rach Dev LLP')}</p>
+          <p style="margin:4px 0 0;color:rgba(255,255,255,.75);font-size:13px;">${heading}</p>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 8px;">
+          <p style="margin:0;font-size:15px;color:#111827;">Hi ${escapeHtml(buyer?.name || 'there')},</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#6b7280;line-height:1.6;">
+            Your ${heading.toLowerCase()} <strong style="color:#111827;">${escapeHtml(invoice.invoice_number)}</strong>
+            is attached as a PDF and is also available in your billing dashboard.
+          </p>
+        </td></tr>
+
+        <tr><td style="padding:16px 0 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+        </td></tr>
+
+        <tr><td style="padding:8px 0 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:4px 16px;font-size:13px;color:#6b7280;text-align:right;">Subtotal</td>
+              <td style="padding:4px 16px;font-size:13px;color:#374151;text-align:right;font-family:monospace;width:120px;">${fmt(invoice.subtotal_minor)}</td>
+            </tr>
+            ${taxRows}
+            <tr>
+              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#111827;text-align:right;border-top:1px solid #e5e7eb;">Total</td>
+              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#111827;text-align:right;font-family:monospace;border-top:1px solid #e5e7eb;">${fmt(invoice.total_minor)}</td>
+            </tr>
+          </table>
+        </td></tr>
+
+        ${invoice.place_of_supply ? `
+        <tr><td style="padding:8px 32px 0;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Place of supply: ${escapeHtml(invoice.place_of_supply)}</p>
+        </td></tr>` : ''}
+
+        <tr><td style="padding:24px 32px 32px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            This is a computer-generated invoice and does not require a signature.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  return sendEmail({
+    to: [{ email: buyer?.email, name: buyer?.name || undefined }],
+    subject: `${heading} ${invoice.invoice_number} — ${fmt(invoice.total_minor)}`,
+    htmlContent,
+    textContent:
+      `${heading} ${invoice.invoice_number}\n` +
+      `Total: ${fmt(invoice.total_minor)}\n` +
+      `The PDF is attached.`,
+    attachments: pdfBuffer ? [{ name: filename || 'invoice.pdf', content: pdfBuffer }] : undefined,
+  });
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+module.exports = {
+  sendVerificationOtp,
+  sendAlertEmail,
+  sendPasswordResetEmail,
+  sendContactEmail,
+  sendInvoiceEmail,
+  sendTaxInvoiceEmail,
+};

@@ -1,51 +1,28 @@
+/**
+ * Payment reads + the Razorpay webhook.
+ *
+ * Purchasing lives in services/purchase.js — see routes/payments.js for why the
+ * subscribe/order/verify handlers that used to be here were removed.
+ *
+ * The webhook is the single lifecycle driver for every subscription, whichever
+ * surface created it. It also fans state changes out to the fulfilment records
+ * in vm_expansion_requests, which previously had no writer after activation.
+ */
+
 const crypto = require('crypto');
-const { validationResult } = require('express-validator');
 const razorpay = require('../services/razorpay');
-const Plan = require('../models/plan');
 const Order = require('../models/order');
 const Subscription = require('../models/subscription');
 const Payment = require('../models/payment');
 const WebhookEvent = require('@rach/core').WebhookEvent;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { paginated } = require('@rach/core').paginate;
+const issueInvoiceForPayment = require('../services/invoice/issueForPayment');
+const { syncFulfilmentForSubscription } = require('../services/purchase');
 
-// ─── Subscriptions ────────────────────────────────────────────────────────────
+// ─── Subscriptions (read + cancel) ───────────────────────────────────────────
 
-// POST /api/payments/subscribe  — customer only
-async function subscribe(req, res) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
-
-  const { plan_id, total_count = 12 } = req.body;
-
-  const plan = await Plan.findById(plan_id);
-  if (!plan || !plan.is_active) {
-    return res.status(404).json({ error: 'Plan not found or inactive' });
-  }
-
-  const rzSub = await razorpay.subscriptions.create({
-    plan_id: plan.razorpay_plan_id,
-    total_count,
-    quantity: 1,
-    customer_notify: 1,
-  });
-
-  const subscription = await Subscription.create({
-    user_id: req.user.id,
-    plan_id: plan.id,
-    razorpay_sub_id: rzSub.id,
-    total_count,
-  });
-
-  return res.status(201).json({
-    message: 'Subscription created. Complete checkout using the subscription_id.',
-    subscription,
-    razorpay_subscription_id: rzSub.id,
-    razorpay_key_id: process.env.RAZORPAY_KEY_ID,
-  });
-}
-
-// GET /api/payments/subscriptions  — customer sees own; admin sees all
+// GET /api/payments/subscriptions  — caller sees own; admin sees all
 async function listSubscriptions(req, res) {
   const { rows, total } =
     req.user.role === 'admin'
@@ -78,38 +55,10 @@ async function cancelSubscription(req, res) {
   return res.json({ message: 'Subscription cancelled', subscription: updated });
 }
 
-// ─── Orders ───────────────────────────────────────────────────────────────────
 
-// POST /api/payments/orders  — customer only
-// Creates a Razorpay order and persists it; no payment record is created here
-// because the payment doesn't exist until the customer completes checkout.
-async function createOrder(req, res) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+// ─── Orders (read) ───────────────────────────────────────────────────────────
 
-  const { amount, currency = 'USD', description } = req.body;
-
-  const receipt = `rcpt_${req.user.id}_${Date.now()}`;
-  const rzOrder = await razorpay.orders.create({ amount, currency, receipt });
-
-  const order = await Order.create({
-    user_id: req.user.id,
-    razorpay_order_id: rzOrder.id,
-    amount,
-    currency,
-    receipt,
-    description,
-  });
-
-  return res.status(201).json({
-    message: 'Order created. Use razorpay_order_id to open the Razorpay checkout.',
-    order,
-    razorpay_order_id: rzOrder.id,
-    razorpay_key_id: process.env.RAZORPAY_KEY_ID,
-  });
-}
-
-// GET /api/payments/orders  — customer sees own; admin sees all
+// GET /api/payments/orders  — caller sees own; admin sees all
 async function listOrders(req, res) {
   const { rows, total } =
     req.user.role === 'admin'
@@ -126,61 +75,6 @@ async function getOrder(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   return res.json(order);
-}
-
-// ─── Payment verification ─────────────────────────────────────────────────────
-
-// POST /api/payments/verify  — customer: confirm payment after checkout
-async function verifyPayment(req, res) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
-
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-
-  // Guard: already verified (e.g. browser retry without idempotency key)
-  const existing = await Payment.findByPaymentId(razorpay_payment_id);
-  if (existing) {
-    return res.json({ message: 'Payment already verified', payment: existing });
-  }
-
-  const order = await Order.findByRazorpayId(razorpay_order_id);
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-
-  const expectedSig = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-    .digest('hex');
-
-  if (expectedSig !== razorpay_signature) {
-    await Order.updateStatus(razorpay_order_id, 'attempted');
-    return res.status(400).json({ error: 'Payment signature verification failed' });
-  }
-
-  const rzPayment = await razorpay.payments.fetch(razorpay_payment_id);
-
-  // Payment record is created only on successful verification so the payments
-  // table contains only real, captured transactions.
-  await Payment.create({
-    user_id: order.user_id,
-    order_id: order.id,
-    subscription_id: order.subscription_id,
-    razorpay_order_id,
-    amount: order.amount,
-    currency: order.currency,
-  });
-  const payment = await Payment.capture(razorpay_order_id, razorpay_payment_id, rzPayment.method);
-  await Order.updateStatus(razorpay_order_id, 'paid');
-
-  return res.json({ message: 'Payment verified and captured', payment });
-}
-
-// GET /api/payments/history  — customer sees own; admin sees all
-async function paymentHistory(req, res) {
-  const { rows, total } =
-    req.user.role === 'admin'
-      ? await Payment.findAll(req.pagination)
-      : await Payment.findByUser(req.user.id, req.pagination);
-  return res.json(paginated(rows, total, req.pagination));
 }
 
 // ─── Webhook ──────────────────────────────────────────────────────────────────
@@ -226,9 +120,18 @@ async function webhook(req, res) {
     case 'subscription.activated':
     case 'subscription.authenticated': {
       const sub = payload.subscription.entity;
+      const currentEnd = sub.current_end ? new Date(sub.current_end * 1000) : null;
+
       await Subscription.updateStatus(sub.id, sub.status, {
         current_start: sub.current_start ? new Date(sub.current_start * 1000) : null,
-        current_end:   sub.current_end   ? new Date(sub.current_end   * 1000) : null,
+        current_end:   currentEnd,
+      });
+
+      // Fan out to the fulfilment record. Before consolidation nothing ever
+      // updated vm_expansion_requests.subscription_status after activation.
+      await syncFulfilmentForSubscription(sub.id, {
+        status: sub.status,
+        nextChargeAt: currentEnd,
       });
       break;
     }
@@ -236,12 +139,17 @@ async function webhook(req, res) {
     case 'subscription.charged': {
       const sub = payload.subscription.entity;
       const pmt = payload.payment.entity;
+      const currentEnd = sub.current_end ? new Date(sub.current_end * 1000) : null;
 
       await Subscription.updateStatus(sub.id, 'active', {
         current_start: sub.current_start ? new Date(sub.current_start * 1000) : null,
-        current_end:   sub.current_end   ? new Date(sub.current_end   * 1000) : null,
+        current_end:   currentEnd,
         paid_count:    sub.paid_count,
       });
+
+      // Keeps the fulfilment record's status and next_charge_at current.
+      // `next_charge_at` previously had no writer at all.
+      await syncFulfilmentForSubscription(sub.id, { status: 'active', nextChargeAt: currentEnd });
 
       const dbSub = await Subscription.findByRazorpayId(sub.id);
       if (dbSub) {
@@ -273,6 +181,23 @@ async function webhook(req, res) {
           });
         }
         await Payment.capture(pmt.order_id, pmt.id, pmt.method);
+
+        // Each billing cycle gets its own invoice. Keyed on the payment id, so
+        // Razorpay's webhook retries can't produce duplicates.
+        await issueInvoiceForPayment({
+          userId  : dbSub.user_id,
+          currency: pmt.currency,
+          lines   : [{
+            description     : 'Monthly subscription billing cycle',
+            quantity        : 1,
+            unit_price_minor: Number(pmt.amount),
+          }],
+          payment: {
+            razorpay_order_id       : pmt.order_id,
+            razorpay_payment_id     : pmt.id,
+            razorpay_subscription_id: sub.id,
+          },
+        });
       }
       break;
     }
@@ -283,12 +208,16 @@ async function webhook(req, res) {
     case 'subscription.expired': {
       const sub = payload.subscription.entity;
       await Subscription.updateStatus(sub.id, sub.status);
+
+      // The reason a customer whose card failed on renewal used to keep
+      // reading 'active' in Rachbase indefinitely.
+      await syncFulfilmentForSubscription(sub.id, { status: sub.status });
       break;
     }
 
     case 'payment.failed': {
       const pmt = payload.payment.entity;
-      // Mark the parent order as attempted (payment was tried but failed).
+      // `paid` is terminal — Order.updateStatus refuses to regress a paid order.
       await Order.updateStatus(pmt.order_id, 'attempted');
       // If a payment row already exists (e.g. from a subscription cycle), mark it failed too.
       await Payment.fail(pmt.order_id);
@@ -302,15 +231,26 @@ async function webhook(req, res) {
   return res.json({ received: true });
 }
 
+// ─── Payment history ──────────────────────────────────────────────────────────
+
+// GET /api/payments/history  — caller sees own; admin sees all
+async function paymentHistory(req, res) {
+  const { rows, total } =
+    req.user.role === 'admin'
+      ? await Payment.findAll(req.pagination)
+      : await Payment.findByUser(req.user.id, req.pagination);
+  return res.json(paginated(rows, total, req.pagination));
+}
+
+// `subscribe`, `createOrder` and `verifyPayment` were removed here — they were
+// a second implementation of purchasing that nothing called. Money now moves
+// through services/purchase.js. See routes/payments.js for the full rationale.
 module.exports = {
-  subscribe:          asyncHandler(subscribe),
   listSubscriptions:  asyncHandler(listSubscriptions),
   getSubscription:    asyncHandler(getSubscription),
   cancelSubscription: asyncHandler(cancelSubscription),
-  createOrder:        asyncHandler(createOrder),
   listOrders:         asyncHandler(listOrders),
   getOrder:           asyncHandler(getOrder),
-  verifyPayment:      asyncHandler(verifyPayment),
   paymentHistory:     asyncHandler(paymentHistory),
   webhook:            asyncHandler(webhook),
 };

@@ -17,6 +17,30 @@ const asyncHandler = require('@rach/core').asyncHandler;
 const BCRYPT_COST        = parseInt(process.env.BCRYPT_COST, 10) || 12;
 const MAX_RESENDS        = 5;
 const RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds between resends
+const MAX_OTP_ATTEMPTS   = 5;         // wrong guesses before the code is burned
+
+// ── Token lifetimes ───────────────────────────────────────────────────────────
+// Single source of truth. Previously the access-token TTL was declared in three
+// places (15m default here, 8h hardcoded in oauth.js, 8h assumed by the web
+// AuthContext's 7h refresh interval), so password sessions died after 15 minutes
+// with nothing scheduled to renew them.
+const ACCESS_TOKEN_TTL  = process.env.JWT_ACCESS_EXPIRES_IN  || '30m';
+const REFRESH_TOKEN_TTL = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
+
+// Refresh cookie is scoped to the auth endpoints only.
+// sameSite must be 'lax', not 'strict': the OAuth provider redirects the user
+// back via a cross-site top-level navigation, and 'strict' withholds the cookie
+// on exactly that request.
+const REFRESH_COOKIE_PATH = '/api/auth';
+function refreshCookieOptions(expires) {
+  return {
+    httpOnly: true,
+    secure  : process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires,
+    path    : REFRESH_COOKIE_PATH,
+  };
+}
 
 // Pre-computed bcrypt hash of an unguessable string. Used as a dummy comparison
 // target so login response time doesn't reveal whether an email exists.
@@ -33,6 +57,42 @@ function otpExpiry() {
 
 function otpEmailExpiry() {
   return new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+// SHA-256, matching how refresh tokens are stored. Reset tokens used to sit in
+// the database in plaintext, so a read-only leak handed over every in-flight
+// password reset.
+function hashToken(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
+
+// Length-independent constant-time comparison for secrets that arrive as
+// user input (OTPs, reset tokens).
+function safeEqual(a, b) {
+  const ba = Buffer.from(hashToken(a), 'hex');
+  const bb = Buffer.from(hashToken(b), 'hex');
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+// The public shape of a user. Never leak password_hash or reset-token columns.
+function publicUser(u) {
+  if (!u) return null;
+  return {
+    id            : u.id,
+    name          : u.name,
+    email         : u.email,
+    phone_number  : u.phone_number,
+    address       : u.address,
+    role          : u.role,
+    tenant_id     : u.tenant_id     ?? null,
+    tenant_name   : u.tenant_name   ?? null,
+    email_verified: u.email_verified ?? false,
+    phone_verified: u.phone_verified ?? false,
+  };
 }
 
 
@@ -52,12 +112,12 @@ async function issueTokens(user, res, familyId = null) {
   const accessToken = jwt.sign(
     { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id ?? null },
     process.env.JWT_ACCESS_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
+    { expiresIn: ACCESS_TOKEN_TTL }
   );
 
-  const refreshTtlMs = ms(process.env.JWT_REFRESH_EXPIRES_IN || '30d');
+  const refreshTtlMs = ms(REFRESH_TOKEN_TTL);
   if (typeof refreshTtlMs !== 'number') {
-    throw new Error(`Invalid JWT_REFRESH_EXPIRES_IN: ${process.env.JWT_REFRESH_EXPIRES_IN}`);
+    throw new Error(`Invalid JWT_REFRESH_EXPIRES_IN: ${REFRESH_TOKEN_TTL}`);
   }
   const plainRefresh = crypto.randomBytes(40).toString('hex');
   const refreshExpiresAt = new Date(Date.now() + refreshTtlMs);
@@ -69,15 +129,16 @@ async function issueTokens(user, res, familyId = null) {
   }
 
   // Set refresh token as HttpOnly cookie — JS cannot read it
-  res.cookie('refresh_token', plainRefresh, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    expires: refreshExpiresAt,
-    path: '/api/auth',   // only sent to auth endpoints
-  });
+  res.cookie('refresh_token', plainRefresh, refreshCookieOptions(refreshExpiresAt));
 
   return accessToken;
+}
+
+// Seconds until the access token expires — lets the client schedule a silent
+// refresh instead of guessing the lifetime.
+function accessTokenExpiresIn() {
+  const msValue = ms(ACCESS_TOKEN_TTL);
+  return typeof msValue === 'number' ? Math.floor(msValue / 1000) : 1800;
 }
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -89,7 +150,8 @@ async function register(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
 
-  const { name, email, password, phone_number, address, role = 'tenant_user' } = req.body;
+  const { name, password, phone_number, address, role = 'tenant_user' } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   // System admin and tenant_admin roles cannot be self-registered
   if (!ROLES.includes(role) || role === 'admin' || role === 'tenant_admin') {
@@ -124,6 +186,7 @@ async function register(req, res) {
         resend_count, last_resent_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW())
      ON CONFLICT (email) DO UPDATE SET
+       attempt_count = 0,
        name          = EXCLUDED.name,
        password_hash = EXCLUDED.password_hash,
        phone_number  = EXCLUDED.phone_number,
@@ -171,7 +234,12 @@ async function verifyPhone(req, res) {
 
   const access_token = await issueTokens(user, res);
 
-  return res.json({ message: 'Phone verified successfully', access_token, user });
+  return res.json({
+    message: 'Phone verified successfully',
+    access_token,
+    expires_in: accessTokenExpiresIn(),
+    user: publicUser(user),
+  });
 }
 
 // POST /api/auth/resend-otp
@@ -182,21 +250,35 @@ async function resendOtp(req, res) {
   const { user_id } = req.body;
 
   const user = await User.findById(user_id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.phone_verified) return res.status(400).json({ error: 'Phone is already verified' });
+
+  // Respond identically whether or not the id resolves. The previous
+  // 404 "User not found" / 400 "already verified" split let anyone walk the
+  // sequential id space and learn which accounts exist and their verification
+  // state.
+  const GENERIC = { message: 'If that account needs verification, a new code has been sent.' };
+
+  if (!user || user.phone_verified || !user.phone_number) return res.json(GENERIC);
 
   const code = generateOtp();
   await VerificationCode.create(user.id, code, otpExpiry());
-  await sendOtp(user.phone_number, code);
+  try {
+    await sendOtp(user.phone_number, code);
+  } catch (e) {
+    console.error('[resendOtp] Failed to send SMS:', e.message);
+  }
 
-  return res.json({ message: 'Verification code resent' });
+  return res.json(GENERIC);
 }
 
 // POST /api/auth/verify-email  { pending_id, code }
 // Validates OTP → creates the real user row → deletes the pending record → issues tokens.
 async function verifyEmail(req, res) {
+  // The route declares express-validator rules; without this call they were
+  // declared and never enforced.
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
   const { pending_id, code } = req.body;
-  if (!pending_id || !code) return res.status(400).json({ error: 'pending_id and code are required' });
 
   const { rows: pendingRows } = await pool.query(
     'SELECT * FROM pending_registrations WHERE id = $1',
@@ -207,11 +289,34 @@ async function verifyEmail(req, res) {
   if (!pending) {
     return res.status(404).json({ error: 'Verification request not found or already completed' });
   }
-  if (pending.otp_token !== String(code)) {
-    return res.status(400).json({ error: 'Invalid verification code' });
-  }
+
+  // Expiry is checked before the code so an expired code reports as expired
+  // rather than as wrong, and doesn't burn an attempt.
   if (new Date(pending.otp_expires_at) <= new Date()) {
     return res.status(400).json({ error: 'Code has expired. Request a new one.' });
+  }
+
+  if (pending.attempt_count >= MAX_OTP_ATTEMPTS) {
+    return res.status(429).json({
+      error  : 'Too many incorrect codes',
+      message: 'This code has been locked. Request a new one to continue.',
+      locked : true,
+    });
+  }
+
+  if (!pending.otp_token || !safeEqual(pending.otp_token, String(code))) {
+    const { rows: bumped } = await pool.query(
+      `UPDATE pending_registrations SET attempt_count = attempt_count + 1
+        WHERE id = $1 RETURNING attempt_count`,
+      [pending_id]
+    );
+    const used = bumped[0]?.attempt_count ?? 0;
+    const left = Math.max(0, MAX_OTP_ATTEMPTS - used);
+    return res.status(400).json({
+      error           : 'Invalid verification code',
+      attempts_left   : left,
+      ...(left === 0 ? { locked: true, message: 'Too many incorrect codes. Request a new one.' } : {}),
+    });
   }
 
   // Re-check for conflicts in case someone else registered the same email/phone
@@ -260,16 +365,8 @@ async function verifyEmail(req, res) {
   return res.json({
     message: 'Email verified. Your account is ready.',
     access_token,
-    user: {
-      id         : freshUser.id,
-      name       : freshUser.name,
-      email      : freshUser.email,
-      phone_number: freshUser.phone_number,
-      address    : freshUser.address,
-      role       : freshUser.role,
-      tenant_id  : freshUser.tenant_id  ?? null,
-      tenant_name: freshUser.tenant_name ?? null,
-    },
+    expires_in: accessTokenExpiresIn(),
+    user: publicUser(freshUser),
   });
 }
 
@@ -313,7 +410,8 @@ async function resendVerification(req, res) {
   await pool.query(
     `UPDATE pending_registrations
      SET otp_token = $1, otp_expires_at = $2,
-         resend_count = resend_count + 1, last_resent_at = NOW()
+         resend_count = resend_count + 1, last_resent_at = NOW(),
+         attempt_count = 0
      WHERE id = $3`,
     [otp, expires, pending_id]
   );
@@ -338,25 +436,38 @@ async function login(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
 
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   const user = await User.findByEmail(email);
   // Always run bcrypt to keep response time uniform whether the email exists or not.
-  const match = await bcrypt.compare(password, user ? user.password : DUMMY_BCRYPT_HASH);
+  const match = await bcrypt.compare(password, user?.password_hash || DUMMY_BCRYPT_HASH);
 
   if (!user) {
-    // Check whether this email has a pending (unverified) registration
+    // This email may belong to a signup that was started but never verified.
+    // Previously both branches returned an identical body and never included
+    // pending_id, so the client's "resume verification" path was unreachable
+    // and the user was told no account existed while their pending row sat in
+    // the table blocking re-registration.
     const { rows: pending } = await pool.query(
-      'SELECT id FROM pending_registrations WHERE email = $1',
+      'SELECT id, otp_expires_at, resend_count FROM pending_registrations WHERE email = $1',
       [email]
     );
+
     if (pending.length) {
-      return res.status(404).json({
-        error      : 'Account not found',
-        message    : 'No account exists with this email address. Please create an account to get started.',
-        no_account : true,
+      return res.status(403).json({
+        error     : 'Email not verified',
+        message   : 'You started signing up but never confirmed your email. Enter the code we sent you to finish.',
+        pending_id: pending[0].id,
+        expires_at: pending[0].otp_expires_at,
+        resends_remaining: Math.max(0, MAX_RESENDS - (pending[0].resend_count || 0)),
       });
     }
+
+    // NOTE: this response deliberately confirms that no account exists for the
+    // address, which is a user-enumeration oracle. It is a product decision —
+    // see docs/AUTHENTICATION.md § "Account enumeration". If that tradeoff is
+    // ever revisited, return the same 401 as the bad-password branch below.
     return res.status(404).json({
       error      : 'Account not found',
       message    : 'No account exists with this email address. Please create an account to get started.',
@@ -365,6 +476,11 @@ async function login(req, res) {
   }
 
   if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+
+  // Accounts created through OAuth have no password of their own.
+  if (!user.password_hash) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
 
   if (!user.phone_verified) {
     // Only attempt OTP if the user actually has a phone number
@@ -386,16 +502,8 @@ async function login(req, res) {
 
   return res.json({
     access_token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone_number: user.phone_number,
-      address: user.address,
-      role: user.role,
-      tenant_id: user.tenant_id ?? null,
-      tenant_name: user.tenant_name ?? null,
-    },
+    expires_in: accessTokenExpiresIn(),
+    user: publicUser(user),
   });
 }
 
@@ -411,17 +519,21 @@ async function refresh(req, res) {
 
   const stored = await RefreshToken.findByToken(plainRefresh);
   if (!stored) {
+    res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
     return res.status(401).json({ error: 'Refresh token invalid' });
   }
 
   // Replay of an already-rotated (revoked) token → kill the whole family.
   if (stored.revoked) {
     await RefreshToken.revokeFamily(stored.family_id);
-    res.clearCookie('refresh_token', { path: '/api/auth' });
+    res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
     return res.status(401).json({ error: 'Refresh token reuse detected; session terminated' });
   }
 
   if (new Date(stored.expires_at) <= new Date()) {
+    // Without clearing, the browser keeps replaying a dead cookie on every
+    // page load and the client retries forever.
+    res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
     return res.status(401).json({ error: 'Refresh token expired' });
   }
 
@@ -429,11 +541,20 @@ async function refresh(req, res) {
   await RefreshToken.revoke(plainRefresh);
 
   const user = await User.findById(stored.user_id);
-  if (!user) return res.status(401).json({ error: 'User not found' });
+  if (!user) {
+    res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
+    return res.status(401).json({ error: 'User not found' });
+  }
 
   const access_token = await issueTokens(user, res, stored.family_id);
 
-  return res.json({ access_token });
+  // `user` is returned so a freshly-redirected OAuth client can hydrate its
+  // session from the cookie alone — no token or profile in the callback URL.
+  return res.json({
+    access_token,
+    expires_in: accessTokenExpiresIn(),
+    user: publicUser(user),
+  });
 }
 
 // POST /api/auth/logout
@@ -442,14 +563,14 @@ async function logout(req, res) {
   if (plainRefresh) {
     await RefreshToken.revoke(plainRefresh);
   }
-  res.clearCookie('refresh_token', { path: '/api/auth' });
+  res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
   return res.json({ message: 'Logged out successfully' });
 }
 
 // POST /api/auth/logout-all  — revokes every session for this user
 async function logoutAll(req, res) {
   await RefreshToken.revokeAll(req.user.id);
-  res.clearCookie('refresh_token', { path: '/api/auth' });
+  res.clearCookie('refresh_token', { path: REFRESH_COOKIE_PATH });
   return res.json({ message: 'Logged out from all devices' });
 }
 
@@ -459,22 +580,28 @@ async function forgotPassword(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(422).json({ error: errors.array()[0].msg });
 
-  const { email } = req.body;
-  const user = await User.findByEmail(email.toLowerCase().trim());
+  const user = await User.findByEmail(normalizeEmail(req.body.email));
 
   if (user && user.email_verified) {
     const token   = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
+    // Only the hash is persisted; the plaintext exists solely inside the email.
     await pool.query(
       `UPDATE users
          SET password_reset_token = $1, password_reset_expires_at = $2
        WHERE id = $3`,
-      [token, expires, user.id]
+      [hashToken(token), expires, user.id]
     );
 
-    const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-    const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+    // Same normalization as oauth.js: a schemeless APP_URL produces a reset
+    // link the user's mail client cannot resolve.
+    let appUrl = (process.env.APP_URL || 'http://localhost:3002').trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(appUrl)) {
+      console.warn(`[forgotPassword] APP_URL has no scheme ("${appUrl}") — assuming https://`);
+      appUrl = `https://${appUrl}`;
+    }
+    const resetUrl = `${appUrl}/reset-password?token=${token}`;
     await sendPasswordResetEmail({ toEmail: user.email, toName: user.name, resetUrl });
   }
 
@@ -493,7 +620,7 @@ async function resetPassword(req, res) {
     `SELECT id, name, email FROM users
       WHERE password_reset_token = $1
         AND password_reset_expires_at > NOW()`,
-    [token]
+    [hashToken(token)]
   );
 
   if (!rows.length) {
@@ -530,4 +657,11 @@ module.exports = {
   logoutAll:           asyncHandler(logoutAll),
   forgotPassword:      asyncHandler(forgotPassword),
   resetPassword:       asyncHandler(resetPassword),
+
+  // Shared with the OAuth router so both paths issue identical sessions.
+  issueTokens,
+  accessTokenExpiresIn,
+  publicUser,
+  normalizeEmail,
+  hashToken,
 };

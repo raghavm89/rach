@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { expansion, CustomOrderItem } from '@rach/ui/lib/api';
+import { expansion, invoices as invoicesApi, CustomOrderItem, type TaxQuote } from '@rach/ui/lib/api';
+import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
+import { TaxSummary } from '@rach/ui/components/billing/TaxSummary';
 import { cn } from '@rach/ui/lib/utils';
 
 // ── Razorpay ──────────────────────────────────────────────────────────────────
@@ -32,23 +34,45 @@ function loadRazorpay(): Promise<boolean> {
 
 // ── Catalog (mirrors billing/page.tsx) ────────────────────────────────────────
 
-type ServiceId = 'vm' | 'disk' | 'lb' | 'ip' | 'db' | 'obs' | 'mon';
+type ServiceId = string;
 
-const SERVICES: { id: ServiceId; name: string; specs: string; price: number; unit: string; Icon: React.ElementType; iconBg: string; iconColor: string }[] = [
-  { id: 'vm',   name: 'Virtual Machine',                  specs: '2 vCPUs · 8 GB RAM · 50 GB SSD',                    price: 100,  unit: 'per VM / mo',       Icon: Server,   iconBg: 'bg-blue-50',   iconColor: 'text-primary-blue'  },
-  { id: 'disk', name: 'Additional Disk',                  specs: 'Expandable block storage',                           price: 0.15, unit: 'per GB / mo',       Icon: HardDrive,iconBg: 'bg-blue-50',   iconColor: 'text-primary-blue'  },
-  { id: 'lb',   name: 'Load Balancer',                    specs: 'Layer 4 / Layer 7 traffic distribution',             price:  25,  unit: 'per LB / mo',       Icon: Globe,    iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
-  { id: 'ip',   name: 'Additional Public IP',             specs: 'Static IPv4 address',                                price:  10,  unit: 'per IP / mo',       Icon: Globe,    iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
-  { id: 'db',   name: 'Managed PostgreSQL',               specs: 'WAL archival · daily backups · point-in-time recovery', price: 200, unit: 'per DB / mo',    Icon: Database, iconBg: 'bg-violet-50',  iconColor: 'text-violet-600'  },
-  { id: 'obs',  name: 'VM Resource Observability',        specs: '24/7 real-time CPU, RAM, disk & network metrics',    price:  25,  unit: 'per VM / mo',       Icon: BarChart2,iconBg: 'bg-amber-50',  iconColor: 'text-amber-600'   },
-  { id: 'mon',  name: 'Application Workload Monitoring',  specs: '24/7 endpoint observability & alerting',             price:  25,  unit: 'per endpoint / mo', Icon: Activity, iconBg: 'bg-amber-50',  iconColor: 'text-amber-600'   },
-];
+/**
+ * Catalog comes from the shared module, which reads the same catalog.json the
+ * server prices from. Prices below are DISPLAY ONLY — the server re-prices the
+ * cart from `bundle_id` / `items` and ignores any total this page computes.
+ */
+const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; iconColor: string }> = {
+  vm:   { Icon: Server,    iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  svc:  { Icon: Server,    iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  disk: { Icon: HardDrive, iconBg: 'bg-blue-50',    iconColor: 'text-primary-blue' },
+  lb:   { Icon: Globe,     iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+  ip:   { Icon: Globe,     iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
+  db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
+  obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+};
 
-const BUNDLES: { id: string; name: string; price: number; originalPrice: number; items: Partial<Record<ServiceId, number>> }[] = [
-  { id: 'starter', name: 'Starter Bundle', price:  295, originalPrice:  325, items: { vm: 1, lb: 1, db: 1 } },
-  { id: 'growth',  name: 'Growth Bundle',  price:  800, originalPrice:  880, items: { vm: 3, lb: 1, db: 2, ip: 3, obs: 3 } },
-  { id: 'scale',   name: 'Scale Bundle',   price: 1270, originalPrice: 1400, items: { vm: 5, lb: 1, db: 3, ip: 5, obs: 5 } },
-];
+const SERVICES = CATALOG_SERVICES.map((s) => ({
+  id: s.id as ServiceId,
+  name: s.name,
+  specs: s.specs,
+  /** Dollars, for display. Cents are authoritative — see `priceCents`. */
+  price: s.unit_price_cents / 100,
+  priceCents: s.unit_price_cents,
+  unit: s.unit,
+  ...(SERVICE_ICONS[s.id] ?? { Icon: Server, iconBg: 'bg-blue-50', iconColor: 'text-primary-blue' }),
+}));
+
+const BUNDLES = CATALOG_BUNDLES.map((b) => ({
+  id: b.id,
+  name: b.name,
+  price: b.price_cents / 100,
+  priceCents: b.price_cents,
+  /** Derived from contents, not stored — see packages/ui/src/lib/catalog.ts */
+  originalPrice: b.listPriceCents / 100,
+  saving: b.savingCents / 100,
+  items: b.items as Partial<Record<ServiceId, number>>,
+}));
 
 // Returns start date (today) and the next recurring charge date (same day next month)
 // displayed in IST context — Razorpay fires at 12:00 AM IST each cycle.
@@ -78,14 +102,19 @@ interface Cart {
   lines: CartLine[];
   items: CustomOrderItem[];
   description: string;
+  /** Display only — the server prices the order from `bundleId` / `items`. */
   totalDollars: number;
   totalCents: number;
+  /** Present for a bundle: the server re-derives the price from this id. */
+  bundleId?: string;
   originalDollars?: number;   // retail total before bundle discount
   saving?: number;            // amount saved
 }
 
 function buildCart(params: URLSearchParams): Cart | null {
-  const planId = params.get('plan');
+  // `?bundle=` is what the pricing page links with; `?plan=` is the older
+  // dashboard link. Accept both.
+  const planId = params.get('bundle') ?? params.get('plan');
 
   if (planId) {
     const bundle = BUNDLES.find((b) => b.id === planId);
@@ -106,10 +135,11 @@ function buildCart(params: URLSearchParams): Cart | null {
       lines,
       items,
       description: bundle.name,
+      bundleId: bundle.id,
       totalDollars: bundle.price,
-      totalCents: bundle.price * 100,
+      totalCents: bundle.priceCents,
       originalDollars: bundle.originalPrice,
-      saving: bundle.originalPrice - bundle.price,
+      saving: bundle.saving,
     };
   }
 
@@ -124,9 +154,17 @@ function buildCart(params: URLSearchParams): Cart | null {
     }
   }
   if (!lines.length) return null;
-  const totalDollars = lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
+
+  // Sum in integer cents. Summing dollars and multiplying by 100 produced
+  // non-integer amounts (7 GB of disk at $0.15 → 104.99999999999999 cents),
+  // which then went to Razorpay as an order amount.
+  const totalCents = SERVICES.reduce((sum, svc) => {
+    const qty = parseInt(params.get(svc.id) ?? '0', 10);
+    return qty > 0 ? sum + svc.priceCents * qty : sum;
+  }, 0);
+
   const description = lines.map((l) => `${l.qty}× ${l.label}`).join(', ');
-  return { lines, items, description, totalDollars, totalCents: totalDollars * 100 };
+  return { lines, items, description, totalDollars: totalCents / 100, totalCents };
 }
 
 // ── Dial codes ────────────────────────────────────────────────────────────────
@@ -408,6 +446,56 @@ function CheckoutInner() {
     if (!cart) router.replace('/dashboard/billing');
   }, [cart, router]);
 
+  // ── Server-side tax quote ───────────────────────────────────────────────────
+  // The client never computes tax. We send the priced lines and the billing
+  // address; the server decides the treatment (GST intra/inter-state, zero-rated
+  // export, US sales tax where registered) and returns the authoritative total.
+  const [taxQuote, setTaxQuote] = useState<TaxQuote | null>(null);
+  const [taxLoading, setTaxLoading] = useState(false);
+
+  const cartKey = cart ? `${cart.description}|${cart.totalCents}` : '';
+
+  useEffect(() => {
+    if (!token || !cart || step !== 'review') return;
+
+    let cancelled = false;
+    setTaxLoading(true);
+
+    (async () => {
+      try {
+        const quote = await invoicesApi.quote(token, {
+          currency: 'USD',
+          lines: cart.lines.map((l) => ({
+            description: l.label,
+            quantity: l.qty,
+            // buildCart works in dollars for display; convert once, here, using
+            // a string round-trip so 0.15 doesn't become 15.000000000000002.
+            unit_price_minor: Math.round(Number(l.unitPrice.toFixed(2)) * 100),
+          })),
+          billing: {
+            country: billing.country,
+            state:   billing.state,
+            city:    billing.city,
+            pincode: billing.pincode,
+            gstin:   billing.gstin,
+            name:    billing.name,
+            email:   billing.email,
+            phone:   billing.phone,
+          },
+        });
+        if (!cancelled) setTaxQuote(quote);
+      } catch {
+        // Non-fatal: checkout proceeds and the server recomputes tax at
+        // issuance anyway. We just can't preview it.
+        if (!cancelled) setTaxQuote(null);
+      } finally {
+        if (!cancelled) setTaxLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [token, cartKey, step, billing.country, billing.state, billing.city, billing.pincode, billing.gstin]);
+
   const handleSubscribe = useCallback(async () => {
     if (!token || !cart) return;
     setStep('processing');
@@ -415,11 +503,12 @@ function CheckoutInner() {
 
     try {
       // Step 1: create plan + subscription on backend
+      // Cart IDENTITY only — no prices. The server prices from the catalog and
+      // ignores any amount sent here, so a tampered total cannot change what
+      // Razorpay charges.
       const orderData = await expansion.createSubscription(token, {
+        bundle_id       : cart.bundleId,
         items           : cart.items,
-        description     : cart.description,
-        total_cents     : cart.totalCents,
-        currency        : 'USD',
         billing_country : billing.country,
       });
 
@@ -451,12 +540,11 @@ function CheckoutInner() {
         razorpay_payment_id     : payment.razorpay_payment_id,
         razorpay_signature      : payment.razorpay_signature,
         razorpay_plan_id        : orderData.plan_id ?? undefined,
+        // Cart identity again — the server re-prices rather than trusting
+        // amounts round-tripped through the browser.
+        bundle_id               : cart.bundleId,
         items                   : cart.items,
-        description             : cart.description,
-        total_cents             : cart.totalCents,
-        currency                : orderData.currency,
-        billing_currency        : orderData.billing_currency,
-        monthly_amount          : orderData.monthly_amount,
+        billing_country         : billing.country,
       });
 
       setStep('success');
@@ -842,14 +930,16 @@ function CheckoutInner() {
                   <span>−{usd(cart.saving)}</span>
                 </div>
               )}
-              <div className={cn('border-t border-neutral-border pt-2 flex justify-between items-center', cart.saving && 'border-dashed')}>
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Monthly</p>
-                  <p className="text-xs text-text-muted">Recurring · auto-renews</p>
-                </div>
-                <span className="font-bold text-lg font-mono text-text-primary">
-                  {usd(cart.totalDollars)}<span className="text-xs font-normal text-text-muted">/mo</span>
-                </span>
+
+              {/* Tax comes from the server, not from this component. */}
+              <div className={cn('border-t border-neutral-border pt-3', cart.saving && 'border-dashed')}>
+                <TaxSummary
+                  quote={taxQuote}
+                  loading={taxLoading}
+                  currency="USD"
+                  fallbackSubtotalMinor={cart.totalCents}
+                />
+                <p className="mt-2 text-xs text-text-muted">Recurring · auto-renews monthly</p>
               </div>
             </div>
 
