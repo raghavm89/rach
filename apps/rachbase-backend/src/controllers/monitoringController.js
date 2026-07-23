@@ -30,6 +30,45 @@ const { promInstant, promRange, safeFloat, verifyConnection } = require('../serv
 
 const VMID_RE = /^(qemu|lxc)\/\d+$/;
 
+/**
+ * Escape a value for safe interpolation inside a PromQL double-quoted label
+ * value. PromQL label values are Go double-quoted strings, so a backslash or
+ * quote in the value must be escaped or it breaks out of the selector.
+ *
+ * This is defence-in-depth: `vm_id`s are already format-validated on write, but
+ * `pve_pool` is free text and every value that reaches a selector goes through
+ * here so a stray quote can never alter query scope.
+ */
+function escapeLabelValue(v) {
+  return String(v)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/[\r\n]/g, '');
+}
+
+/**
+ * Keep only well-formed VM IDs. Defends the PromQL selectors even if a
+ * malformed id was somehow persisted (direct DB write, future code path, import).
+ */
+function sanitizeVmIds(ids) {
+  return ids.filter((id) => typeof id === 'string' && VMID_RE.test(id));
+}
+
+/**
+ * Build a vmIds scope from raw DB values, dropping anything malformed. Throws a
+ * 422 if nothing valid remains — critically, this never returns an empty scope,
+ * which would otherwise widen to "all VMs" in scopeSelector().
+ */
+function vmIdScope(rawIds, emptyMessage) {
+  const vmIds = sanitizeVmIds(rawIds);
+  if (vmIds.length === 0) {
+    const err = new Error(emptyMessage);
+    err.status = 422;
+    throw err;
+  }
+  return { vmIds };
+}
+
 // ---------------------------------------------------------------------------
 // Scope resolution
 // ---------------------------------------------------------------------------
@@ -54,7 +93,10 @@ async function resolveScope(req) {
       err.status = 422;
       throw err;
     }
-    return { vmIds: rows.map((r) => r.vm_id) };
+    return vmIdScope(
+      rows.map((r) => r.vm_id),
+      'No valid VMs are assigned to your account. Contact your administrator.'
+    );
   }
 
   // ── tenant_admin ───────────────────────────────────────────────────────────
@@ -81,7 +123,7 @@ async function resolveScope(req) {
       if (rows.length === 0) {
         const err = new Error(`User ${uid} has no VMs assigned`); err.status = 422; throw err;
       }
-      return { vmIds: rows.map((r) => r.vm_id) };
+      return vmIdScope(rows.map((r) => r.vm_id), `User ${uid} has no valid VMs assigned`);
     }
 
     // Full tenant scope: prefer pve_pool label, fall back to explicit IDs
@@ -106,7 +148,10 @@ async function resolveScope(req) {
       err.status = 422;
       throw err;
     }
-    return { vmIds: rows.map((r) => r.vm_id) };
+    return vmIdScope(
+      rows.map((r) => r.vm_id),
+      'No valid VMs have been assigned to your tenant yet.'
+    );
   }
 
   // ── admin: all VMs, optionally scoped to a specific user ──────────────────
@@ -123,7 +168,7 @@ async function resolveScope(req) {
     if (rows.length === 0) {
       const err = new Error(`User ${id} has no VMs assigned`); err.status = 422; throw err;
     }
-    return { vmIds: rows.map((r) => r.vm_id) };
+    return vmIdScope(rows.map((r) => r.vm_id), `User ${id} has no valid VMs assigned`);
   }
 
   return {}; // admin sees everything
@@ -141,7 +186,9 @@ async function resolveScope(req) {
  * empty scope →  (empty string)
  */
 function scopeSelector(scope) {
-  if (scope.pool)  return `pool="${scope.pool}"`;
+  if (scope.pool)  return `pool="${escapeLabelValue(scope.pool)}"`;
+  // vmIds are pre-sanitized in resolveScope (VMID_RE), so they contain no PromQL
+  // metacharacters — safe to join into the id=~ regex.
   if (scope.vmIds && scope.vmIds.length) return `id=~"${scope.vmIds.join('|')}"`;
   return '';
 }
@@ -331,7 +378,7 @@ async function getVM(req, res) {
     if (pvePool) {
       // Check VM is in this pool via Prometheus
       const check = await promInstant(
-        `pve_guest_info{id="${vmId}",pool="${pvePool}",template="0"}`
+        `pve_guest_info{id="${vmId}",pool="${escapeLabelValue(pvePool)}",template="0"}`
       );
       if (check.length === 0) return res.status(404).json({ error: 'VM not found' });
     } else {
@@ -416,7 +463,7 @@ async function getHistory(req, res) {
     const pvePool = tenantRows[0]?.pve_pool;
     if (pvePool) {
       const check = await promInstant(
-        `pve_guest_info{id="${vmId}",pool="${pvePool}",template="0"}`
+        `pve_guest_info{id="${vmId}",pool="${escapeLabelValue(pvePool)}",template="0"}`
       );
       if (check.length === 0) return res.status(404).json({ error: 'VM not found' });
     } else {

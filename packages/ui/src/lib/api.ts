@@ -439,6 +439,30 @@ export const monitoring = {
     apiFetch<{ snapshotTime: string; tenants: unknown[] }>('/api/monitoring/users', {}, token),
 };
 
+// ─── Cart (persistent, per-user billing cart) ─────────────────────────────────
+
+export interface CartItem {
+  id: string;   // catalog service id, or bundle id when kind === 'bundle'
+  qty: number;
+  kind?: 'service' | 'bundle';
+}
+
+export interface CartResponse {
+  items: CartItem[];
+  updatedAt: string | null;
+}
+
+export const cart = {
+  get: (token: string) =>
+    apiFetch<CartResponse>('/api/cart', {}, token),
+
+  save: (token: string, items: CartItem[]) =>
+    apiFetch<CartResponse>('/api/cart', { method: 'PUT', body: JSON.stringify({ items }) }, token),
+
+  clear: (token: string) =>
+    apiFetch<CartResponse>('/api/cart', { method: 'DELETE' }, token),
+};
+
 // ─── VM Expansion / Billing ───────────────────────────────────────────────────
 
 export interface VMPackage {

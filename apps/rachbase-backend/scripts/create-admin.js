@@ -14,7 +14,9 @@
 
 'use strict';
 
-require('dotenv').config();
+// Load .env from the backend root, not the caller's cwd — so the script works
+// regardless of which directory it's run from (e.g. scripts/).
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const readline = require('readline');
 const bcrypt   = require('bcryptjs');
@@ -147,7 +149,7 @@ async function main() {
     console.log(`${YELLOW}Creating admin user…${RESET}`);
     const { rows } = await client.query(
       `INSERT INTO users
-         (name, email, password, role, email_verified, phone_verified, created_at, updated_at)
+         (name, email, password_hash, role, email_verified, phone_verified, created_at, updated_at)
        VALUES ($1, $2, $3, 'admin', TRUE, TRUE, NOW(), NOW())
        RETURNING id, name, email, role`,
       [name, email, hashed]

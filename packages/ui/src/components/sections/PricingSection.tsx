@@ -6,9 +6,10 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
   Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Layers, Box,
+  FileText, LineChart,
 } from "lucide-react";
 import {
-  SERVICES, BUNDLES, USAGE_BASED, INCLUDED, FOOTNOTES, formatCents,
+  VISIBLE_SERVICES, BUNDLES, USAGE_BASED, INCLUDED, FOOTNOTES, formatCents,
 } from '../../lib/catalog';
 
 /**
@@ -32,6 +33,8 @@ const SERVICE_STYLE: Record<string, { icon: React.ElementType; bg: string; color
   db:   { icon: Database,  bg: "bg-violet-50",  color: "text-violet-600" },
   obs:  { icon: BarChart2, bg: "bg-amber-50",   color: "text-amber-600" },
   mon:  { icon: Activity,  bg: "bg-amber-50",   color: "text-amber-600" },
+  logs: { icon: FileText,  bg: "bg-slate-50",   color: "text-slate-500" },
+  analytics: { icon: LineChart, bg: "bg-emerald-50", color: "text-emerald-600" },
 };
 
 const USAGE_STYLE: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
@@ -39,7 +42,7 @@ const USAGE_STYLE: Record<string, { icon: React.ElementType; bg: string; color: 
   vm_snapshot: { icon: Copy,     bg: "bg-slate-50",  color: "text-slate-500" },
 };
 
-const coreServices = SERVICES.map((s) => {
+const coreServices = VISIBLE_SERVICES.map((s) => {
   const style = SERVICE_STYLE[s.id] ?? { icon: Box, bg: "bg-blue-50", color: "text-blue-600" };
   return {
     ...style,

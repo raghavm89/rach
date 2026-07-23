@@ -5,6 +5,24 @@ const asyncHandler = require('@rach/core').asyncHandler;
 
 const VMID_RE = /^(qemu|lxc)\/\d+$/;
 
+// Proxmox pool IDs are alphanumeric plus _ . - . Enforcing this on write keeps
+// the value safe to interpolate into PromQL selectors downstream (monitoring).
+const POOL_RE = /^[A-Za-z0-9_.-]+$/;
+
+/**
+ * Normalize + validate an optional pve_pool value from a request body.
+ * Returns { ok: true, value } (value is a trimmed string or null) or
+ * { ok: false, error }.
+ */
+function normalizePvePool(raw) {
+  const trimmed = raw?.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!POOL_RE.test(trimmed)) {
+    return { ok: false, error: 'Invalid pve_pool — only letters, digits, and _ . - are allowed.' };
+  }
+  return { ok: true, value: trimmed };
+}
+
 // ─── Tenant CRUD ───────────────────────────────────────────────────────────
 
 // GET /api/tenants
@@ -63,6 +81,8 @@ async function createTenant(req, res) {
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'name is required' });
   }
+  const poolCheck = normalizePvePool(pve_pool);
+  if (!poolCheck.ok) return res.status(400).json({ error: poolCheck.error });
   try {
     const { rows: cols } = await pool.query(
       `SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='pve_pool'`
@@ -71,7 +91,7 @@ async function createTenant(req, res) {
     const { rows } = hasPvePool
       ? await pool.query(
           `INSERT INTO tenants (name, pve_pool) VALUES ($1, $2) RETURNING *`,
-          [name.trim(), pve_pool?.trim() || null]
+          [name.trim(), poolCheck.value]
         )
       : await pool.query(
           `INSERT INTO tenants (name) VALUES ($1) RETURNING *`,
@@ -93,6 +113,8 @@ async function updateTenant(req, res) {
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'name is required' });
   }
+  const poolCheck = normalizePvePool(pve_pool);
+  if (!poolCheck.ok) return res.status(400).json({ error: poolCheck.error });
   try {
     const { rows: cols } = await pool.query(
       `SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='pve_pool'`
@@ -101,7 +123,7 @@ async function updateTenant(req, res) {
     const { rows } = hasPvePool
       ? await pool.query(
           `UPDATE tenants SET name = $1, pve_pool = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
-          [name.trim(), pve_pool?.trim() || null, id]
+          [name.trim(), poolCheck.value, id]
         )
       : await pool.query(
           `UPDATE tenants SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,

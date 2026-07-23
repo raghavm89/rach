@@ -18,9 +18,11 @@ import {
   X,
   Network,
   Coins,
-  FolderGit2,
+  ShoppingCart,
+  // FolderGit2,  // unused while Projects nav item is hidden
 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
+import { CartProvider, useCart } from '@rach/ui/contexts/CartContext';
 import { cn } from '@rach/ui/lib/utils';
 import { TerminalProvider, useTerminal } from '@/contexts/TerminalContext';
 import { ChatProvider, useChat } from '@/contexts/ChatContext';
@@ -37,7 +39,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',   href: '/dashboard',             icon: <LayoutDashboard size={18} /> },
-  { label: 'Projects',   href: '/dashboard/projects',    icon: <FolderGit2 size={18} /> },
+  // Projects hidden for now — dashboard projects feature not implemented yet.
+  // { label: 'Projects',   href: '/dashboard/projects',    icon: <FolderGit2 size={18} /> },
   { label: 'Monitoring', href: '/dashboard/monitoring',  icon: <Monitor size={18} />,   roles: ['admin'] },
   { label: 'VM Monitor', href: '/dashboard/vm-monitor',  icon: <Monitor size={18} />,   roles: ['tenant_admin'] },
   { label: 'My VMs',     href: '/dashboard/my-vms',      icon: <Monitor size={18} />,   roles: ['tenant_user', 'developer'] },
@@ -182,6 +185,9 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           <h1 className="text-sm font-medium text-text-muted flex-1">{currentLabel}</h1>
 
+          {/* Cart — visible to roles that can purchase */}
+          {(user.role === 'tenant_admin' || user.role === 'tenant_user') && <CartButton />}
+
           {/* Close button inside header when sidebar open on mobile */}
           {sidebarOpen && (
             <button
@@ -238,6 +244,24 @@ function PersistentTerminal() {
   );
 }
 
+function CartButton() {
+  const { count } = useCart();
+  return (
+    <Link
+      href="/dashboard/billing?tab=custom"
+      aria-label="Cart"
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-secondary transition-colors"
+    >
+      <ShoppingCart size={19} />
+      {count > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-blue px-1 text-[10px] font-bold text-white">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 export default function DashboardLayoutWithTerminal({
   children,
 }: {
@@ -246,7 +270,9 @@ export default function DashboardLayoutWithTerminal({
   return (
     <TerminalProvider>
       <ChatProvider>
-        <DashboardLayout>{children}</DashboardLayout>
+        <CartProvider>
+          <DashboardLayout>{children}</DashboardLayout>
+        </CartProvider>
       </ChatProvider>
     </TerminalProvider>
   );

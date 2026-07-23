@@ -7,7 +7,31 @@ const { priceCart, PricingError } = require('@rach/billing').catalog;
 const { verifyOrderPayment } = require('@rach/billing').paymentSecurity;
 const purchase = require('@rach/billing').purchase;
 const asyncHandler = require('@rach/core').asyncHandler;
-const { sendInvoiceEmail } = require('@rach/core').brevo;
+const { sendInvoiceEmail, sendOrderNotificationEmail } = require('@rach/core').brevo;
+
+/**
+ * Notify raghav@rachdev.com that an order completed. Fire-and-forget: never
+ * blocks or fails the order response. `order` is a vm_expansion_requests row
+ * (needs id, requested_by, requested_at, amount_paid, currency); `items` is a
+ * list of { name, qty }.
+ */
+async function notifyOrderPlaced(order, items) {
+  try {
+    const { rows } = await pool.query('SELECT name, email FROM users WHERE id = $1', [order.requested_by]);
+    const u = rows[0] || {};
+    await sendOrderNotificationEmail({
+      orderId      : order.id,
+      items,
+      customerName : u.name  || 'Customer',
+      customerEmail: u.email || '',
+      placedAt     : order.requested_at,
+      amount       : order.amount_paid,
+      currency     : order.currency,
+    });
+  } catch (e) {
+    console.error('[expansion] order notification email failed:', e.message);
+  }
+}
 
 /**
  * This controller owns FULFILMENT, not billing.
@@ -173,6 +197,10 @@ async function verifyExpansionPayment(req, res) {
       pkg.currency,
     ]
   );
+
+  // Notify admin the order completed (fire-and-forget)
+  const pkgLabel = pkg.vm_count ? `${pkg.name} (${pkg.vm_count} VMs)` : pkg.name;
+  notifyOrderPlaced(rows[0], [{ name: pkgLabel, qty: 1 }]);
 
   res.status(201).json({
     message : 'Resource expansion request submitted. Our team will assign your VMs shortly.',
@@ -429,6 +457,9 @@ async function verifyCustomPayment(req, res) {
     ]
   );
 
+  // Notify admin the order completed (fire-and-forget)
+  notifyOrderPlaced(rows[0], (items || []).map((i) => ({ name: i.name, qty: i.qty })));
+
   res.status(201).json({
     message: 'Resource expansion request submitted. Our team will provision your services shortly.',
     request: rows[0],
@@ -578,6 +609,9 @@ async function activateSubscription(req, res) {
   } catch (e) {
     console.error('[expansion] confirmation email failed:', e.message);
   }
+
+  // Notify admin the order completed (fire-and-forget)
+  notifyOrderPlaced(order, (priced.lines || []).map((l) => ({ name: l.name, qty: l.qty })));
 
   res.status(201).json({
     message: 'Subscription activated. Resources will be provisioned shortly.',

@@ -18,6 +18,11 @@ const https   = require('https');
 const http    = require('http');
 const { URL } = require('url');
 
+// Upstream call guards. A hung Grafana must not hold a Node request open
+// indefinitely, and a pathological response must not exhaust memory.
+const REQUEST_TIMEOUT_MS = Number(process.env.PROM_TIMEOUT_MS) || 15000;
+const MAX_RESPONSE_BYTES = Number(process.env.PROM_MAX_RESPONSE_BYTES) || 8 * 1024 * 1024; // 8 MB
+
 // ---------------------------------------------------------------------------
 // Internal HTTP helper
 // ---------------------------------------------------------------------------
@@ -31,20 +36,50 @@ function httpGet(urlStr, headers = {}) {
       port    : parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path    : parsed.pathname + parsed.search,
       headers,
+      timeout : REQUEST_TIMEOUT_MS,
     };
-    lib.get(options, (res) => {
-      let raw = '';
-      res.on('data', (chunk) => { raw += chunk; });
+    const req = lib.get(options, (res) => {
+      let raw  = '';
+      let size = 0;
+      let aborted = false;
+      res.on('data', (chunk) => {
+        if (aborted) return;
+        size += chunk.length;
+        if (size > MAX_RESPONSE_BYTES) {
+          aborted = true;
+          req.destroy();
+          const err = new Error('Monitoring backend returned an oversized response');
+          err.status = 502;
+          reject(err);
+          return;
+        }
+        raw += chunk;
+      });
       res.on('end', () => {
+        if (aborted) return;
         try {
           resolve({ status: res.statusCode, body: JSON.parse(raw) });
         } catch {
-          reject(new Error(
-            'Non-JSON response from Grafana/Prometheus (HTTP ' + res.statusCode + '): ' + raw.slice(0, 200)
-          ));
+          // Log the raw payload server-side; never echo it to the client (L3).
+          console.error('[prometheus] Non-JSON response (HTTP %s): %s', res.statusCode, raw.slice(0, 500));
+          const err = new Error('Monitoring backend returned an unexpected response');
+          err.status = 502;
+          reject(err);
         }
       });
-    }).on('error', reject);
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      const err = new Error('Monitoring backend timed out');
+      err.status = 504;
+      reject(err);
+    });
+    req.on('error', (e) => {
+      console.error('[prometheus] Request error:', e.message);
+      const err = new Error('Monitoring backend is unreachable');
+      err.status = 502;
+      reject(err);
+    });
   });
 }
 
@@ -94,7 +129,10 @@ function classifyError(status, body) {
     err.status = 503;
     return err;
   }
-  const err = new Error((body && (body.error || body.message)) || ('Grafana/Prometheus HTTP ' + status));
+  // Log the upstream detail server-side; return a generic message so internal
+  // query text / infra detail is not echoed to API clients (L3).
+  console.error('[prometheus] Upstream error HTTP %s: %s', status, (body && (body.error || body.message)) || '(no body)');
+  const err = new Error('Monitoring backend error');
   err.status = 502;
   return err;
 }
@@ -153,7 +191,9 @@ async function promInstant(expr) {
 
   if (status !== 200) throw classifyError(status, body);
   if (body.status !== 'success') {
-    const err = new Error(body.error || 'Prometheus returned non-success status');
+    // body.error typically contains the failing PromQL — log it, don't leak it.
+    console.error('[prometheus] Query non-success: %s', body.error || '(no error field)');
+    const err = new Error('Monitoring query failed');
     err.status = 502;
     throw err;
   }
@@ -179,7 +219,9 @@ async function promRange(expr, startMs, endMs, stepSeconds) {
 
   if (status !== 200) throw classifyError(status, body);
   if (body.status !== 'success') {
-    const err = new Error(body.error || 'Prometheus returned non-success status');
+    // body.error typically contains the failing PromQL — log it, don't leak it.
+    console.error('[prometheus] Query non-success: %s', body.error || '(no error field)');
+    const err = new Error('Monitoring query failed');
     err.status = 502;
     throw err;
   }

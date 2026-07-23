@@ -5,9 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Server, Database, Globe, HardDrive, BarChart2, Activity, Loader2, ShieldCheck,
   RefreshCw, CheckCircle2, Clock, AlertCircle, Lock, MapPin, Phone, ChevronRight, Pencil, Calendar,
+  FileText, LineChart,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
+import { useCart } from '@rach/ui/contexts/CartContext';
 import { expansion, invoices as invoicesApi, CustomOrderItem, type TaxQuote } from '@rach/ui/lib/api';
 import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
 import { TaxSummary } from '@rach/ui/components/billing/TaxSummary';
@@ -50,6 +52,8 @@ const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; i
   db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
   obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
   mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  logs: { Icon: FileText,  iconBg: 'bg-slate-50',   iconColor: 'text-slate-500' },
+  analytics: { Icon: LineChart, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
 };
 
 const SERVICES = CATALOG_SERVICES.map((s) => ({
@@ -359,6 +363,7 @@ type Step = 'billing' | 'review' | 'processing' | 'success' | 'error';
 
 function CheckoutInner() {
   const { user, token } = useAuth();
+  const { clear: clearCart } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -547,6 +552,8 @@ function CheckoutInner() {
         billing_country         : billing.country,
       });
 
+      // Order placed — empty the persistent cart so it doesn't linger.
+      clearCart();
       setStep('success');
     } catch (err) {
       const msg = (err as Error).message;
@@ -554,7 +561,7 @@ function CheckoutInner() {
       setErr(msg || 'Something went wrong. Please try again.');
       setStep('error');
     }
-  }, [token, cart, billing.email, billing.name, billing.phone, billing.country]);
+  }, [token, cart, billing.email, billing.name, billing.phone, billing.country, clearCart]);
 
   if (!cart) return null;
 

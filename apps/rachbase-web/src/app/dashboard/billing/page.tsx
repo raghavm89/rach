@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Server, Database, Globe, CheckCircle2, AlertCircle,
   ArrowLeft, ShieldCheck, Zap, History, Plus, Minus, Layers, Package,
   HardDrive, BarChart2, Activity, GitCompare, Users,
   Check, X as XIcon, CreditCard, Calendar, ChevronRight,
-  Clock, RefreshCw, Coins, Bot, Receipt,
+  Clock, RefreshCw, Coins, Bot, Receipt, FileText, LineChart,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
+import { useCart } from '@rach/ui/contexts/CartContext';
 import { expansion, ExpansionRequest, agent } from '@rach/ui/lib/api';
-import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
+import { VISIBLE_SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
 import { InvoiceList } from '@rach/ui/components/billing/InvoiceList';
 import { cn } from '@rach/ui/lib/utils';
 
@@ -54,6 +55,8 @@ const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; i
   db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
   obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
   mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  logs: { Icon: FileText,  iconBg: 'bg-slate-50',   iconColor: 'text-slate-500' },
+  analytics: { Icon: LineChart, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
 };
 
 /**
@@ -404,10 +407,53 @@ export default function BillingPage() {
 
   const [tab, setTab]                       = useState<Tab>(() => {
     const t = searchParams.get('tab');
-    return (t === 'credits' || t === 'invoices') ? t : 'starter';
+    const valid: Tab[] = ['starter', 'custom', 'bundles', 'compare', 'credits', 'usage', 'invoices'];
+    return (valid as string[]).includes(t ?? '') ? (t as Tab) : 'starter';
   });
   const [quantities, setQuantities]         = useState<Record<ServiceId, number>>(EMPTY_QTY);
   const [selectedBundle, setSelectedBundle] = useState<BundleDef | null>(null);
+
+  // Persistent cart — restores the user's picked services (across devices) and
+  // keeps the order summary populated.
+  const { items: cartItems, setItems: setCartItems, loading: cartLoading } = useCart();
+  const cartSeeded = useRef(false);
+
+  // Seed the quantity controls + bundle selection from the saved cart once it
+  // has loaded.
+  useEffect(() => {
+    if (cartLoading || cartSeeded.current) return;
+    cartSeeded.current = true;
+    if (!cartItems.length) return;
+
+    const svcQty: Record<string, number> = {};
+    let bundleItem: (typeof cartItems)[number] | null = null;
+    for (const it of cartItems) {
+      if (it.kind === 'bundle') bundleItem = it;
+      else svcQty[it.id] = it.qty;
+    }
+
+    if (Object.keys(svcQty).length) setQuantities({ ...EMPTY_QTY, ...svcQty });
+    if (bundleItem) {
+      const b = BUNDLES.find((x) => x.id === bundleItem!.id);
+      if (b) {
+        setSelectedBundle(b);
+        // A bundle-only cart should land on the Bundles tab.
+        if (!Object.keys(svcQty).length) setTab('bundles');
+      }
+    }
+  }, [cartLoading, cartItems]);
+
+  // Mirror service quantities + bundle selection back into the cart
+  // (debounced-saved by the provider). Runs only after the initial seed so it
+  // can't wipe a still-loading cart.
+  useEffect(() => {
+    if (!cartSeeded.current) return;
+    const items = SERVICES
+      .filter((s) => quantities[s.id] > 0)
+      .map((s) => ({ id: s.id, qty: quantities[s.id], kind: 'service' as const }));
+    if (selectedBundle) items.push({ id: selectedBundle.id, qty: 1, kind: 'bundle' as const });
+    setCartItems(items);
+  }, [quantities, selectedBundle, setCartItems]);
 
   // Agent credits state
   const [selectedPack, setSelectedPack]     = useState<string | null>(searchParams.get('pack'));
@@ -487,46 +533,48 @@ export default function BillingPage() {
     }
   };
 
-  const adjustQty = (id: ServiceId, delta: number) =>
-    setQuantities((p) => ({ ...p, [id]: Math.max(0, p[id] + delta) }));
+  // Bundle and individual services are mutually exclusive — the server prices a
+  // bundle OR a set of services, not both in one subscription. Adding a service
+  // clears any selected bundle, and picking a bundle clears the service cart.
+  const adjustQty = (id: ServiceId, delta: number) => {
+    // `?? 0` guards against a service id that isn't in state yet (e.g. a newly
+    // added catalog item) — otherwise `undefined + delta` yields NaN.
+    setQuantities((p) => ({ ...p, [id]: Math.max(0, (p[id] ?? 0) + delta) }));
+    if (delta > 0 && selectedBundle) setSelectedBundle(null);
+  };
 
-  const customTotal = SERVICES.reduce((s, svc) => s + svc.price * quantities[svc.id], 0);
+  const selectBundle = (b: BundleDef | null) => {
+    setSelectedBundle(b);
+    if (b) setQuantities(EMPTY_QTY);
+  };
+
+  const customTotal = SERVICES.reduce((s, svc) => s + svc.price * (quantities[svc.id] ?? 0), 0);
 
   const vmSvc = SERVICES.find((s) => s.id === 'vm')!;
-  const starterQty = quantities['vm'];
+  const starterQty = quantities['vm'] ?? 0;
 
-  const hasSelection =
-    tab === 'starter' ? starterQty > 0
-    : tab === 'bundles' ? !!selectedBundle
-    : tab === 'custom' ? customTotal > 0
-    : false;
+  // The Order Summary reflects the persistent cart on every plan tab (not just
+  // the active tab), so switching tabs never blanks a non-empty cart.
+  const hasSelection = selectedBundle ? true : customTotal > 0;
 
-  const orderTotal =
-    tab === 'starter' ? vmSvc.price * starterQty
-    : tab === 'bundles' && selectedBundle ? selectedBundle.price
-    : customTotal;
+  const orderTotal = selectedBundle ? selectedBundle.price : customTotal;
 
-  const lineItems: { label: string; price: number }[] =
-    tab === 'starter' && starterQty > 0
-      ? [{ label: serviceLabel('vm', starterQty), price: vmSvc.price * starterQty }]
-      : tab === 'bundles' && selectedBundle
-      ? (Object.entries(selectedBundle.items) as [ServiceId, number][])
-          .filter(([, qty]) => qty > 0)
-          .map(([id, qty]) => ({
-            label: serviceLabel(id, qty),
-            price: SERVICES.find((s) => s.id === id)!.price * qty,
-          }))
-      : SERVICES.filter((s) => quantities[s.id] > 0).map((s) => ({
-          label: serviceLabel(s.id, quantities[s.id]),
-          price: s.price * quantities[s.id],
-        }));
+  const lineItems: { label: string; price: number }[] = selectedBundle
+    ? (Object.entries(selectedBundle.items) as [ServiceId, number][])
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => ({
+          label: serviceLabel(id, qty),
+          price: SERVICES.find((s) => s.id === id)!.price * qty,
+        }))
+    : SERVICES.filter((s) => quantities[s.id] > 0).map((s) => ({
+        label: serviceLabel(s.id, quantities[s.id]),
+        price: s.price * quantities[s.id],
+      }));
 
   const goToCheckout = () => {
     if (!hasSelection) return;
     const params = new URLSearchParams();
-    if (tab === 'starter') {
-      params.set('vm', String(starterQty));
-    } else if (tab === 'bundles' && selectedBundle) {
+    if (selectedBundle) {
       params.set('plan', selectedBundle.id);
     } else {
       SERVICES.forEach((s) => { if (quantities[s.id] > 0) params.set(s.id, String(quantities[s.id])); });
@@ -579,7 +627,7 @@ export default function BillingPage() {
         ]).map((t) => (
           <button
             key={t.id}
-            onClick={() => { setTab(t.id); setSelectedBundle(null); setQuantities(EMPTY_QTY); }}
+            onClick={() => { setTab(t.id); }}
             className={cn(
               'flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-200',
               tab === t.id
@@ -625,7 +673,7 @@ export default function BillingPage() {
                   </div>
                   <p className="mt-3 text-xs text-primary-blue font-medium">{bundle.bestFor}</p>
                   <button
-                    onClick={() => { setSelectedBundle(bundle); setTab('bundles'); }}
+                    onClick={() => { selectBundle(bundle); setTab('bundles'); }}
                     className={cn(
                       'mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-all',
                       bundle.highlight
@@ -821,7 +869,7 @@ export default function BillingPage() {
                   return (
                     <button
                       key={bundle.id}
-                      onClick={() => setSelectedBundle(isSelected ? null : bundle)}
+                      onClick={() => selectBundle(isSelected ? null : bundle)}
                       className={cn(
                         'relative text-left rounded-2xl border-2 p-5 transition-all duration-200',
                         isSelected
@@ -901,7 +949,7 @@ export default function BillingPage() {
             {tab === 'custom' && (
               <div className="space-y-3">
                 {SERVICES.map((svc) => {
-                  const qty = quantities[svc.id];
+                  const qty = quantities[svc.id] ?? 0;
                   return (
                     <div
                       key={svc.id}
@@ -973,7 +1021,7 @@ export default function BillingPage() {
                         <span className="font-medium text-text-primary font-mono">{usd(li.price)}</span>
                       </div>
                     ))}
-                    {tab === 'bundles' && selectedBundle && (
+                    {selectedBundle && (
                       <div className="flex justify-between text-xs text-emerald-600 font-semibold">
                         <span>Bundle saving</span>
                         <span>-{usd(selectedBundle.originalPrice - selectedBundle.price)}</span>

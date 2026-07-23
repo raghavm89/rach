@@ -22,6 +22,8 @@ export interface CatalogService {
   unit: string;
   orderable?: boolean;
   featured?: boolean;
+  /** Display-only: when true, hidden from marketing + dashboard UIs. Still priced server-side. */
+  hidden?: boolean;
 }
 
 export interface CatalogBundleRaw {
@@ -56,6 +58,13 @@ const catalog = catalogJson as unknown as CatalogShape;
 
 export const CURRENCY = catalog.currency;
 export const SERVICES: CatalogService[] = catalog.services;
+
+/**
+ * Services safe to show in user-facing UIs — excludes any flagged `hidden`.
+ * `SERVICES` stays complete so server-parity previews and pricing lookups still
+ * resolve every id.
+ */
+export const VISIBLE_SERVICES: CatalogService[] = catalog.services.filter((s) => !s.hidden);
 export const USAGE_BASED: UsageBasedItem[] = catalog.usage_based;
 export const INCLUDED: string[] = catalog.included;
 export const FOOTNOTES: string[] = catalog.footnotes;

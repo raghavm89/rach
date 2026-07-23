@@ -21,18 +21,37 @@ const ALERT_THRESHOLD_PCT  = 80;
 const CHECK_INTERVAL_MS    = 5 * 60 * 1000;   // 5 minutes
 const COOLDOWN_MS          = 4 * 60 * 60 * 1000;  // 4 hours
 
-// In-memory cooldown tracker: key = "vmId:metric", value = timestamp of last alert
-const lastAlerted = new Map();
+// Cooldown is persisted in the vm_alerts table (migration 030) so it survives
+// restarts and is shared across instances. Each run loads the set of
+// (vm_id, metric) pairs alerted within the cooldown window in a single query.
 
-function isCooledDown(vmId, metric) {
-  const key = `${vmId}:${metric}`;
-  const last = lastAlerted.get(key);
-  if (!last) return true;
-  return Date.now() - last > COOLDOWN_MS;
+/**
+ * Load the set of "vmId:metric" keys still within their cooldown window.
+ */
+async function loadCoolingKeys(since) {
+  const { rows } = await dbPool.query(
+    `SELECT DISTINCT vm_id, metric FROM vm_alerts WHERE sent_at >= $1`,
+    [since]
+  );
+  return new Set(rows.map((r) => `${r.vm_id}:${r.metric}`));
 }
 
-function markAlerted(vmId, metric) {
-  lastAlerted.set(`${vmId}:${metric}`, Date.now());
+/**
+ * Record fired alerts (one row per vm+metric) — the cooldown ledger + audit trail.
+ */
+async function recordAlerts(entries) {
+  if (!entries.length) return;
+  const values = [];
+  const params = [];
+  entries.forEach((e, i) => {
+    const b = i * 5;
+    values.push(`($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5})`);
+    params.push(e.vmId, e.metric, e.pct, e.tenantId ?? null, e.sentTo ?? null);
+  });
+  await dbPool.query(
+    `INSERT INTO vm_alerts (vm_id, metric, pct, tenant_id, sent_to) VALUES ${values.join(', ')}`,
+    params
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -227,6 +246,16 @@ async function runCheck() {
     return;
   }
 
+  // Load persisted cooldown state once (survives restarts, shared across instances)
+  let cooling;
+  try {
+    cooling = await loadCoolingKeys(new Date(Date.now() - COOLDOWN_MS));
+  } catch (err) {
+    console.error('[alertMonitor] Failed to load cooldown state:', err.message);
+    return;
+  }
+  const isCooledDown = (vmId, metric) => !cooling.has(`${vmId}:${metric}`);
+
   // Collect alerts that are new (past cooldown)
   // Group by tenantId → list of { vm, metric, pct }
   const tenantAlerts = new Map(); // tenantId → { tenant, alerts[] }
@@ -248,7 +277,6 @@ async function runCheck() {
     }
     for (const breach of breaches) {
       tenantAlerts.get(tenantKey).alerts.push({ vm, ...breach });
-      markAlerted(vm.id, breach.metric);
     }
   }
 
@@ -291,6 +319,21 @@ async function runCheck() {
       const sent = await sendAlertEmail({ recipients: uniqueRecipients, subject, htmlContent: html });
       if (sent) {
         console.log(`[alertMonitor] Alert sent for ${alerts.length} breach(es) → ${uniqueRecipients.join(', ')}`);
+      }
+      // Persist the cooldown/audit rows only after a successful send, so a failed
+      // email is retried on the next run instead of being silently suppressed.
+      if (sent) {
+        try {
+          await recordAlerts(alerts.map((a) => ({
+            vmId    : a.vm.id,
+            metric  : a.metric,
+            pct     : a.pct,
+            tenantId: tenant?.id ?? null,
+            sentTo  : uniqueRecipients.join(','),
+          })));
+        } catch (err) {
+          console.error('[alertMonitor] Failed to record alert cooldown:', err.message);
+        }
       }
     } catch (err) {
       console.error('[alertMonitor] Failed to send alert email:', err.message);
