@@ -510,6 +510,103 @@ async function sendInvoiceEmail({ orderId, customerName, customerEmail, descript
   });
 }
 
+/**
+ * Internal order notification → raghav@rachdev.com.
+ * Sent once an order is completed. Lists the ordered items + quantities, who
+ * placed it (name + email), and when.
+ *
+ * @param {object} opts
+ * @param {number|string} opts.orderId
+ * @param {{ name: string, qty: number }[]} opts.items
+ * @param {string} opts.customerName
+ * @param {string} opts.customerEmail
+ * @param {string|Date} opts.placedAt
+ * @param {number} [opts.amount]     total in minor units (cents/paise)
+ * @param {string} [opts.currency]
+ */
+async function sendOrderNotificationEmail({ orderId, items, customerName, customerEmail, placedAt, amount, currency }) {
+  const when = new Date(placedAt || Date.now()).toLocaleString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
+
+  const amountDisplay = (amount != null && Number.isFinite(Number(amount)))
+    ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR', minimumFractionDigits: 2 }).format(Number(amount) / 100)
+    : null;
+
+  const list = (Array.isArray(items) && items.length ? items : [{ name: '—', qty: 1 }]);
+  const itemRows = list.map((it) => `
+    <tr>
+      <td style="padding:8px 16px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">${escapeHtml(it.name)}</td>
+      <td style="padding:8px 16px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#111827;text-align:right;font-family:monospace;width:80px;">× ${Number(it.qty) || 1}</td>
+    </tr>`).join('');
+
+  const htmlContent = `
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+        <tr><td style="background:linear-gradient(135deg,#2563eb,#7c3aed);padding:24px 32px;">
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">New Order Completed</h1>
+          <p style="margin:4px 0 0;color:rgba(255,255,255,.8);font-size:13px;">Order #${orderId}</p>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 8px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#6b7280;width:110px;">Placed by</td>
+              <td style="padding:6px 0;font-size:14px;color:#111827;font-weight:600;">${escapeHtml(customerName)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#6b7280;">Email</td>
+              <td style="padding:6px 0;font-size:14px;color:#111827;">${escapeHtml(customerEmail)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;font-size:13px;color:#6b7280;">Placed at</td>
+              <td style="padding:6px 0;font-size:14px;color:#111827;">${escapeHtml(when)}</td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:16px 32px 0;">
+          <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px;">Order Items</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+            <thead><tr style="background:#f9fafb;">
+              <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">Item</th>
+              <th style="padding:8px 16px;text-align:right;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">Qty</th>
+            </tr></thead>
+            <tbody>${itemRows}</tbody>
+            ${amountDisplay ? `<tfoot><tr style="background:#f9fafb;border-top:2px solid #e5e7eb;">
+              <td style="padding:10px 16px;font-size:13px;font-weight:700;color:#111827;">Total</td>
+              <td style="padding:10px 16px;font-size:14px;font-weight:800;color:#2563eb;text-align:right;font-family:monospace;">${amountDisplay}</td>
+            </tr></tfoot>` : ''}
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:24px 32px 32px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Automated notification from RachBase billing.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const textContent =
+    `New order #${orderId} completed\n\n` +
+    `Placed by: ${customerName} (${customerEmail})\n` +
+    `Placed at: ${when}\n\n` +
+    `Items:\n` + list.map((i) => `  - ${Number(i.qty) || 1}× ${i.name}`).join('\n') +
+    (amountDisplay ? `\n\nTotal: ${amountDisplay}` : '');
+
+  return sendEmail({
+    to: [{ email: 'raghav@rachdev.com', name: 'Raghav — Rach Dev' }],
+    subject: `New order #${orderId} — ${customerName}`,
+    htmlContent,
+    textContent,
+  });
+}
+
 // ── Tax invoice ───────────────────────────────────────────────────────────────
 
 /**
@@ -639,5 +736,6 @@ module.exports = {
   sendPasswordResetEmail,
   sendContactEmail,
   sendInvoiceEmail,
+  sendOrderNotificationEmail,
   sendTaxInvoiceEmail,
 };

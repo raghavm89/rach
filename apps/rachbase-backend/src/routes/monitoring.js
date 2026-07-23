@@ -12,6 +12,7 @@
  * │ GET /api/monitoring/vms/:vmId   │  ✓ *   │  ✓ pool      │  ✓ own      │
  * │ GET /api/monitoring/history     │  ✓ *   │  ✓ pool      │  ✓ own      │
  * │ GET /api/monitoring/users       │  ✓     │  —           │  —          │
+ * │ GET /api/monitoring/verify      │  ✓     │  —           │  —          │
  * └─────────────────────────────────┴────────┴──────────────┴─────────────┘
  *
  * Scoping is enforced in the controller — clients cannot override it.
@@ -22,6 +23,7 @@ const authenticate = require('@rach/identity').authenticate;
 const authorize    = require('@rach/identity').authorize;
 const asyncHandler = require('@rach/core').asyncHandler;
 const {
+  verify,
   getSummary,
   getVMs,
   getVM,
@@ -41,5 +43,8 @@ router.get('/history',   authorize('admin', 'tenant_admin', 'tenant_user'), asyn
 
 // Admin only — per-tenant usage breakdown
 router.get('/users', authorize('admin'), asyncHandler(getAllUsersUsage));
+
+// Admin only — Grafana/Prometheus connectivity check for ops diagnostics
+router.get('/verify', authorize('admin'), asyncHandler(verify));
 
 module.exports = router;

@@ -74,6 +74,12 @@ exports.recordUsage = async (req, res) => {
   if (!service_id || nums.some((n) => !Number.isFinite(n))) {
     return res.status(400).json({ error: 'service_id, cpu_pct, mem_pct, disk_pct required' });
   }
+  // Reject samples for unknown services — otherwise any token holder (or a bug in
+  // the orchestrator) could inject junk that skews or suppresses alerting (L4).
+  const { rows: svc } = await pool.query('SELECT 1 FROM services WHERE id = $1', [service_id]);
+  if (!svc.length) {
+    return res.status(404).json({ error: `Unknown service_id: ${service_id}` });
+  }
   const sample = await ServiceUsage.record({ serviceId: service_id, cpu: nums[0], mem: nums[1], disk: nums[2] });
   res.status(201).json({ sample });
 };

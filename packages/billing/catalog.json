@@ -32,7 +32,8 @@
       "specs": "0.5 vCPU · 0.5 GB RAM · 0.5 GB disk · from GitHub or Postgres",
       "unit_price_cents": 1500,
       "unit": "per service / month",
-      "orderable": true
+      "orderable": true,
+      "hidden": true
     },
     {
       "id": "disk",
@@ -54,7 +55,7 @@
       "id": "ip",
       "name": "Additional Public IP",
       "specs": "Static IPv4 address",
-      "unit_price_cents": 1000,
+      "unit_price_cents": 2500,
       "unit": "per IP / month",
       "orderable": true
     },
@@ -82,6 +83,22 @@
       "unit_price_cents": 2500,
       "unit": "per endpoint / month",
       "orderable": true
+    },
+    {
+      "id": "logs",
+      "name": "VM Logs",
+      "specs": "Deployment & runtime logs — streamed, searchable, retained",
+      "unit_price_cents": 2500,
+      "unit": "per VM / month",
+      "orderable": true
+    },
+    {
+      "id": "analytics",
+      "name": "Website Analytics",
+      "specs": "Traffic analytics — page hits, visitors & trends",
+      "unit_price_cents": 2500,
+      "unit": "per site / month",
+      "orderable": true
     }
   ],
   "bundles": [
@@ -104,7 +121,7 @@
       "name": "Growth Bundle",
       "tagline": "Scale your product with confidence.",
       "best_for": "Growing startups & SaaS products",
-      "price_cents": 80000,
+      "price_cents": 84500,
       "badge": "Most Popular",
       "highlight": true,
       "items": {
@@ -120,7 +137,7 @@
       "name": "Scale Bundle",
       "tagline": "Enterprise-ready from day one.",
       "best_for": "High-traffic apps & large teams",
-      "price_cents": 127000,
+      "price_cents": 134500,
       "badge": "Best Value",
       "highlight": false,
       "items": {

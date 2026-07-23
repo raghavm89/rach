@@ -30,6 +30,7 @@ const planRoutes       = require('./routes/plans');
 const vmAssignmentRoutes = require('./routes/vmAssignment');
 const projectRoutes    = require('./routes/projects');   // Railway-style Project → Service model
 const internalRoutes   = require('./routes/internal');   // service-to-service (RachDev → RachBase)
+const cartRoutes       = require('./routes/cart');       // per-user persistent billing cart
 
 const app = express();
 
@@ -112,6 +113,7 @@ app.use('/api/deployment', deploymentRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/expansion',  expansionRoutes);
+app.use('/api/cart',       cartRoutes);
 app.use('/api/plans',      planRoutes);
 app.use('/api/projects',   projectRoutes);
 
