@@ -1119,7 +1119,7 @@ export const deployment = {
   updateServiceConfig: (
     token: string,
     serviceId: number,
-    config: Partial<{ root_dir: string; install_cmd: string; build_cmd: string; start_cmd: string; port: number }>,
+    config: Partial<{ root_dir: string; install_cmd: string; build_cmd: string; start_cmd: string; port: number; watch_paths: string[] }>,
   ) =>
     apiFetch<{ service: DeploymentService }>(
       `/api/deployment/services/${serviceId}`, { method: 'PATCH', body: JSON.stringify(config) }, token,

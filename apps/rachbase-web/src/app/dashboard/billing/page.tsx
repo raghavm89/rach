@@ -450,7 +450,7 @@ export default function BillingPage() {
     if (!cartSeeded.current) return;
     const items = SERVICES
       .filter((s) => quantities[s.id] > 0)
-      .map((s) => ({ id: s.id, qty: quantities[s.id], kind: 'service' as const }));
+      .map((s) => ({ id: s.id, qty: quantities[s.id], kind: 'service' as 'service' | 'bundle' }));
     if (selectedBundle) items.push({ id: selectedBundle.id, qty: 1, kind: 'bundle' as const });
     setCartItems(items);
   }, [quantities, selectedBundle, setCartItems]);
