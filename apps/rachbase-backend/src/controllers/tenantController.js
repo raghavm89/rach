@@ -2,6 +2,7 @@
 
 const pool = require('@rach/core').pool;
 const asyncHandler = require('@rach/core').asyncHandler;
+const { sendTenantTeardownEmail } = require('@rach/core').brevo;
 
 const VMID_RE = /^(qemu|lxc)\/\d+$/;
 
@@ -42,6 +43,7 @@ async function getAllTenants(req, res) {
      FROM tenants t
      LEFT JOIN users u ON u.tenant_id = t.id
      LEFT JOIN tenant_vm_assignments tva ON tva.tenant_id = t.id
+     WHERE t.deleted_at IS NULL
      GROUP BY t.id
      ORDER BY t.id`
   );
@@ -59,7 +61,7 @@ async function getTenantById(req, res) {
 
   const { rows } = await pool.query(
     `SELECT t.id, t.name, ${hasPvePool ? 't.pve_pool,' : ''} t.created_at, t.updated_at
-     FROM tenants t WHERE t.id = $1`,
+     FROM tenants t WHERE t.id = $1 AND t.deleted_at IS NULL`,
     [id]
   );
   if (!rows.length) return res.status(404).json({ error: 'Tenant not found' });
@@ -140,11 +142,60 @@ async function updateTenant(req, res) {
 }
 
 // DELETE /api/tenants/:id
+// Soft-delete + teardown. A hard delete would cascade-destroy the tenant's
+// vm_keys (encrypted private keys) and SSH configs, stranding VMs ARKA still
+// runs. Instead we: require an explicit name confirmation, mark the tenant
+// deleted (rows preserved), revoke its VM keys, and email ARKA to de-provision.
 async function deleteTenant(req, res) {
   const { id } = req.params;
-  const { rowCount } = await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]);
-  if (rowCount === 0) return res.status(404).json({ error: 'Tenant not found' });
-  res.json({ message: 'Tenant deleted' });
+  const { confirm } = req.body || {};
+
+  const { rows: trows } = await pool.query(
+    'SELECT id, name FROM tenants WHERE id = $1 AND deleted_at IS NULL', [id]
+  );
+  if (!trows.length) return res.status(404).json({ error: 'Tenant not found' });
+  const tenant = trows[0];
+
+  // Two-step confirm: the caller must echo the tenant name.
+  if (confirm !== tenant.name) {
+    return res.status(400).json({
+      error: 'Confirmation required',
+      message: `To delete this tenant, send { "confirm": "${tenant.name}" }.`,
+    });
+  }
+
+  // Collect the VMs that will need ARKA de-provisioning.
+  const { rows: vmRows } = await pool.query(
+    'SELECT vm_id FROM vm_ssh_config WHERE tenant_id = $1', [id]
+  );
+  const vmIds = vmRows.map((r) => r.vm_id);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`UPDATE tenants SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`, [id]);
+    // Revoke the tenant's VM keys (private keys are retired, not destroyed).
+    await client.query(
+      `UPDATE vm_keys SET status = 'revoked', rotated_at = NOW()
+       WHERE tenant_id = $1 AND status IN ('active','pending','rotating')`, [id]
+    );
+    // Detach the tenant's users so they can't act under a deleted tenant.
+    await client.query(`UPDATE users SET tenant_id = NULL, updated_at = NOW() WHERE tenant_id = $1`, [id]);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  // Notify ARKA to de-provision the VMs (fire-and-forget).
+  if (vmIds.length) {
+    sendTenantTeardownEmail({ tenantName: tenant.name, tenantId: tenant.id, vmIds })
+      .catch((e) => console.error('[tenants] teardown email failed:', e.message));
+  }
+
+  res.json({ message: 'Tenant deleted (soft). VM keys revoked; ARKA notified to de-provision.', vmCount: vmIds.length });
 }
 
 // ─── Tenant VM Pool ────────────────────────────────────────────────────────

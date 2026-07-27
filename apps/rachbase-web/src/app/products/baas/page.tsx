@@ -347,7 +347,7 @@ export default function BaaSPage() {
       <SectionWrapper>
         <SectionHeader
           eyebrow="COMPARISON"
-          title="How Rach Dev LLP stacks up"
+          title="How RachBase stacks up"
           subtitle="Dedicated infrastructure and bundled AI agents set us apart."
         />
         <AnimateIn>
@@ -359,7 +359,7 @@ export default function BaaSPage() {
                     Feature
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-semibold text-accent">
-                    Rach Dev LLP
+                    RachBase
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-semibold text-ink">
                     Supabase

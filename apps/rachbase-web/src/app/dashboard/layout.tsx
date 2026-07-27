@@ -226,7 +226,9 @@ function PersistentTerminal() {
 
   return (
     <div style={{
-      display:  isDeploymentPage ? 'block' : 'none',
+      // Show whenever a terminal is open (we already return null above if not),
+      // so the SSH terminal works on my-vms / vm-monitor, not just deployment.
+      display:  'block',
       position: 'absolute',
       bottom:   PADDING,
       left:     PADDING,

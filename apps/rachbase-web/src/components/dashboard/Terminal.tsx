@@ -12,7 +12,7 @@ interface TerminalProps {
   onClose: () => void;
 }
 
-const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000")
+const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080")
   .replace(/^http/, "ws");
 
 // Critical xterm CSS injected at runtime so it works in Next.js App Router

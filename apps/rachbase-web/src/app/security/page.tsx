@@ -25,7 +25,7 @@ import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 export const metadata: Metadata = {
   title: "Security & Compliance",
   description:
-    "How Rach Dev LLP protects your data: encryption in transit and at rest, dedicated tenant isolation, row-level security, encrypted backups, audit logging, and compliance-ready architecture for GDPR, CCPA, HIPAA, and PCI.",
+    "How RachBase protects your data: encryption in transit and at rest, dedicated tenant isolation, row-level security, encrypted backups, audit logging, and compliance-ready architecture for GDPR, CCPA, HIPAA, and PCI.",
 };
 
 interface SecurityItem {
@@ -165,7 +165,7 @@ export default function SecurityPage() {
       <SectionWrapper className="bg-band">
         <AnimateIn>
           <p className="mx-auto max-w-3xl text-center text-lg leading-relaxed text-ink-2">
-            Rach Dev LLP protects your data with end-to-end encryption, a dedicated
+            RachBase protects your data with end-to-end encryption, a dedicated
             database per project, database-enforced access control, and
             audit-ready logging. Our architecture is designed to support GDPR,
             CCPA, HIPAA, and PCI obligations so you can deploy AI agents on

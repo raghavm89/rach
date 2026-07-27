@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Bell, ChevronRight, LogOut, Settings, User, Menu } from "lucide-react";
 import { useState } from "react";
-import { mockCurrentUser } from "@/data/mock/users";
+import { useAuth } from "@rach/ui/contexts/AuthContext";
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -13,6 +14,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const breadcrumbs = generateBreadcrumbs(pathname);
+  const { user, logout } = useAuth();
+
+  const displayName = user?.name?.trim() || "Account";
+  const displayEmail = user?.email ?? "";
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-neutral-border bg-white shrink-0">
@@ -66,7 +72,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             className="flex items-center gap-2 p-1.5 rounded-md hover:bg-surface-hover transition-colors"
           >
             <div className="w-7 h-7 rounded-full bg-primary-blue/20 flex items-center justify-center text-primary-blue text-xs font-bold">
-              {mockCurrentUser.name.charAt(0)}
+              {initial}
             </div>
           </button>
 
@@ -75,13 +81,13 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-neutral-border rounded-lg shadow-lg z-50 py-1">
                 <div className="px-3 py-2 border-b border-neutral-border">
-                  <p className="text-sm font-medium text-dash-heading">{mockCurrentUser.name}</p>
-                  <p className="text-xs text-dash-muted">{mockCurrentUser.email}</p>
+                  <p className="text-sm font-medium text-dash-heading truncate">{displayName}</p>
+                  {displayEmail && <p className="text-xs text-dash-muted truncate">{displayEmail}</p>}
                 </div>
-                <UserMenuItem icon={User} label="Profile" />
-                <UserMenuItem icon={Settings} label="Preferences" />
+                <UserMenuItem icon={User} label="Profile" href="/dashboard/profile" onSelect={() => setUserMenuOpen(false)} />
+                <UserMenuItem icon={Settings} label="Preferences" href="/dashboard/profile" onSelect={() => setUserMenuOpen(false)} />
                 <div className="border-t border-neutral-border my-1" />
-                <UserMenuItem icon={LogOut} label="Log out" />
+                <UserMenuItem icon={LogOut} label="Log out" onClick={() => { setUserMenuOpen(false); logout(); }} />
               </div>
             </>
           )}
@@ -91,11 +97,38 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   );
 }
 
-function UserMenuItem({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
-  return (
-    <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-dash-body hover:bg-surface-hover transition-colors">
+function UserMenuItem({
+  icon: Icon,
+  label,
+  href,
+  onClick,
+  onSelect,
+}: {
+  icon: React.ElementType;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  onSelect?: () => void;
+}) {
+  const cls = "flex items-center gap-2 w-full px-3 py-2 text-sm text-dash-body hover:bg-surface-hover transition-colors";
+  const inner = (
+    <>
       <Icon className="w-4 h-4 text-dash-muted" />
       <span>{label}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={cls} onClick={onSelect}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={cls} onClick={onClick}>
+      {inner}
     </button>
   );
 }

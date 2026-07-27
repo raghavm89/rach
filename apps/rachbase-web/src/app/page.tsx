@@ -206,6 +206,41 @@ export default function BaaSPage() {
       {/* Hero — backend-only variant of the shared home hero */}
       <Hero variant="backend" />
 
+      {/* Deployment Canvas showcase */}
+      <SectionWrapper>
+        <SectionHeader
+          eyebrow="Deployment Canvas"
+          title="Your whole stack on a single canvas"
+          subtitle="Lay out VMs, databases, and services as draggable cards. Watch live CPU and RAM, wire up connected services like Postgres and your Git repo, then provision or deploy in one click — with an AI agent on standby to do it for you."
+        />
+        <AnimateIn>
+          <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
+            <Image
+              src="/images/deployment-canvas.png"
+              alt="RachBase deployment canvas — a running VM card (acme-vm-01) showing live CPU and RAM usage, connected to a Postgres 16 database and a Git repository, each with one-click Provision and Deploy actions"
+              width={1960}
+              height={1026}
+              className="h-auto w-full"
+              priority
+            />
+          </div>
+        </AnimateIn>
+        <div className="mx-auto mt-8 grid max-w-4xl gap-6 sm:grid-cols-3">
+          <div>
+            <h3 className="font-display text-base font-semibold text-ink">Live resource metrics</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-2">Real-time CPU and RAM on every VM, so you always know what your infrastructure is doing.</p>
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-ink">Connected services</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-2">Attach a managed Postgres database or a Git repo and see the links form on the canvas.</p>
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-ink">One-click provision &amp; deploy</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-2">Ship from the canvas — provision infrastructure or deploy from GitHub without leaving the view.</p>
+          </div>
+        </div>
+      </SectionWrapper>
+
       {/* ARKA Microstacks partnership banner */}
       <SectionWrapper>
         <div
@@ -327,7 +362,7 @@ export default function BaaSPage() {
       <SectionWrapper>
         <SectionHeader
           eyebrow="COMPARISON"
-          title="How Rach Dev LLP stacks up"
+          title="How RachBase stacks up"
           subtitle="Dedicated infrastructure and bundled AI agents set us apart."
         />
         <AnimateIn>
@@ -339,7 +374,7 @@ export default function BaaSPage() {
                     Feature
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-semibold text-accent">
-                    Rach Dev LLP
+                    RachBase
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-semibold text-ink">
                     Supabase

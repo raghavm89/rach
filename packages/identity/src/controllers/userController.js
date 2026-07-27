@@ -6,6 +6,20 @@ const { paginated } = require('@rach/core').paginate;
 
 const BCRYPT_COST = parseInt(process.env.BCRYPT_COST, 10) || 12;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * True if removing/demoting this user would leave zero system admins.
+ * Guards against locking everyone out of the admin plane.
+ */
+async function wouldRemoveLastAdmin(userId) {
+  const pool = require('@rach/core').pool;
+  const { rows } = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+  if (!rows.length || rows[0].role !== 'admin') return false;
+  const { rows: c } = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin'");
+  return c[0].n <= 1;
+}
+
 // ─── GET /api/users ────────────────────────────────────────────────────────
 // admin   → all users (optionally filtered by ?role=)
 // tenant_admin → users in their own tenant only
@@ -68,6 +82,13 @@ async function createUser(req, res) {
     return res.status(400).json({ error: 'name, email, password, phone_number are required' });
   }
 
+  if (!EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
   if (!ROLES.includes(role)) {
     return res.status(400).json({ error: `Invalid role. Must be one of: ${ROLES.join(', ')}` });
   }
@@ -121,6 +142,11 @@ async function updateUserRole(req, res) {
     return res.status(400).json({ error: 'You cannot change your own role' });
   }
 
+  // Never demote the last remaining admin — it would lock out the admin plane.
+  if (role !== 'admin' && await wouldRemoveLastAdmin(id)) {
+    return res.status(400).json({ error: 'Cannot demote the last remaining admin' });
+  }
+
   const updated = await User.updateRole(id, role);
   if (!updated) return res.status(404).json({ error: 'User not found' });
   // Re-fetch with tenant join so the response always includes tenant_name
@@ -135,6 +161,11 @@ async function deleteUser(req, res) {
 
   if (caller.id === id) {
     return res.status(400).json({ error: 'You cannot delete your own account' });
+  }
+
+  // Never delete the last remaining admin.
+  if (await wouldRemoveLastAdmin(id)) {
+    return res.status(400).json({ error: 'Cannot delete the last remaining admin' });
   }
 
   // Tenant admins can only delete users in their tenant
@@ -178,6 +209,11 @@ async function updateUserTenant(req, res) {
     [effectiveTenantId, id]
   );
   if (!rows.length) return res.status(404).json({ error: 'User not found' });
+
+  // Moving a user between tenants must not leave them holding VM assignments
+  // from the old tenant — those would otherwise still surface in monitoring
+  // scope (cross-tenant metric leak). Clear them on any tenant change.
+  await pool.query('DELETE FROM user_vm_assignments WHERE user_id = $1', [id]);
 
   // Backfill tenant_id on all existing orders placed by this user
   // where tenant_id was NULL (orders made before tenant assignment)

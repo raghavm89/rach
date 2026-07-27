@@ -1,13 +1,13 @@
 /**
  * Typed API client for the rach-dev backend.
- * Base URL is controlled by NEXT_PUBLIC_API_URL env var (defaults to localhost:3000).
+ * Base URL is controlled by NEXT_PUBLIC_API_URL env var (defaults to localhost:8080).
  */
 
 // Local dev: the backend listens on :3000 (apps/rachbase-backend/.env sets
 // PORT=3000) and this web app runs on :3002. Docker and .env.example use :8080.
 // apps/rachbase-web has no .env, so local development relies on this fallback —
 // it must match the local backend port, not the container one.
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -463,6 +463,41 @@ export const cart = {
     apiFetch<CartResponse>('/api/cart', { method: 'DELETE' }, token),
 };
 
+// ─── VM keypairs (admin) ──────────────────────────────────────────────────────
+
+export interface VmKey {
+  id: number;
+  order_id: number | null;
+  vm_id: string | null;
+  user_id: number | null;
+  tenant_id: number | null;
+  public_key: string;
+  fingerprint: string;
+  ssh_user: string;
+  status: 'pending' | 'active' | 'rotating' | 'revoked';
+  key_version: number;
+  created_at: string;
+  activated_at: string | null;
+  rotated_at: string | null;
+}
+
+export const vmKeys = {
+  list: (token: string, params?: { status?: string; order_id?: number }) => {
+    const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '';
+    return apiFetch<{ keys: VmKey[] }>(`/api/vm-keys${qs}`, {}, token);
+  },
+
+  activate: (token: string, id: number, body: { vm_id: string; ip_address: string; ssh_port?: number }) =>
+    apiFetch<{ message: string; key: VmKey }>(
+      `/api/vm-keys/${id}/activate`, { method: 'POST', body: JSON.stringify(body) }, token,
+    ),
+
+  reissue: (token: string, vm_id: string) =>
+    apiFetch<{ message: string; key: Partial<VmKey> }>(
+      `/api/vm-keys/reissue`, { method: 'POST', body: JSON.stringify({ vm_id }) }, token,
+    ),
+};
+
 // ─── VM Expansion / Billing ───────────────────────────────────────────────────
 
 export interface VMPackage {
@@ -575,6 +610,60 @@ export const expansion = {
       { method: 'DELETE', body: JSON.stringify({ tenant_id, vm_id }) },
       token
     ),
+
+  // ── VM Logs entitlement (per-VM, admin-assigned; mirrors Observability) ──
+  hasLogs: (token: string) =>
+    apiFetch<{ logs_vm_ids: string[] | null; unlimited: boolean }>('/api/expansion/has-logs', {}, token),
+
+  listLogsAssignments: (token: string, tenant_id?: number) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : '';
+    return apiFetch<{ assignments: { id: number; tenant_id: number; vm_id: string; assigned_at: string; tenant_name: string; assigned_by_name: string | null }[] }>(
+      `/api/expansion/logs/assignments${qs}`, {}, token
+    );
+  },
+
+  getLogsQuota: (token: string) =>
+    apiFetch<{ quotas: { tenant_id: number; tenant_name: string; quota: number; used: number }[] }>(
+      '/api/expansion/logs/quota', {}, token
+    ),
+
+  assignLogs: (token: string, tenant_id: number, vm_id: string) =>
+    apiFetch<{ message: string; assignment: unknown }>(
+      '/api/expansion/logs/assign',
+      { method: 'POST', body: JSON.stringify({ tenant_id, vm_id }) },
+      token
+    ),
+
+  unassignLogs: (token: string, tenant_id: number, vm_id: string) =>
+    apiFetch<{ message: string }>(
+      '/api/expansion/logs/assign',
+      { method: 'DELETE', body: JSON.stringify({ tenant_id, vm_id }) },
+      token
+    ),
+
+  // ── Additional Public IPs ──
+  myIps: (token: string) =>
+    apiFetch<{ ips: { id: number; vm_id: string; ip_address: string; purpose: string | null; created_at: string }[] }>(
+      '/api/expansion/my-ips', {}, token),
+
+  getIpQuota: (token: string) =>
+    apiFetch<{ quotas: { tenant_id: number; tenant_name: string; quota: number; used: number }[] }>(
+      '/api/expansion/ips/quota', {}, token),
+
+  listIpAssignments: (token: string, tenant_id?: number) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : '';
+    return apiFetch<{ assignments: { id: number; tenant_id: number; vm_id: string; ip_address: string; purpose: string | null; status: string; created_at: string; tenant_name: string; assigned_by_name: string | null }[] }>(
+      `/api/expansion/ips/assignments${qs}`, {}, token
+    );
+  },
+
+  assignIp: (token: string, payload: { tenant_id: number; vm_id: string; ip_address: string; purpose?: string; request_id?: number }) =>
+    apiFetch<{ message: string; assignment: unknown }>(
+      '/api/expansion/ips/assign', { method: 'POST', body: JSON.stringify(payload) }, token),
+
+  releaseIp: (token: string, id: number) =>
+    apiFetch<{ message: string }>(
+      '/api/expansion/ips/assign', { method: 'DELETE', body: JSON.stringify({ id }) }, token),
 
   cancelMySubscription: (token: string, id: number) =>
     apiFetch<{ message: string; request: ExpansionRequest }>(
@@ -689,6 +778,55 @@ export const expansion = {
       { method: 'POST', body: JSON.stringify(payload) },
       token
     ),
+};
+
+// ─── Application Workload Monitoring (HTTP endpoints) ──────────────────────────
+
+export interface MonitoredEndpoint {
+  id: number;
+  service_id: number | null;
+  name: string;
+  url: string;
+  method: string;
+  expected_status: number;
+  interval_seconds: number;
+  enabled: boolean;
+  last_status: 'up' | 'down' | null;
+  last_code: number | null;
+  last_latency_ms: number | null;
+  last_checked_at: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+  created_at: string;
+}
+
+export interface EndpointCheck {
+  checked_at: string;
+  ok: boolean;
+  status_code: number | null;
+  latency_ms: number | null;
+  error: string | null;
+}
+
+export const endpoints = {
+  getQuota: (token: string) =>
+    apiFetch<{ quota: number | null; used: number; unlimited: boolean }>('/api/endpoints/quota', {}, token),
+
+  list: (token: string, serviceId?: number) =>
+    apiFetch<{ endpoints: MonitoredEndpoint[] }>(
+      `/api/endpoints${serviceId ? `?service_id=${serviceId}` : ''}`, {}, token),
+
+  create: (token: string, payload: { name: string; url: string; method?: string; expected_status?: number; interval_seconds?: number; service_id?: number | null }) =>
+    apiFetch<{ endpoint: MonitoredEndpoint }>('/api/endpoints', { method: 'POST', body: JSON.stringify(payload) }, token),
+
+  update: (token: string, id: number, patch: Partial<{ name: string; url: string; method: string; expected_status: number; interval_seconds: number; enabled: boolean }>) =>
+    apiFetch<{ endpoint: MonitoredEndpoint }>(`/api/endpoints/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+
+  remove: (token: string, id: number) =>
+    apiFetch<{ ok: boolean; id: number }>(`/api/endpoints/${id}`, { method: 'DELETE' }, token),
+
+  checks: (token: string, id: number) =>
+    apiFetch<{ checks: EndpointCheck[] }>(`/api/endpoints/${id}/checks`, {}, token),
 };
 
 // ─── Invoices & tax ───────────────────────────────────────────────────────────
@@ -830,12 +968,27 @@ export interface DeploymentService {
   id:              number;
   tenant_id:       number;
   vm_id:           string;
-  installation_id: number;
-  repo_full_name:  string;
-  branch:          string;
+  source_type:     'github' | 'postgres';
+  installation_id: number | null;
+  repo_full_name:  string | null;
+  branch:          string | null;
+  name:            string | null;
+  config:          Record<string, unknown> | null;
   status:          'connected' | 'deploying' | 'deployed' | 'failed';
   created_at:      string;
   updated_at:      string;
+}
+
+export interface CanvasPosition { node_key: string; x: number; y: number }
+
+export interface ServiceEnvVar { key: string; value: string; is_secret: boolean }
+
+export interface ServiceDomain {
+  id: number;
+  hostname: string;
+  is_auto: boolean;
+  status: 'provisioning' | 'live' | 'failed';
+  created_at: string;
 }
 
 export interface GithubRepo {
@@ -914,6 +1067,11 @@ export const deployment = {
   getInstallUrl: (token: string) =>
     apiFetch<{ install_url: string }>('/api/deployment/github/install', {}, token),
 
+  reconcileGithub: (token: string) =>
+    apiFetch<{ connected: boolean; reconciled?: boolean; installation_id?: number; github_account?: string; reason?: string; accounts?: string[] }>(
+      '/api/deployment/github/reconcile', { method: 'POST' }, token
+    ),
+
   listRepos: (token: string) =>
     apiFetch<{ repos: GithubRepo[] }>('/api/deployment/github/repos', {}, token),
 
@@ -922,11 +1080,20 @@ export const deployment = {
       `/api/deployment/github/branches?repo=${encodeURIComponent(repo)}`, {}, token
     ),
 
-  createService: (token: string, payload: { vm_id: string; repo_full_name: string; branch: string }) =>
+  createService: (
+    token: string,
+    payload:
+      | { vm_id: string; source_type?: 'github'; repo_full_name: string; branch: string; name?: string;
+          config?: { root_dir?: string; install_cmd?: string; build_cmd?: string; start_cmd?: string; port?: number; watch_paths?: string[] } }
+      | { vm_id: string; source_type: 'postgres'; name: string; config: { version: string } },
+  ) =>
     apiFetch<{ service: DeploymentService }>('/api/deployment/services', {
       method: 'POST',
       body: JSON.stringify(payload),
     }, token),
+
+  deleteService: (token: string, serviceId: number) =>
+    apiFetch<{ ok: boolean; id: number }>(`/api/deployment/services/${serviceId}`, { method: 'DELETE' }, token),
 
   listServices: (token: string) =>
     apiFetch<{ services: DeploymentService[] }>('/api/deployment/services', {}, token),
@@ -948,6 +1115,50 @@ export const deployment = {
     apiFetch<{ configs: { id: number; vm_id: string; tenant_id: number; ip_address: string; ssh_user: string; ssh_port: number }[] }>(
       '/api/deployment/vm-ssh-config', {}, token
     ),
+
+  updateServiceConfig: (
+    token: string,
+    serviceId: number,
+    config: Partial<{ root_dir: string; install_cmd: string; build_cmd: string; start_cmd: string; port: number }>,
+  ) =>
+    apiFetch<{ service: DeploymentService }>(
+      `/api/deployment/services/${serviceId}`, { method: 'PATCH', body: JSON.stringify(config) }, token,
+    ),
+
+  getRuntimeLogs: (token: string, serviceId: number) =>
+    apiFetch<{ logs: string }>(`/api/deployment/services/${serviceId}/runtime-logs`, {}, token),
+
+  getDomains: (token: string, serviceId: number) =>
+    apiFetch<{ domains: ServiceDomain[] }>(`/api/deployment/services/${serviceId}/domains`, {}, token),
+
+  addDomain: (token: string, serviceId: number, hostname: string) =>
+    apiFetch<{ domain: ServiceDomain; message: string }>(
+      `/api/deployment/services/${serviceId}/domains`, { method: 'POST', body: JSON.stringify({ hostname }) }, token,
+    ),
+
+  addAutoDomain: (token: string, serviceId: number, subdomain: string) =>
+    apiFetch<{ domain: ServiceDomain; message: string }>(
+      `/api/deployment/services/${serviceId}/domains/auto`, { method: 'POST', body: JSON.stringify({ subdomain }) }, token,
+    ),
+
+  removeDomain: (token: string, serviceId: number, domainId: number) =>
+    apiFetch<{ ok: boolean }>(
+      `/api/deployment/services/${serviceId}/domains/${domainId}`, { method: 'DELETE' }, token,
+    ),
+
+  getEnv: (token: string, serviceId: number) =>
+    apiFetch<{ vars: ServiceEnvVar[] }>(`/api/deployment/services/${serviceId}/env`, {}, token),
+
+  setEnv: (token: string, serviceId: number, vars: ServiceEnvVar[]) =>
+    apiFetch<{ ok: boolean; count: number }>(
+      `/api/deployment/services/${serviceId}/env`, { method: 'PUT', body: JSON.stringify({ vars }) }, token,
+    ),
+
+  getCanvas: (token: string) =>
+    apiFetch<{ positions: CanvasPosition[] }>('/api/deployment/canvas', {}, token),
+
+  saveCanvas: (token: string, positions: CanvasPosition[]) =>
+    apiFetch<{ ok: boolean }>('/api/deployment/canvas', { method: 'PUT', body: JSON.stringify({ positions }) }, token),
 };
 
 // ─── Projects / Services (Railway-style) ──────────────────────────────────────

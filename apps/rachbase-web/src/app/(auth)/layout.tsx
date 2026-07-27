@@ -8,6 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <AuthSplitLayout
       logo={<BrandLogo />}
+      logoAlt="RachBase"
       eyebrow="RachBase"
       title={
         <>

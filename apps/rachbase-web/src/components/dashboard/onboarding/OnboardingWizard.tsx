@@ -105,7 +105,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
               <div className="w-14 h-14 rounded-2xl bg-primary-blue/10 flex items-center justify-center mb-5">
                 <Rocket className="w-7 h-7 text-primary-blue" />
               </div>
-              <h2 className="text-xl font-semibold text-dash-heading">Welcome to Rach Dev LLP</h2>
+              <h2 className="text-xl font-semibold text-dash-heading">Welcome to RachBase</h2>
               <p className="text-sm text-dash-muted mt-2 max-w-sm">
                 Let&apos;s get you set up in under 90 seconds. We&apos;ll walk you through creating your first project and getting everything connected.
               </p>

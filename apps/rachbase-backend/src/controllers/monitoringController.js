@@ -93,8 +93,24 @@ async function resolveScope(req) {
       err.status = 422;
       throw err;
     }
+    let vmIds = rows.map((r) => r.vm_id);
+
+    // Defence-in-depth: for explicit-assignment tenants, restrict to VMs that
+    // are actually in the caller's CURRENT tenant, so a stale user_vm_assignment
+    // (e.g. left over from a previous tenant) can't leak another tenant's
+    // metrics. Pool-based tenants are scoped by the pool label elsewhere.
+    const { rows: tRows } = await dbPool.query('SELECT pve_pool FROM tenants WHERE id = $1', [tenant_id]);
+    const tenantPool = tRows[0]?.pve_pool;
+    if (!tenantPool) {
+      const { rows: tva } = await dbPool.query(
+        'SELECT vm_id FROM tenant_vm_assignments WHERE tenant_id = $1', [tenant_id]
+      );
+      const allowed = new Set(tva.map((r) => r.vm_id));
+      vmIds = vmIds.filter((id) => allowed.has(id));
+    }
+
     return vmIdScope(
-      rows.map((r) => r.vm_id),
+      vmIds,
       'No valid VMs are assigned to your account. Contact your administrator.'
     );
   }

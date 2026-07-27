@@ -14,6 +14,7 @@
 const { pool } = require('@rach/core');
 const { Project, Environment, Service, ServiceUnit, Deployment } = require('../models/project');
 const serviceBilling = require('../services/serviceBilling');
+const { vmBelongsToTenant } = require('../lib/tenantVms');
 
 // Plan unit quota. TODO: derive from the tenant's subscribed plan; env default for now.
 const DEFAULT_UNIT_QUOTA = parseInt(process.env.SERVICE_UNIT_QUOTA || process.env.SERVICE_QUOTA || '10', 10);
@@ -63,6 +64,12 @@ exports.createService = async (req, res) => {
 
   const { name, source_type, repo_full_name, branch, image, compute_target, vm_id } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Service name is required' });
+
+  // Cross-tenant guard: if a VM target is supplied, it must belong to the
+  // caller's tenant (same class as the deployment path — audit T1/T3).
+  if (vm_id && !(await vmBelongsToTenant(req.user.tenant_id, vm_id))) {
+    return res.status(403).json({ error: 'VM is not assigned to your tenant' });
+  }
 
   let service;
   try {

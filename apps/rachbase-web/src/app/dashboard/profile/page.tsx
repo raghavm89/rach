@@ -14,7 +14,7 @@ import type { UserRole, BillingAddress } from '@rach/ui/lib/api';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  admin        : 'Rach Dev LLP Admin',
+  admin        : 'RachBase Admin',
   tenant_admin : 'Tenant Admin',
   tenant_user  : 'User',
   developer    : 'Developer',

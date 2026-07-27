@@ -31,6 +31,9 @@ const vmAssignmentRoutes = require('./routes/vmAssignment');
 const projectRoutes    = require('./routes/projects');   // Railway-style Project → Service model
 const internalRoutes   = require('./routes/internal');   // service-to-service (RachDev → RachBase)
 const cartRoutes       = require('./routes/cart');       // per-user persistent billing cart
+const vmKeyRoutes      = require('./routes/vmKeys');     // per-VM SSH keypair admin
+const agentRoutes      = require('./routes/agent');      // agent credits + usage (billing half)
+const endpointRoutes   = require('./routes/endpoints');  // Application Workload Monitoring (HTTP checks)
 
 const app = express();
 
@@ -114,8 +117,11 @@ app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/tenants',    tenantRoutes);
 app.use('/api/expansion',  expansionRoutes);
 app.use('/api/cart',       cartRoutes);
+app.use('/api/vm-keys',    vmKeyRoutes);
+app.use('/api/agent',      agentRoutes);
 app.use('/api/plans',      planRoutes);
 app.use('/api/projects',   projectRoutes);
+app.use('/api/endpoints',  endpointRoutes);
 
 // Internal service API (protected by service token, not user auth)
 app.use('/internal', internalRoutes);

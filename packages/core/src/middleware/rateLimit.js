@@ -93,6 +93,18 @@ const oauthLimiter = rateLimit({
   handler: jsonError('Too many sign-in attempts. Try again shortly.'),
 });
 
+// Deploy triggers: 20 / 5 min / user — each deploy kicks off SSH + a build, so
+// bound how fast a tenant can fire them. Keyed by authenticated user (must run
+// after authenticate); falls back to IP.
+const deployLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.user?.id ? `u:${req.user.id}` : ipKey(req.ip)),
+  handler: jsonError('Too many deploys. Please wait a few minutes.'),
+});
+
 module.exports = {
   loginLimiter,
   registerLimiter,
@@ -102,4 +114,5 @@ module.exports = {
   forgotPasswordLimiter,
   resetPasswordLimiter,
   oauthLimiter,
+  deployLimiter,
 };

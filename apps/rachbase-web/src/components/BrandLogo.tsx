@@ -1,18 +1,22 @@
-import { Database } from "lucide-react";
+import Image from "next/image";
 
 /**
- * RachBase wordmark — used in the shared Navbar/Footer via their `logo` prop,
- * so RachBase shows its own brand instead of the default Rach Dev image logo.
+ * RachBase wordmark — the official bolt logo (blue mark + "Rach" in ink, "base"
+ * in accent). Used in the shared Navbar/Footer/auth split via their `logo` prop.
+ * The PNG has a transparent background and dark "Rach" text, so it is intended
+ * for light surfaces (all current placements are white).
+ *
+ * Source aspect ratio ≈ 3427×698 (~4.91:1).
  */
-export function BrandLogo() {
+export function BrandLogo({ className = "h-8 w-auto" }: { className?: string } = {}) {
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-white">
-        <Database className="h-[17px] w-[17px]" />
-      </span>
-      <span className="font-display text-[19px] font-extrabold tracking-[-0.02em] text-ink">
-        Rach<span className="text-accent">Base</span>
-      </span>
-    </span>
+    <Image
+      src="/brand/rachbase-logo.png"
+      alt="RachBase"
+      width={3427}
+      height={698}
+      priority
+      className={className}
+    />
   );
 }

@@ -6,7 +6,37 @@ const jwt                 = require('jsonwebtoken');
 const pool                = require('@rach/core').pool;
 
 const { getSshPrivateKey } = require('@rach/deploy');
+const { VmKey } = require('../models/vmKey');
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+// Allow falling back to the legacy shared key for VMs that don't have a per-VM
+// key yet (e.g. provisioned before this feature). Set to 'false' once every VM
+// has been re-keyed to force per-VM keys only.
+const ALLOW_SHARED_KEY_FALLBACK = process.env.TERMINAL_ALLOW_SHARED_KEY !== 'false';
+
+/**
+ * Role-based access to a VM's terminal:
+ *   admin        → any VM
+ *   tenant_admin → any VM in their tenant
+ *   tenant_user  → only VMs assigned to them
+ * Returns the vm_ssh_config row if allowed, else null.
+ */
+async function resolveVmAccess(user, vmId) {
+  const { rows } = await pool.query('SELECT * FROM vm_ssh_config WHERE vm_id = $1', [vmId]);
+  if (!rows.length) return null;
+  const cfg = rows[0];
+
+  if (user.role === 'admin') return cfg;
+  if (cfg.tenant_id !== user.tenant_id) return null;         // different tenant → deny
+  if (user.role === 'tenant_admin') return cfg;              // all tenant VMs
+  if (user.role === 'tenant_user') {
+    const { rows: a } = await pool.query(
+      'SELECT 1 FROM user_vm_assignments WHERE user_id = $1 AND vm_id = $2', [user.id, vmId]
+    );
+    return a.length ? cfg : null;                            // only assigned VMs
+  }
+  return null;
+}
 
 function createTerminalServer(httpServer) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws/terminal' });
@@ -57,30 +87,46 @@ function createTerminalServer(httpServer) {
           return;
         }
 
-        // 2. Look up VM SSH config — must belong to this tenant
-        const { rows } = await pool.query(
-          `SELECT v.* FROM vm_ssh_config v
-           WHERE v.vm_id = $1 AND v.tenant_id = $2`,
-          [vm_id, user.tenant_id]
-        );
-
-        if (!rows.length) {
+        // 2. Role-based access check (admin=any, tenant_admin=tenant, tenant_user=assigned)
+        const vmConfig = await resolveVmAccess(user, vm_id);
+        if (!vmConfig) {
           ws.send('\r\n\x1b[31m[VM not found or access denied]\x1b[0m\r\n');
           ws.close();
           return;
         }
 
-        const vmConfig = rows[0];
+        // 3. Resolve the SSH private key — prefer the VM's own key.
+        let privateKey;
+        try {
+          const vmKey = await VmKey.getActiveForVm(vm_id);
+          if (vmKey) {
+            privateKey = vmKey.privateKey;
+          } else if (ALLOW_SHARED_KEY_FALLBACK) {
+            privateKey = getSshPrivateKey();
+            console.warn(`[terminal] vm=${vm_id} has no per-VM key — using shared key fallback`);
+          } else {
+            ws.send('\r\n\x1b[31m[No SSH key provisioned for this VM yet]\x1b[0m\r\n');
+            ws.close();
+            return;
+          }
+        } catch (err) {
+          ws.send('\r\n\x1b[31m[Key error — contact support]\x1b[0m\r\n');
+          console.error(`[terminal] key resolve failed vm=${vm_id}:`, err.message);
+          ws.close();
+          return;
+        }
+
+        console.log(`[terminal] open user=${user.id} role=${user.role} vm=${vm_id}`);
         ws.send(`\r\n\x1b[32m[Connecting to ${vmConfig.ip_address}...]\x1b[0m\r\n`);
 
-        // 3. SSH connect
+        // 4. SSH connect
         ssh = new NodeSSH();
         try {
           await ssh.connect({
             host:       vmConfig.ip_address,
             port:       vmConfig.ssh_port || 22,
             username:   vmConfig.ssh_user || 'root',
-            privateKey: getSshPrivateKey(),
+            privateKey,
           });
         } catch (err) {
           ws.send(`\r\n\x1b[31m[SSH connection failed: ${err.message}]\x1b[0m\r\n`);

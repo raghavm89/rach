@@ -13,7 +13,7 @@ import { team } from "@/data/team";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Meet the team behind Rach Dev LLP. We started as a development agency building backends and AI integrations for clients — then built the platform we wished existed.",
+    "Meet the team behind RachBase. We started as a development agency building backends and AI integrations for clients — then built the platform we wished existed.",
 };
 
 export default function AboutPage() {
@@ -31,7 +31,7 @@ export default function AboutPage() {
             <div className="relative mx-auto mb-10 aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
               <Image
                 src="/illustrations/pages/about-journey.png"
-                alt="Rach Dev LLP — from a development agency to one unified platform"
+                alt="RachBase — from a development agency to one unified platform"
                 fill
                 className="object-contain p-6"
               />
@@ -62,7 +62,7 @@ export default function AboutPage() {
                 similar whether you sell shoes or software.
               </p>
               <p>
-                So we built Rach Dev LLP — the platform that bundles managed
+                So we built RachBase — the platform that bundles managed
                 backend infrastructure with a production-ready AI agent builder.
                 One platform, one bill, and the ability to go from zero to
                 deployed in minutes instead of months. Everything we learned
@@ -89,6 +89,7 @@ export default function AboutPage() {
                 role={member.role}
                 bio={member.bio}
                 image={member.image}
+                company="RachBase"
               />
             </AnimateIn>
           ))}

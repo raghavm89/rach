@@ -24,6 +24,16 @@ const {
   getObsQuota,
   assignObs,
   unassignObs,
+  hasLogs,
+  listLogsAssignments,
+  getLogsQuota,
+  assignLogs,
+  unassignLogs,
+  getIpQuota,
+  listIpAssignments,
+  assignIp,
+  releaseIp,
+  myIps,
 } = require('../controllers/expansionController');
 
 const router = Router();
@@ -38,6 +48,20 @@ router.get('/observability/assignments',   authorize('admin'), listObsAssignment
 router.get('/observability/quota',         authorize('admin'), getObsQuota);
 router.post('/observability/assign',       authorize('admin'), assignObs);
 router.delete('/observability/assign',     authorize('admin'), unassignObs);
+
+// ── VM Logs entitlement ───────────────────────────────────────────────────────
+router.get('/has-logs',            hasLogs);                       // any authed user
+router.get('/logs/assignments',    authorize('admin'), listLogsAssignments);
+router.get('/logs/quota',          authorize('admin'), getLogsQuota);
+router.post('/logs/assign',        authorize('admin'), assignLogs);
+router.delete('/logs/assign',      authorize('admin'), unassignLogs);
+
+// ── Additional Public IPs ─────────────────────────────────────────────────────
+router.get('/my-ips',              authorize('tenant_admin', 'tenant_user'), myIps);
+router.get('/ips/assignments',     authorize('admin'), listIpAssignments);
+router.get('/ips/quota',           authorize('admin'), getIpQuota);
+router.post('/ips/assign',         authorize('admin'), assignIp);
+router.delete('/ips/assign',       authorize('admin'), releaseIp);
 
 // ── VM Packages ───────────────────────────────────────────────────────────────
 router.get('/packages',        listPackages);                              // all authed

@@ -12,7 +12,7 @@ import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with the Rach Dev LLP team. Whether you have a pricing question, need migration help, or want to discuss a custom deployment — we respond within 24 hours.",
+    "Get in touch with the RachBase team. Whether you have a pricing question, need migration help, or want to discuss a custom deployment — we respond within 24 hours.",
 };
 
 export default function ContactPage() {

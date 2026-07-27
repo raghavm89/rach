@@ -11,7 +11,7 @@ import { pricingFAQs } from "@/data/pricing";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Transparent, predictable pricing for Rach Dev LLP. Backend infrastructure and AI agents bundled in one bill. Starter, Growth, and Scale plans with no hidden fees.",
+    "Transparent, predictable pricing for RachBase. Backend infrastructure and AI agents bundled in one bill. Starter, Growth, and Scale plans with no hidden fees.",
 };
 
 export default function PricingPage() {
