@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { QueryProvider, AuthProvider } from "@rach/ui";
 import { SiteChrome } from "@/components/SiteChrome";
+import { SITE_URL } from "@/config/site";
 import "./globals.css";
 
 const bricolageGrotesque = Bricolage_Grotesque({
@@ -26,7 +27,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://rachbase.example"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "RachBase — Cloud Management & Backend-as-a-Service",
     template: "%s | RachBase",

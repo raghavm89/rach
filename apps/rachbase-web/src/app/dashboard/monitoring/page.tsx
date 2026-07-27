@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Server, Cpu, MemoryStick, HardDrive, Clock, AlertCircle, BarChart2 } from 'lucide-react';
+import { RefreshCw, Server, Cpu, MemoryStick, HardDrive, Clock, AlertCircle, BarChart2, ScrollText, Network } from 'lucide-react';
 import VMHistoryModal from '@/components/VMHistoryModal';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { monitoring, expansion, tenants, VM, VMSummary, Tenant } from '@rach/ui/lib/api';
@@ -46,6 +46,18 @@ export default function MonitoringPage() {
   const [tenantList, setTenantList]         = useState<Tenant[]>([]);
   const [obsToggling, setObsToggling]       = useState<string | null>(null); // vm_id being toggled
 
+  // VM Logs assignment state (mirrors Observability)
+  const [logsVmIds, setLogsVmIds]           = useState<Set<string>>(new Set());
+  const [logsQuotas, setLogsQuotas]         = useState<{ tenant_id: number; tenant_name: string; quota: number; used: number }[]>([]);
+  const [logsToggling, setLogsToggling]     = useState<string | null>(null);
+
+  // Additional Public IPs
+  const [ipAssignments, setIpAssignments]   = useState<{ id: number; tenant_id: number; vm_id: string; ip_address: string; purpose: string | null; status: string; tenant_name: string }[]>([]);
+  const [ipQuotas, setIpQuotas]             = useState<{ tenant_id: number; tenant_name: string; quota: number; used: number }[]>([]);
+  const [ipForm, setIpForm]                 = useState({ vm_id: '', ip_address: '', purpose: '' });
+  const [ipBusy, setIpBusy]                 = useState(false);
+  const [ipErr, setIpErr]                   = useState('');
+
   useEffect(() => {
     if (user && user.role !== 'admin') router.replace('/dashboard');
   }, [user, router]);
@@ -55,18 +67,26 @@ export default function MonitoringPage() {
     if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
     setError('');
     try {
-      const [summaryData, vmsData, assignmentsData, quotaData, tenantsData] = await Promise.all([
+      const [summaryData, vmsData, assignmentsData, quotaData, tenantsData, logsAssignData, logsQuotaData, ipAssignData, ipQuotaData] = await Promise.all([
         monitoring.getSummary(token),
         monitoring.getVMs(token),
         expansion.listObsAssignments(token),
         expansion.getObsQuota(token),
         tenants.getAll(token),
+        expansion.listLogsAssignments(token),
+        expansion.getLogsQuota(token),
+        expansion.listIpAssignments(token),
+        expansion.getIpQuota(token),
       ]);
       setSummary(summaryData);
       setVMs(vmsData.vms);
       setObsVmIds(new Set(assignmentsData.assignments.map((a) => a.vm_id)));
       setObsQuotas(quotaData.quotas);
       setTenantList(tenantsData.tenants);
+      setLogsVmIds(new Set(logsAssignData.assignments.map((a) => a.vm_id)));
+      setLogsQuotas(logsQuotaData.quotas);
+      setIpAssignments(ipAssignData.assignments);
+      setIpQuotas(ipQuotaData.quotas);
       setLastUpdated(new Date());
     } catch (err) {
       setError((err as Error).message || 'Failed to load monitoring data');
@@ -101,6 +121,49 @@ export default function MonitoringPage() {
     } finally {
       setObsToggling(null);
     }
+  };
+
+  const toggleLogs = async (vm: VM) => {
+    if (!token || logsToggling) return;
+    const tenantId = poolToTenantId.get(vm.pool ?? '');
+    if (!tenantId) return;
+    setLogsToggling(vm.id);
+    try {
+      if (logsVmIds.has(vm.id)) {
+        await expansion.unassignLogs(token, tenantId, vm.id);
+        setLogsVmIds((prev) => { const s = new Set(prev); s.delete(vm.id); return s; });
+        setLogsQuotas((prev) => prev.map((q) => q.tenant_id === tenantId ? { ...q, used: q.used - 1 } : q));
+      } else {
+        await expansion.assignLogs(token, tenantId, vm.id);
+        setLogsVmIds((prev) => new Set(prev).add(vm.id));
+        setLogsQuotas((prev) => prev.map((q) => q.tenant_id === tenantId ? { ...q, used: q.used + 1 } : q));
+      }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setLogsToggling(null);
+    }
+  };
+
+  const assignIp = async () => {
+    if (!token) return;
+    const vm = vms.find((v) => v.id === ipForm.vm_id);
+    const tenantId = vm ? poolToTenantId.get(vm.pool ?? '') : undefined;
+    if (!vm || !tenantId) { setIpErr('Pick a VM that belongs to a tenant'); return; }
+    if (!ipForm.ip_address.trim()) { setIpErr('Enter the IP address'); return; }
+    setIpBusy(true); setIpErr('');
+    try {
+      await expansion.assignIp(token, { tenant_id: tenantId, vm_id: vm.id, ip_address: ipForm.ip_address.trim(), purpose: ipForm.purpose.trim() || undefined });
+      setIpForm({ vm_id: '', ip_address: '', purpose: '' });
+      fetchData(true);
+    } catch (err) { setIpErr((err as Error).message); }
+    finally { setIpBusy(false); }
+  };
+
+  const releaseIp = async (id: number) => {
+    if (!token) return;
+    try { await expansion.releaseIp(token, id); fetchData(true); }
+    catch (err) { alert((err as Error).message); }
   };
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -243,6 +306,28 @@ export default function MonitoringPage() {
         </div>
       )}
 
+      {/* VM Logs Quota Banner */}
+      {logsQuotas.filter((q) => q.quota > 0).length > 0 && (
+        <div className="rounded-xl border border-sky-100 bg-sky-50/60 px-6 py-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-sky-700 flex items-center gap-2">
+            <ScrollText size={13} /> VM Logs Quota
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {logsQuotas.filter((q) => q.quota > 0).map((q) => (
+              <div key={q.tenant_id} className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-text-primary">{q.tenant_name}</span>
+                <span className={cn(
+                  'rounded-full px-2.5 py-0.5 text-xs font-bold',
+                  q.used >= q.quota ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                )}>
+                  {q.used} / {q.quota} slots
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* VM Table */}
       <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4">
@@ -252,7 +337,7 @@ export default function MonitoringPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-border bg-bg-secondary">
-                {['Name', 'Pool', 'Type', 'Status', 'CPU', 'Memory', 'Disk', 'Uptime', 'Obs'].map((h) => (
+                {['Name', 'Pool', 'Type', 'Status', 'CPU', 'Memory', 'Disk', 'Uptime', 'Obs', 'Logs'].map((h) => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -370,10 +455,115 @@ export default function MonitoringPage() {
                       );
                     })()}
                   </td>
+                  {/* Logs toggle */}
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      const tenantId = poolToTenantId.get(vm.pool ?? '');
+                      const quota    = logsQuotas.find((q) => q.tenant_id === tenantId);
+                      const hasLogs  = logsVmIds.has(vm.id);
+                      const isFull   = !hasLogs && quota && quota.used >= quota.quota;
+                      const spinning = logsToggling === vm.id;
+                      if (!tenantId || !quota || quota.quota === 0) {
+                        return <span className="text-xs text-text-muted">—</span>;
+                      }
+                      return (
+                        <button
+                          onClick={() => toggleLogs(vm)}
+                          disabled={!!isFull || spinning}
+                          title={isFull ? `Quota full (${quota.used}/${quota.quota})` : hasLogs ? 'Remove VM Logs' : 'Enable VM Logs'}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-all',
+                            spinning && 'opacity-50 cursor-wait',
+                            hasLogs
+                              ? 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'
+                              : isFull
+                              ? 'bg-neutral-100 text-text-muted border border-neutral-border cursor-not-allowed'
+                              : 'bg-bg-secondary text-text-muted border border-neutral-border hover:border-sky-300 hover:text-sky-700',
+                          )}
+                        >
+                          <ScrollText size={11} />
+                          {hasLogs ? 'On' : 'Off'}
+                        </button>
+                      );
+                    })()}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Additional Public IPs */}
+      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+        <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
+          <Network size={15} className="text-text-muted" />
+          <h3 className="text-sm font-semibold text-text-primary">Additional Public IPs</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          {/* Quota chips */}
+          {ipQuotas.filter((q) => q.quota > 0).length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {ipQuotas.filter((q) => q.quota > 0).map((q) => (
+                <span key={q.tenant_id} className="inline-flex items-center gap-2 text-sm">
+                  <span className="font-medium text-text-primary">{q.tenant_name}</span>
+                  <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-bold',
+                    q.used >= q.quota ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700')}>
+                    {q.used} / {q.quota} IPs
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Assign form */}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-text-muted">VM</label>
+              <select value={ipForm.vm_id} onChange={(e) => setIpForm((p) => ({ ...p, vm_id: e.target.value }))}
+                className="rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue">
+                <option value="">Select VM…</option>
+                {vms.filter((v) => poolToTenantId.get(v.pool ?? '')).map((v) => (
+                  <option key={v.id} value={v.id}>{v.name} ({v.pool})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-text-muted">IP address</label>
+              <input value={ipForm.ip_address} onChange={(e) => setIpForm((p) => ({ ...p, ip_address: e.target.value }))}
+                placeholder="203.0.113.5"
+                className="w-40 rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-blue" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-text-muted">Purpose</label>
+              <input value={ipForm.purpose} onChange={(e) => setIpForm((p) => ({ ...p, purpose: e.target.value }))}
+                placeholder="egress / mail / …"
+                className="w-40 rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue" />
+            </div>
+            <button onClick={assignIp} disabled={ipBusy}
+              className="rounded-lg bg-primary-blue text-white px-4 py-1.5 text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+              {ipBusy ? 'Assigning…' : 'Assign IP'}
+            </button>
+          </div>
+          {ipErr && <p className="text-xs text-red-600">{ipErr}</p>}
+
+          {/* Active assignments */}
+          {ipAssignments.filter((a) => a.status === 'active').length === 0 ? (
+            <p className="text-sm text-text-muted">No additional IPs allocated yet.</p>
+          ) : (
+            <div className="divide-y divide-neutral-border border border-neutral-border rounded-lg">
+              {ipAssignments.filter((a) => a.status === 'active').map((a) => (
+                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className="font-mono text-text-primary">{a.ip_address}</span>
+                  {a.purpose && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-text-muted">{a.purpose}</span>}
+                  <span className="text-xs text-text-muted">{a.tenant_name} · {a.vm_id}</span>
+                  <div className="flex-1" />
+                  <button onClick={() => releaseIp(a.id)}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700">Release</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

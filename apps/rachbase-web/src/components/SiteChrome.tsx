@@ -29,9 +29,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   }
   return (
     <div className="bg-page text-ink">
-      <Navbar navGroups={navGroups} logo={<BrandLogo />} />
+      <Navbar navGroups={navGroups} logo={<BrandLogo />} logoAlt="RachBase" />
       <main>{children}</main>
-      <Footer columns={footerColumns} tagline={footerTagline} logo={<BrandLogo />} />
+      <Footer columns={footerColumns} tagline={footerTagline} logo={<BrandLogo />} logoAlt="RachBase" />
     </div>
   );
 }

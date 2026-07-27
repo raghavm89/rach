@@ -9,7 +9,7 @@
  */
 
 // Must match the fallback in lib/api.ts — the local backend is on :3000.
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const baseCls =
   'flex w-full items-center justify-center gap-3 rounded-lg border border-neutral-border ' +

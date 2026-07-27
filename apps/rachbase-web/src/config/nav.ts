@@ -14,7 +14,6 @@ export const navGroups = [
     links: [
       { label: "Documentation", href: "/docs" },
       { label: "Security", href: "/security" },
-      { label: "Changelog", href: "/changelog" },
     ],
   },
   {
@@ -39,7 +38,6 @@ export const footerColumns = [
     links: [
       { label: "Documentation", href: "/docs" },
       { label: "Security", href: "/security" },
-      { label: "Changelog", href: "/changelog" },
     ],
   },
   {

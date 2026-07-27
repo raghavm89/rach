@@ -26,7 +26,7 @@ import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 export const metadata: Metadata = {
   title: "Integrations",
   description:
-    "Connect Rach Dev LLP to the tools your business already runs on — databases, auth and SSO, messaging, CRM, commerce, payments, LLM providers, and developer tools. Anything else connects via auto-generated REST APIs and webhooks.",
+    "Connect RachBase to the tools your business already runs on — databases, auth and SSO, messaging, CRM, commerce, payments, LLM providers, and developer tools. Anything else connects via auto-generated REST APIs and webhooks.",
 };
 
 interface IntegrationCategory {
@@ -90,7 +90,7 @@ const categories: IntegrationCategory[] = [
     icon: GitBranch,
     title: "Developer Tools",
     description:
-      "Fit Rach Dev LLP into the workflow your engineers already use.",
+      "Fit RachBase into the workflow your engineers already use.",
     examples: ["GitHub", "CI/CD pipelines", "Version control"],
   },
   {
@@ -164,14 +164,14 @@ export default function IntegrationsPage() {
       <SectionWrapper>
         <SectionHeader
           eyebrow="Integrations"
-          title="Connect Rach Dev LLP to your stack"
-          subtitle="Your agents and backend are only as useful as the tools they can reach. Rach Dev LLP plugs into the services you already run on — and connects to everything else through an open API."
+          title="Connect RachBase to your stack"
+          subtitle="Your agents and backend are only as useful as the tools they can reach. RachBase plugs into the services you already run on — and connects to everything else through an open API."
         />
         <AnimateIn>
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/integrations-ecosystem.png"
-              alt="A central Rach Dev LLP platform node connected to surrounding third-party services"
+              alt="A central RachBase platform node connected to surrounding third-party services"
               fill
               className="object-contain p-6"
             />
@@ -183,7 +183,7 @@ export default function IntegrationsPage() {
       <SectionWrapper className="bg-band">
         <AnimateIn>
           <p className="mx-auto max-w-3xl text-center text-lg leading-relaxed text-ink-2">
-            Rach Dev LLP connects to the tools your business already uses — auth
+            RachBase connects to the tools your business already uses — auth
             providers, messaging channels, CRMs, commerce platforms, payment
             processors, and LLM providers. Anything not natively supported
             connects through auto-generated REST APIs and outbound webhooks, so
@@ -270,7 +270,7 @@ export default function IntegrationsPage() {
         <SectionHeader
           eyebrow="FAQ"
           title="Integration questions, answered"
-          subtitle="What teams ask before wiring Rach Dev LLP into their stack."
+          subtitle="What teams ask before wiring RachBase into their stack."
         />
         <div className="mx-auto max-w-3xl">
           <Accordion items={faqs} />

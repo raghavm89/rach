@@ -20,7 +20,7 @@ import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 export const metadata: Metadata = {
   title: "Documentation",
   description:
-    "Rach Dev LLP documentation. Getting started guides, API references, and tutorials.",
+    "RachBase documentation. Getting started guides, API references, and tutorials.",
 };
 
 interface DocSection {

@@ -9,7 +9,7 @@ import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 export const metadata: Metadata = {
   title: "Changelog",
   description:
-    "See what's new at Rach Dev LLP. Platform updates, new features, and improvements.",
+    "See what's new at RachBase. Platform updates, new features, and improvements.",
 };
 
 const launchItems = [

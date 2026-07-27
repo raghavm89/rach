@@ -607,6 +607,125 @@ async function sendOrderNotificationEmail({ orderId, items, customerName, custom
   });
 }
 
+/**
+ * VM key provisioning email → raghav@rachdev.com (+ ARKA if ARKA_PROVISIONING_EMAIL set).
+ * Sent when a VM order is placed: carries the per-VM PUBLIC keys ARKA installs on
+ * the new VMs' authorized_keys. Never contains a private key.
+ *
+ * @param {object} opts
+ * @param {number|string} opts.orderId
+ * @param {string} opts.customerName
+ * @param {string} opts.customerEmail
+ * @param {string} opts.sshUser
+ * @param {{ fingerprint: string, publicKey: string }[]} opts.keys  one per VM to create
+ */
+async function sendVmKeyProvisioningEmail({ orderId, customerName, customerEmail, sshUser, keys }) {
+  const rows = (keys || []).map((k, i) => `
+    <tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151;vertical-align:top;white-space:nowrap;">VM ${i + 1}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f3f4f6;font-size:12px;color:#6b7280;font-family:monospace;">${escapeHtml(k.fingerprint)}</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="padding:0 14px 12px;border-bottom:1px solid #f3f4f6;">
+        <pre style="margin:0;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#111827;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;">${escapeHtml(k.publicKey)}</pre>
+      </td>
+    </tr>`).join('');
+
+  const htmlContent = `
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="620" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+        <tr><td style="background:linear-gradient(135deg,#2563eb,#7c3aed);padding:24px 32px;">
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">VM Provisioning — SSH Keys</h1>
+          <p style="margin:4px 0 0;color:rgba(255,255,255,.8);font-size:13px;">Order #${orderId} · ${keys?.length || 0} VM(s)</p>
+        </td></tr>
+        <tr><td style="padding:24px 32px 8px;font-size:14px;color:#374151;line-height:1.6;">
+          <p style="margin:0 0 4px;"><strong>Customer:</strong> ${escapeHtml(customerName)} (${escapeHtml(customerEmail)})</p>
+          <p style="margin:0 0 16px;"><strong>Login user:</strong> <code style="font-family:monospace;">${escapeHtml(sshUser)}</code></p>
+          <p style="margin:0 0 8px;">Please create the VM(s) and install the matching <strong>public key</strong> below into
+          <code style="font-family:monospace;">/home/${escapeHtml(sshUser)}/.ssh/authorized_keys</code> on each.
+          Then reply/hand back, per VM: <strong>vm_id, IP address, SSH port, and host key fingerprint</strong>.</p>
+        </td></tr>
+        <tr><td style="padding:8px 32px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">${rows}</table>
+        </td></tr>
+        <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 32px;text-align:center;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">These are PUBLIC keys — safe to install. RachBase holds the private keys, encrypted.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const textContent =
+    `VM Provisioning — Order #${orderId} (${keys?.length || 0} VM(s))\n\n` +
+    `Customer: ${customerName} (${customerEmail})\n` +
+    `Login user: ${sshUser}\n\n` +
+    `Install each PUBLIC key into /home/${sshUser}/.ssh/authorized_keys on a new VM,\n` +
+    `then hand back per VM: vm_id, IP, SSH port, host key fingerprint.\n\n` +
+    (keys || []).map((k, i) => `VM ${i + 1} [${k.fingerprint}]\n${k.publicKey}`).join('\n\n') +
+    `\n\nThese are public keys — safe to install. Private keys stay in RachBase, encrypted.`;
+
+  const to = [{ email: 'raghav@rachdev.com', name: 'Raghav — Rach Dev' }];
+  if (process.env.ARKA_PROVISIONING_EMAIL) to.push({ email: process.env.ARKA_PROVISIONING_EMAIL, name: 'ARKA Provisioning' });
+
+  return sendEmail({
+    to,
+    subject: `VM provisioning keys — Order #${orderId} (${keys?.length || 0} VM${(keys?.length || 0) !== 1 ? 's' : ''})`,
+    htmlContent,
+    textContent,
+  });
+}
+
+/**
+ * Tenant teardown notice → raghav@rachdev.com (+ ARKA if ARKA_PROVISIONING_EMAIL set).
+ * Sent when a tenant is deleted (soft): lists the VMs ARKA should de-provision.
+ * The VM keys are already revoked on our side.
+ */
+async function sendTenantTeardownEmail({ tenantName, tenantId, vmIds }) {
+  const list = (vmIds || []);
+  const rows = list.map((id) => `
+    <tr><td style="padding:8px 14px;border-bottom:1px solid #f3f4f6;font-size:13px;font-family:monospace;color:#111827;">${escapeHtml(id)}</td></tr>`).join('');
+
+  const htmlContent = `
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f6fb;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6fb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);">
+        <tr><td style="background:linear-gradient(135deg,#ef4444,#b91c1c);padding:24px 32px;">
+          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:700;">Tenant De-provisioning</h1>
+          <p style="margin:4px 0 0;color:rgba(255,255,255,.85);font-size:13px;">${escapeHtml(tenantName)} (#${tenantId})</p>
+        </td></tr>
+        <tr><td style="padding:24px 32px 8px;font-size:14px;color:#374151;line-height:1.6;">
+          <p style="margin:0 0 12px;">This tenant was deleted. Its VM keys have been revoked on RachBase. Please de-provision the following VM(s):</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">${rows || '<tr><td style="padding:8px 14px;font-size:13px;color:#6b7280;">(no VMs on record)</td></tr>'}</table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const textContent =
+    `Tenant de-provisioning — ${tenantName} (#${tenantId})\n\n` +
+    `Tenant deleted; VM keys revoked. Please de-provision:\n` +
+    (list.length ? list.map((id) => `  - ${id}`).join('\n') : '  (no VMs on record)');
+
+  const to = [{ email: 'raghav@rachdev.com', name: 'Raghav — Rach Dev' }];
+  if (process.env.ARKA_PROVISIONING_EMAIL) to.push({ email: process.env.ARKA_PROVISIONING_EMAIL, name: 'ARKA Provisioning' });
+
+  return sendEmail({
+    to,
+    subject: `Tenant de-provisioning — ${tenantName} (${list.length} VM${list.length !== 1 ? 's' : ''})`,
+    htmlContent,
+    textContent,
+  });
+}
+
 // ── Tax invoice ───────────────────────────────────────────────────────────────
 
 /**
@@ -737,5 +856,7 @@ module.exports = {
   sendContactEmail,
   sendInvoiceEmail,
   sendOrderNotificationEmail,
+  sendVmKeyProvisioningEmail,
+  sendTenantTeardownEmail,
   sendTaxInvoiceEmail,
 };

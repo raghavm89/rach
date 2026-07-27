@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Server, Cpu, MemoryStick, HardDrive, Clock, ServerOff, AlertCircle } from 'lucide-react';
+import { RefreshCw, Server, Cpu, MemoryStick, HardDrive, Clock, ServerOff, AlertCircle, SquareTerminal, Network } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { monitoring, expansion, VM } from '@rach/ui/lib/api';
 import { cn } from '@rach/ui/lib/utils';
 import VMHistoryModal from '@/components/VMHistoryModal';
+import { useTerminal } from '@/contexts/TerminalContext';
 
 function UptimeLabel({ seconds }: { seconds: number }) {
   const d = Math.floor(seconds / 86400);
@@ -29,7 +31,13 @@ function UsageBar({ pct }: { pct: number }) {
 }
 
 export default function MyVMsPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const router = useRouter();
+
+  // My VMs is a tenant-user view (tenant_admin uses VM Monitor).
+  useEffect(() => {
+    if (user && !['tenant_user', 'developer'].includes(user.role)) router.replace('/dashboard');
+  }, [user, router]);
 
   const [vms, setVMs]           = useState<VM[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -37,19 +45,25 @@ export default function MyVMsPage() {
   const [error, setError]       = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedVM, setSelectedVM] = useState<VM | null>(null);
+  const { openTerminal } = useTerminal();
   const [obsVmIds, setObsVmIds] = useState<Set<string>>(new Set());
+  const [ipsByVm, setIpsByVm] = useState<Record<string, { id: number; ip_address: string; purpose: string | null }[]>>({});
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (!token) return;
     if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
     setError('');
     try {
-      const [data, obsData] = await Promise.all([
+      const [data, obsData, ipData] = await Promise.all([
         monitoring.getVMs(token),
         expansion.hasObservability(token),
+        expansion.myIps(token),
       ]);
       setVMs(data.vms);
       setObsVmIds(new Set(obsData.obs_vm_ids ?? []));
+      const grouped: Record<string, { id: number; ip_address: string; purpose: string | null }[]> = {};
+      for (const ip of ipData.ips) { (grouped[ip.vm_id] ??= []).push(ip); }
+      setIpsByVm(grouped);
       setLastUpdated(new Date());
     } catch (err) {
       setError((err as Error).message);
@@ -204,7 +218,7 @@ export default function MyVMsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-border bg-bg-secondary">
-                {['Name', 'Type', 'Status', 'CPU', 'Memory', 'Disk', 'Uptime'].map((h) => (
+                {['Name', 'Type', 'Status', 'CPU', 'Memory', 'Disk', 'Uptime', 'SSH'].map((h) => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -223,6 +237,16 @@ export default function MyVMsPage() {
                       <div>
                         <p className="font-medium text-text-primary">{vm.name}</p>
                         <p className="text-xs text-text-muted font-mono">{vm.id}</p>
+                        {ipsByVm[vm.id]?.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {ipsByVm[vm.id].map((ip) => (
+                              <span key={ip.id} title={ip.purpose ? `Additional IP · ${ip.purpose}` : 'Additional IP'}
+                                className="inline-flex items-center gap-1 rounded-full bg-sky-50 border border-sky-200 px-2 py-0.5 text-[11px] font-mono text-sky-700">
+                                <Network size={10} /> {ip.ip_address}{ip.purpose ? <span className="text-sky-500/70 not-italic">· {ip.purpose}</span> : null}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -280,6 +304,16 @@ export default function MyVMsPage() {
                       <Clock size={12} className="text-text-muted" />
                       <span className="font-mono"><UptimeLabel seconds={vm.uptimeSeconds} /></span>
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openTerminal({ id: vm.id, name: vm.name }); }}
+                      disabled={vm.status !== 'running'}
+                      title={vm.status === 'running' ? 'Open SSH terminal' : 'VM is not running'}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-border px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:text-primary-blue hover:border-primary-blue/40 hover:bg-bg-secondary transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <SquareTerminal size={13} /> SSH
+                    </button>
                   </td>
                 </tr>
               ))}

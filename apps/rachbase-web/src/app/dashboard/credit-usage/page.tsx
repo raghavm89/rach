@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { agent } from '@rach/ui/lib/api';
 import { Coins, Bot, CreditCard, Activity, Receipt, Loader2 } from 'lucide-react';
@@ -8,7 +9,13 @@ import Link from 'next/link';
 import { cn } from '@rach/ui/lib/utils';
 
 export default function CreditUsagePage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const router = useRouter();
+
+  // Credit usage is a tenant-admin view.
+  useEffect(() => {
+    if (user && user.role !== 'tenant_admin' && user.role !== 'admin') router.replace('/dashboard');
+  }, [user, router]);
 
   const [summary, setSummary]         = useState<{ balance: number; total_purchased: number; total_used: number; total_tokens: number } | null>(null);
   const [history, setHistory]         = useState<{ id: number; type: string; amount: number; description: string; created_at: string; user_name?: string | null }[]>([]);

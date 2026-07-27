@@ -511,7 +511,7 @@ export default function BillingPage() {
         order_id:    orderData.order_id,
         amount:      orderData.amount,
         currency:    orderData.currency,
-        name:        'Rach Dev Agent Credits',
+        name:        'RachBase Agent Credits',
         description: `${pack.label} — ${pack.credits} credits`,
         handler: async (response: RazorpayResponse) => {
           try {

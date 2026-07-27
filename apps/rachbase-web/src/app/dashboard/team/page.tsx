@@ -184,7 +184,7 @@ function AssignVMsModal({
               <AlertCircle size={14} className="shrink-0" /> {error}
             </p>
           ) : poolVMs.length === 0 ? (
-            <p className="text-center text-sm text-text-muted py-10">No VMs in your tenant pool yet. Contact Rach Dev LLP admin.</p>
+            <p className="text-center text-sm text-text-muted py-10">No VMs in your tenant pool yet. Contact RachBase admin.</p>
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-text-muted mb-3">

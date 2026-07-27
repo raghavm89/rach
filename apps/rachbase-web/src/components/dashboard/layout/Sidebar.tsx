@@ -121,16 +121,16 @@ export function Sidebar({ variant, projectSlug = "myapp-prod", mobileOpen = fals
       <div className="flex items-center h-14 px-3 border-b border-white/10">
         {variant === "user" ? (
           !isMobile && collapsed ? (
-            <Image src="/brand/rach-dev-favicon.svg" alt="Rach Dev LLP" width={40} height={40} className="w-10 h-10 rounded-lg" />
+            <Image src="/brand/rachbase-mark.png" alt="RachBase" width={40} height={40} className="w-10 h-10 rounded-lg" />
           ) : (
             <ProjectSwitcher projectSlug={projectSlug} />
           )
         ) : (
           <div className="flex items-center gap-2 overflow-hidden">
-            <Image src="/brand/rach-dev-favicon.svg" alt="Rach Dev LLP" width={32} height={32} className="w-8 h-8 rounded-lg shrink-0" />
+            <Image src="/brand/rachbase-mark.png" alt="RachBase" width={32} height={32} className="w-8 h-8 rounded-lg shrink-0" />
             {(isMobile || !collapsed) && (
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-semibold text-white truncate">Rach Dev LLP Admin</span>
+                <span className="text-sm font-semibold text-white truncate">RachBase Admin</span>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-status-danger/20 text-status-danger w-fit">
                   PRODUCTION
                 </span>

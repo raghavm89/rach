@@ -14,7 +14,7 @@ interface AgentChatProps {
   onClose: () => void;
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export function AgentChat({ token, onClose }: AgentChatProps) {
   const [sessions, setSessions]       = useState<ChatSession[]>([]);

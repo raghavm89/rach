@@ -3,11 +3,14 @@
 const geoip     = require('geoip-lite');
 const pool      = require('@rach/core').pool;
 const razorpay  = require('@rach/billing').razorpay;
-const { priceCart, PricingError } = require('@rach/billing').catalog;
+const { priceCart, getBundle, PricingError } = require('@rach/billing').catalog;
 const { verifyOrderPayment } = require('@rach/billing').paymentSecurity;
 const purchase = require('@rach/billing').purchase;
 const asyncHandler = require('@rach/core').asyncHandler;
-const { sendInvoiceEmail, sendOrderNotificationEmail } = require('@rach/core').brevo;
+const { sendInvoiceEmail, sendOrderNotificationEmail, sendVmKeyProvisioningEmail } = require('@rach/core').brevo;
+const { VmKey } = require('../models/vmKey');
+const keyCrypto = require('../services/keyCrypto');
+const { purchasedQty } = require('../lib/entitlements');
 
 /**
  * Notify raghav@rachdev.com that an order completed. Fire-and-forget: never
@@ -30,6 +33,42 @@ async function notifyOrderPlaced(order, items) {
     });
   } catch (e) {
     console.error('[expansion] order notification email failed:', e.message);
+  }
+}
+
+/**
+ * Generate one per-VM SSH keypair for each VM in a completed order, store the
+ * private keys encrypted (pending), and email raghav+ARKA the PUBLIC keys to
+ * install. Fire-and-forget: never blocks or fails the order response.
+ */
+async function provisionVmKeysForOrder(order, vmCount) {
+  if (!vmCount || vmCount < 1) return;
+  if (!keyCrypto.isConfigured()) {
+    console.warn(`[expansion] RACHBASE_KEY_ENC_SECRET not set — skipping VM keypair generation for order ${order.id}`);
+    return;
+  }
+  try {
+    const keys = [];
+    for (let i = 0; i < vmCount; i++) {
+      const k = await VmKey.createPending({
+        orderId : order.id,
+        userId  : order.requested_by,
+        tenantId: order.tenant_id,
+        comment : `rachbase:order=${order.id}`,
+      });
+      keys.push({ fingerprint: k.fingerprint, publicKey: k.public_key });
+    }
+    const { rows } = await pool.query('SELECT name, email FROM users WHERE id = $1', [order.requested_by]);
+    const cust = rows[0] || {};
+    await sendVmKeyProvisioningEmail({
+      orderId      : order.id,
+      customerName : cust.name  || 'Customer',
+      customerEmail: cust.email || '',
+      sshUser      : 'rachops',
+      keys,
+    });
+  } catch (e) {
+    console.error('[expansion] VM key provisioning failed:', e.message);
   }
 }
 
@@ -201,6 +240,8 @@ async function verifyExpansionPayment(req, res) {
   // Notify admin the order completed (fire-and-forget)
   const pkgLabel = pkg.vm_count ? `${pkg.name} (${pkg.vm_count} VMs)` : pkg.name;
   notifyOrderPlaced(rows[0], [{ name: pkgLabel, qty: 1 }]);
+  // Mint one SSH keypair per VM in the package and email the public keys to ARKA
+  provisionVmKeysForOrder(rows[0], pkg.vm_count || 0);
 
   res.status(201).json({
     message : 'Resource expansion request submitted. Our team will assign your VMs shortly.',
@@ -276,12 +317,21 @@ async function cancelMySubscription(req, res) {
 
   if (!caller.tenant_id) return res.status(403).json({ error: 'Forbidden' });
 
-  // Fetch the request — must belong to caller's tenant and be cancellable
-  const { rows: found } = await pool.query(
-    `SELECT * FROM vm_expansion_requests
-     WHERE id = $1 AND tenant_id = $2 AND status NOT IN ('cancelled')`,
-    [id, caller.tenant_id]
-  );
+  // Fetch the request — must belong to caller's tenant and be cancellable.
+  // tenant_admin can cancel any order in the tenant; tenant_user only their own
+  // (otherwise a low-privilege user could cancel the admin's subscription — T2).
+  const isTenantAdmin = caller.role === 'tenant_admin';
+  const { rows: found } = isTenantAdmin
+    ? await pool.query(
+        `SELECT * FROM vm_expansion_requests
+         WHERE id = $1 AND tenant_id = $2 AND status NOT IN ('cancelled')`,
+        [id, caller.tenant_id]
+      )
+    : await pool.query(
+        `SELECT * FROM vm_expansion_requests
+         WHERE id = $1 AND tenant_id = $2 AND requested_by = $3 AND status NOT IN ('cancelled')`,
+        [id, caller.tenant_id, caller.id]
+      );
   if (!found.length) return res.status(404).json({ error: 'Order not found or already cancelled' });
 
   const request = found[0];
@@ -459,6 +509,11 @@ async function verifyCustomPayment(req, res) {
 
   // Notify admin the order completed (fire-and-forget)
   notifyOrderPlaced(rows[0], (items || []).map((i) => ({ name: i.name, qty: i.qty })));
+  // Mint one SSH keypair per VM ordered
+  const customVmCount = (items || [])
+    .filter((i) => i.id === 'vm' || i.name === 'Virtual Machine')
+    .reduce((n, i) => n + (Number(i.qty) || 0), 0);
+  provisionVmKeysForOrder(rows[0], customVmCount);
 
   res.status(201).json({
     message: 'Resource expansion request submitted. Our team will provision your services shortly.',
@@ -612,6 +667,11 @@ async function activateSubscription(req, res) {
 
   // Notify admin the order completed (fire-and-forget)
   notifyOrderPlaced(order, (priced.lines || []).map((l) => ({ name: l.name, qty: l.qty })));
+  // Mint one SSH keypair per VM (bundle VM count, or the vm line qty)
+  const subVmCount = bundle_id
+    ? (getBundle(bundle_id)?.items?.vm || 0)
+    : (priced.lines || []).filter((l) => l.id === 'vm').reduce((n, l) => n + (Number(l.qty) || 0), 0);
+  provisionVmKeysForOrder(order, subVmCount);
 
   res.status(201).json({
     message: 'Subscription activated. Resources will be provisioned shortly.',
@@ -682,10 +742,15 @@ async function getObsQuota(req, res) {
 
 // POST /api/expansion/observability/assign — admin
 // Body: { tenant_id, vm_id }
+const OBS_VMID_RE = /^(qemu|lxc)\/\d+$/;
+
 async function assignObs(req, res) {
   const { tenant_id, vm_id } = req.body;
   const caller = req.user;
   if (!tenant_id || !vm_id) return res.status(400).json({ error: 'tenant_id and vm_id are required' });
+  if (!OBS_VMID_RE.test(vm_id)) {
+    return res.status(400).json({ error: 'Invalid vm_id — expected qemu/<n> or lxc/<n>' });
+  }
 
   // Check quota
   const { rows: quotaRows } = await pool.query(`
@@ -733,6 +798,199 @@ async function unassignObs(req, res) {
   res.json({ message: 'Observability removed from VM' });
 }
 
+// ── VM Logs entitlement (per-VM, admin-assigned; mirrors Observability) ───────
+
+// GET /api/expansion/has-logs — any authenticated user
+async function hasLogs(req, res) {
+  const caller = req.user;
+  if (!caller.tenant_id) return res.json({ logs_vm_ids: null, unlimited: true });
+  const { rows } = await pool.query(
+    'SELECT vm_id FROM vm_logs_assignments WHERE tenant_id = $1',
+    [caller.tenant_id]
+  );
+  res.json({ logs_vm_ids: rows.map((r) => r.vm_id), unlimited: false });
+}
+
+// GET /api/expansion/logs/assignments?tenant_id=X — admin
+async function listLogsAssignments(req, res) {
+  const { tenant_id } = req.query;
+  const where  = tenant_id ? 'WHERE la.tenant_id = $1' : '';
+  const params = tenant_id ? [tenant_id] : [];
+  const { rows } = await pool.query(
+    `SELECT la.id, la.tenant_id, la.vm_id, la.assigned_at,
+            t.name AS tenant_name, u.name AS assigned_by_name
+     FROM vm_logs_assignments la
+     JOIN tenants t ON t.id = la.tenant_id
+     LEFT JOIN users u ON u.id = la.assigned_by
+     ${where}
+     ORDER BY la.assigned_at DESC`,
+    params
+  );
+  res.json({ assignments: rows });
+}
+
+// GET /api/expansion/logs/quota — admin (purchased vs used per tenant)
+async function getLogsQuota(req, res) {
+  const { rows } = await pool.query(`
+    SELECT t.id AS tenant_id, t.name AS tenant_name,
+      COALESCE((
+        SELECT SUM((item->>'qty')::int)
+        FROM vm_expansion_requests r, jsonb_array_elements(r.items_json::jsonb) item
+        WHERE r.tenant_id = t.id AND r.status NOT IN ('cancelled') AND item->>'id' = 'logs'
+      ), 0)::int AS quota,
+      COUNT(la.id)::int AS used
+    FROM tenants t
+    LEFT JOIN vm_logs_assignments la ON la.tenant_id = t.id
+    GROUP BY t.id, t.name
+    ORDER BY t.name
+  `);
+  res.json({ quotas: rows });
+}
+
+// POST /api/expansion/logs/assign — admin  { tenant_id, vm_id }
+const LOGS_VMID_RE = /^(qemu|lxc)\/\d+$/;
+async function assignLogs(req, res) {
+  const { tenant_id, vm_id } = req.body;
+  const caller = req.user;
+  if (!tenant_id || !vm_id) return res.status(400).json({ error: 'tenant_id and vm_id are required' });
+  if (!LOGS_VMID_RE.test(vm_id)) return res.status(400).json({ error: 'Invalid vm_id — expected qemu/<n> or lxc/<n>' });
+
+  const quota = await purchasedQty(tenant_id, 'logs');
+  const { rows: usedRows } = await pool.query(
+    'SELECT COUNT(*)::int AS used FROM vm_logs_assignments WHERE tenant_id = $1', [tenant_id]
+  );
+  if (usedRows[0].used >= quota) {
+    return res.status(400).json({ error: `Quota exceeded: tenant has ${quota} VM Logs slot(s) purchased, all ${usedRows[0].used} are already assigned.` });
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO vm_logs_assignments (tenant_id, vm_id, assigned_by)
+     VALUES ($1, $2, $3) ON CONFLICT (tenant_id, vm_id) DO NOTHING RETURNING *`,
+    [tenant_id, vm_id, caller.id]
+  );
+  res.status(201).json({ message: 'VM Logs assigned to VM', assignment: rows[0] ?? null });
+}
+
+// DELETE /api/expansion/logs/assign — admin  { tenant_id, vm_id }
+async function unassignLogs(req, res) {
+  const { tenant_id, vm_id } = req.body;
+  if (!tenant_id || !vm_id) return res.status(400).json({ error: 'tenant_id and vm_id are required' });
+  const { rowCount } = await pool.query(
+    'DELETE FROM vm_logs_assignments WHERE tenant_id = $1 AND vm_id = $2', [tenant_id, vm_id]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'Assignment not found' });
+  res.json({ message: 'VM Logs removed from VM' });
+}
+
+// ── Additional Public IPs (per-VM, admin-recorded; catalog id 'ip') ───────────
+
+const IPV4_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+const IP_VMID_RE = /^(qemu|lxc)\/\d+$/;
+
+// GET /api/expansion/ips/quota — admin (purchased vs active per tenant)
+async function getIpQuota(req, res) {
+  const { rows } = await pool.query(`
+    SELECT t.id AS tenant_id, t.name AS tenant_name,
+      COALESCE((
+        SELECT SUM((item->>'qty')::int)
+        FROM vm_expansion_requests r, jsonb_array_elements(r.items_json::jsonb) item
+        WHERE r.tenant_id = t.id AND r.status NOT IN ('cancelled') AND item->>'id' = 'ip'
+      ), 0)::int AS quota,
+      COUNT(ip.id) FILTER (WHERE ip.status = 'active')::int AS used
+    FROM tenants t
+    LEFT JOIN vm_additional_ips ip ON ip.tenant_id = t.id
+    GROUP BY t.id, t.name
+    ORDER BY t.name
+  `);
+  res.json({ quotas: rows });
+}
+
+// GET /api/expansion/ips/assignments?tenant_id=X — admin
+async function listIpAssignments(req, res) {
+  const { tenant_id } = req.query;
+  const where  = tenant_id ? 'WHERE ip.tenant_id = $1' : '';
+  const params = tenant_id ? [tenant_id] : [];
+  const { rows } = await pool.query(
+    `SELECT ip.id, ip.tenant_id, ip.vm_id, host(ip.ip_address) AS ip_address, ip.purpose,
+            ip.status, ip.created_at, ip.released_at,
+            t.name AS tenant_name, u.name AS assigned_by_name
+     FROM vm_additional_ips ip
+     JOIN tenants t ON t.id = ip.tenant_id
+     LEFT JOIN users u ON u.id = ip.assigned_by
+     ${where}
+     ORDER BY ip.status ASC, ip.created_at DESC`,
+    params
+  );
+  res.json({ assignments: rows });
+}
+
+// POST /api/expansion/ips/assign — admin
+// Body: { tenant_id, vm_id, ip_address, purpose?, request_id? }
+async function assignIp(req, res) {
+  const { tenant_id, vm_id, ip_address, purpose, request_id } = req.body;
+  const caller = req.user;
+  if (!tenant_id || !vm_id || !ip_address) {
+    return res.status(400).json({ error: 'tenant_id, vm_id and ip_address are required' });
+  }
+  if (!IP_VMID_RE.test(vm_id)) return res.status(400).json({ error: 'Invalid vm_id — expected qemu/<n> or lxc/<n>' });
+  if (!IPV4_RE.test(String(ip_address).trim())) return res.status(400).json({ error: 'Invalid IPv4 address' });
+
+  const quota = await purchasedQty(tenant_id, 'ip');
+  const { rows: usedRows } = await pool.query(
+    "SELECT COUNT(*)::int AS used FROM vm_additional_ips WHERE tenant_id = $1 AND status = 'active'", [tenant_id]
+  );
+  if (usedRows[0].used >= quota) {
+    return res.status(400).json({ error: `Quota exceeded: tenant has ${quota} IP slot(s) purchased, all ${usedRows[0].used} are already allocated.` });
+  }
+
+  let row;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO vm_additional_ips (tenant_id, vm_id, ip_address, purpose, request_id, assigned_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, vm_id, host(ip_address) AS ip_address, purpose, status, created_at`,
+      [tenant_id, vm_id, String(ip_address).trim(), purpose ? String(purpose).slice(0, 200) : null, request_id || null, caller.id]
+    );
+    row = rows[0];
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'That IP is already allocated to a VM' });
+    throw e;
+  }
+
+  // If tied to an expansion request, mark it fulfilled in the same action.
+  if (request_id) {
+    await pool.query(
+      `UPDATE vm_expansion_requests SET status = 'fulfilled', fulfilled_at = NOW(), fulfilled_by = $1
+       WHERE id = $2 AND tenant_id = $3 AND status = 'pending'`,
+      [caller.id, request_id, tenant_id]
+    ).catch(() => {});
+  }
+
+  res.status(201).json({ message: 'IP allocated to VM', assignment: row });
+}
+
+// DELETE /api/expansion/ips/assign — admin  { id }
+async function releaseIp(req, res) {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'id is required' });
+  const { rowCount } = await pool.query(
+    "UPDATE vm_additional_ips SET status = 'released', released_at = NOW() WHERE id = $1 AND status = 'active'", [id]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'Active IP assignment not found' });
+  res.json({ message: 'IP released' });
+}
+
+// GET /api/expansion/my-ips — tenant read-only (active IPs, by VM)
+async function myIps(req, res) {
+  if (!req.user.tenant_id) return res.json({ ips: [] });
+  const { rows } = await pool.query(
+    `SELECT id, vm_id, host(ip_address) AS ip_address, purpose, created_at
+     FROM vm_additional_ips WHERE tenant_id = $1 AND status = 'active'
+     ORDER BY vm_id, created_at`,
+    [req.user.tenant_id]
+  );
+  res.json({ ips: rows });
+}
+
 module.exports = {
   listPackages:           asyncHandler(listPackages),
   createPackage:          asyncHandler(createPackage),
@@ -753,4 +1011,14 @@ module.exports = {
   getObsQuota:              asyncHandler(getObsQuota),
   assignObs:                asyncHandler(assignObs),
   unassignObs:              asyncHandler(unassignObs),
+  hasLogs:                  asyncHandler(hasLogs),
+  listLogsAssignments:      asyncHandler(listLogsAssignments),
+  getLogsQuota:             asyncHandler(getLogsQuota),
+  assignLogs:               asyncHandler(assignLogs),
+  unassignLogs:             asyncHandler(unassignLogs),
+  getIpQuota:               asyncHandler(getIpQuota),
+  listIpAssignments:        asyncHandler(listIpAssignments),
+  assignIp:                 asyncHandler(assignIp),
+  releaseIp:                asyncHandler(releaseIp),
+  myIps:                    asyncHandler(myIps),
 };

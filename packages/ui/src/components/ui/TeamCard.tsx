@@ -7,6 +7,7 @@ interface TeamCardProps {
   role: string;
   bio: string;
   image?: string;
+  company?: string;
   className?: string;
 }
 
@@ -19,14 +20,14 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function TeamCard({ name, role, bio, image, className }: TeamCardProps) {
+export function TeamCard({ name, role, bio, image, className, company = "Rach Dev LLP" }: TeamCardProps) {
   return (
     <Card className={cn("flex flex-col overflow-hidden", className)}>
       {image ? (
         <div className="relative -mx-6 -mt-6 mb-6 aspect-[2/3] overflow-hidden border-b border-line bg-band">
           <Image
             src={image}
-            alt={`${name}, ${role} at Rach Dev LLP`}
+            alt={`${name}, ${role} at ${company}`}
             fill
             sizes="(max-width: 768px) 100vw, 384px"
             className="object-cover object-center"
