@@ -648,7 +648,7 @@ async function verifyCustomPayment(req, res) {
 // rows. Persisting the subscription BEFORE payment is what lets the webhook
 // find it later; it stays in Razorpay's `created` state until activation.
 async function createSubscriptionOrder(req, res) {
-  const { items, bundle_id, billing_country, allow_duplicate } = req.body;
+  const { items, bundle_id, billing_country } = req.body;
 
   let result;
   try {
@@ -658,21 +658,9 @@ async function createSubscriptionOrder(req, res) {
       items,
       billingCountry: billing_country,
       ipCountry     : countryFromReq(req),
-      // The client must opt in explicitly to run a second identical
-      // subscription; an accidental repeat is refused with 409.
-      allowDuplicate: allow_duplicate === true,
     });
   } catch (err) {
     if (err instanceof PricingError) return res.status(400).json({ error: err.message, code: err.code });
-    if (err.code === 'duplicate_subscription') {
-      return res.status(409).json({
-        error: err.message,
-        code : err.code,
-        existing_subscription_id: err.existing_subscription_id,
-        // Retry with allow_duplicate: true to proceed anyway.
-        retry_with: { allow_duplicate: true },
-      });
-    }
     if (err.status) return res.status(err.status).json({ error: err.message });
     throw err;
   }
