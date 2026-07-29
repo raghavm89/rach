@@ -134,15 +134,23 @@ function verifySubscriptionPayment({ razorpay_subscription_id, razorpay_payment_
  *
  * @param {object} rzPayment  the payment entity from razorpay.payments.fetch
  * @param {object} expected   { amount, currency, order_id }
+ * @param {object} [opts]
+ * @param {boolean} [opts.allowAuthorized=false]  Accept an `authorized` payment
+ *        as well as `captured`. Used for Razorpay Subscriptions, whose recurring
+ *        charges are captured asynchronously by Razorpay's own billing engine —
+ *        the browser callback frequently fires while the first charge is still
+ *        `authorized` (funds held), flipping to `captured` moments later. For
+ *        one-off orders this stays false so an uncaptured payment is rejected.
  */
-function assertPaymentMatches(rzPayment, expected) {
+function assertPaymentMatches(rzPayment, expected, { allowAuthorized = false } = {}) {
   if (!rzPayment || typeof rzPayment !== 'object') {
     throw new PaymentVerificationError('Could not retrieve the payment from Razorpay', 'fetch_failed');
   }
 
-  if (rzPayment.status !== 'captured') {
+  const acceptable = allowAuthorized ? ['captured', 'authorized'] : ['captured'];
+  if (!acceptable.includes(rzPayment.status)) {
     throw new PaymentVerificationError(
-      `Payment is "${rzPayment.status}", not captured`,
+      `Payment is "${rzPayment.status}", not ${allowAuthorized ? 'captured or authorized' : 'captured'}`,
       'not_captured'
     );
   }

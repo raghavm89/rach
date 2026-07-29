@@ -283,12 +283,19 @@ async function activateSubscriptionPurchase({
     ipCountry,
   });
 
-  // Confirm with Razorpay that this payment is real, captured, and for the
-  // amount we expect.
+  // Confirm with Razorpay that this payment is real, for the amount we expect,
+  // and at least authorized. Subscription charges are captured asynchronously by
+  // Razorpay, so the first cycle is commonly still `authorized` at this point and
+  // capture is finalized via webhook — accept `authorized` here (funds are held)
+  // rather than racing Razorpay's own capture.
   let rzPayment = null;
   try {
     rzPayment = await razorpay.payments.fetch(razorpay_payment_id);
-    assertPaymentMatches(rzPayment, { amount: billing.amountMinor, currency: billing.currency });
+    assertPaymentMatches(
+      rzPayment,
+      { amount: billing.amountMinor, currency: billing.currency },
+      { allowAuthorized: true }
+    );
   } catch (err) {
     if (err.name === 'PaymentVerificationError') throw err;
     // A gateway read failure must not strand a customer who has paid; proceed
