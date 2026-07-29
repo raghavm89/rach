@@ -31,7 +31,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<RegisterResponse>;
+  register: (name: string, email: string, password: string, phone?: string, workspaceName?: string) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
   setSession: (token: string, user: User, expiresIn?: number) => void;
@@ -157,9 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string, phone?: string) => {
-    const payload: { name: string; email: string; password: string; phone_number?: string } = { name, email, password };
+  const register = useCallback(async (name: string, email: string, password: string, phone?: string, workspaceName?: string) => {
+    const payload: { name: string; email: string; password: string; phone_number?: string; workspace_name?: string } = { name, email, password };
     if (phone && phone.trim()) payload.phone_number = phone.trim();
+    if (workspaceName && workspaceName.trim()) payload.workspace_name = workspaceName.trim();
     // Registration now returns {message, email_sent, user_id} — no token until email verified.
     const result = await auth.register(payload);
     return result;

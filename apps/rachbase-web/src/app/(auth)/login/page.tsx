@@ -62,6 +62,7 @@ function LoginForm() {
 
   const [name, setName]         = useState('');
   const [phone, setPhone]       = useState('');
+  const [workspace, setWorkspace] = useState('');
   const [accepted, setAccepted] = useState(false);
 
   const [pending, setPending] = useState<PendingState | null>(null);
@@ -120,14 +121,14 @@ function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      const result = await register(name, email, password, phone || undefined);
+      const result = await register(name, email, password, phone || undefined, workspace || undefined);
       setPending({ pendingId: result.pending_id, email, expiresAt: result.expires_at });
     } catch (err) {
       setError((err as Error).message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [name, email, password, phone, register]);
+  }, [name, email, password, phone, workspace, register]);
 
   const handleVerified = useCallback((token: string, user: User, expiresIn?: number) => {
     setSession(token, user, expiresIn);
@@ -281,6 +282,19 @@ function LoginForm() {
               id="su-phone" type="tel" autoComplete="tel" value={phone}
               onChange={(e) => setPhone(e.target.value)} placeholder="+1 415 555 0100" className={inputCls}
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-text-primary" htmlFor="su-workspace">
+              Workspace name <span className="text-xs font-normal text-text-muted">(optional)</span>
+            </label>
+            <input
+              id="su-workspace" type="text" autoComplete="organization" value={workspace}
+              onChange={(e) => setWorkspace(e.target.value)} placeholder="Acme Inc" className={inputCls}
+            />
+            <p className="mt-1 text-xs text-text-muted">
+              Sets up your billing workspace so you can add credits. You can add this later if you skip it.
+            </p>
           </div>
 
           <div>

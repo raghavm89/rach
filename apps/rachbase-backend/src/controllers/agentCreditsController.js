@@ -33,6 +33,9 @@ exports.getCredits = async (req, res) => {
 
 // POST /api/agent/credits/purchase
 exports.purchaseCredits = async (req, res) => {
+  if (req.user.tenant_id == null) {
+    return res.status(400).json({ error: 'No workspace provisioned for this account yet', code: 'no_tenant' });
+  }
   const { pack_id, billing_country } = req.body;
   let result;
   try {

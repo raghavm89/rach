@@ -223,7 +223,7 @@ export const auth = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (payload: { name: string; email: string; password: string; phone_number?: string }) =>
+  register: (payload: { name: string; email: string; password: string; phone_number?: string; workspace_name?: string }) =>
     apiFetch<RegisterResponse>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),

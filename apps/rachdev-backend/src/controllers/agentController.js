@@ -158,6 +158,9 @@ exports.chat = async (req, res) => {
   if (!sessionRows.length) return res.status(404).json({ error: 'Session not found' });
 
   // 2. Check credits
+  if (req.user.tenant_id == null) {
+    return res.status(400).json({ error: 'No workspace provisioned for this account yet', code: 'no_tenant' });
+  }
   const balance = await credits.getOrCreateBalance(req.user.tenant_id);
   if (balance <= 0) {
     return res.status(402).json({ error: 'Insufficient credits', balance });
