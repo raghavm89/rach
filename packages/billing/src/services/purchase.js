@@ -97,6 +97,37 @@ async function taxOnSubtotal({ subtotalMinor, currency, buyer, description }) {
   return result.tax_total_minor || 0;
 }
 
+/**
+ * Save a checkout billing snapshot onto the user's profile (address + GSTIN) so
+ * the tax jurisdiction is on file for renewals, credit purchases, and backfills.
+ * The checkout form was previously used for one invoice and discarded, leaving
+ * later documents with an unresolved place of supply. Best-effort; never throws.
+ */
+async function persistBillingProfile(userId, billing = {}) {
+  try {
+    const addr = {
+      name:    billing.name || null,
+      line1:   billing.address || billing.line1 || null,
+      city:    billing.city || null,
+      state:   billing.state || billing.region_code || null,
+      pincode: billing.pincode || billing.postal_code || null,
+      country: billing.country || billing.country_code || null,
+      gstin:   billing.gstin || null,
+    };
+    if (!(addr.line1 || addr.state || addr.country || addr.gstin)) return;
+    await pool.query(
+      `UPDATE users
+          SET billing_address = $1::jsonb,
+              gstin = COALESCE($2, gstin),
+              updated_at = NOW()
+        WHERE id = $3`,
+      [JSON.stringify(addr), addr.gstin, userId]
+    );
+  } catch (err) {
+    console.error('[purchase] persist billing profile failed:', err.message);
+  }
+}
+
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 
 /**
@@ -179,28 +210,13 @@ async function createSubscriptionPurchase({
     };
   }
 
-  // 2. Already paying for exactly this → refuse unless the caller insists.
-  //    Buying a second, different subscription stays allowed; only an identical
-  //    one is treated as an accident.
-  if (!allowDuplicate) {
-    const active = await Subscription.findByCartSignature(
-      user.id, signature, ['active', 'authenticated', 'pending']
-    );
-    if (active) {
-      throw Object.assign(
-        new Error(
-          `You already have an active subscription for "${priced.description}". ` +
-          'Add it again only if you intend to run a second one.'
-        ),
-        {
-          status: 409,
-          code: 'duplicate_subscription',
-          existing_subscription_id: active.id,
-          existing_razorpay_sub_id: active.razorpay_sub_id,
-        }
-      );
-    }
-  }
+  // Each VM subscription is its own resource: a customer may legitimately run
+  // several identical VMs, so a matching active subscription is NOT treated as a
+  // duplicate — it becomes a new subscription + order. Only the in-flight resume
+  // above (a same-cart checkout still in 'created' state, seconds old) guards the
+  // genuine accident: a double-clicked Subscribe button. `allowDuplicate` is kept
+  // for API compatibility but no longer gates anything.
+  void allowDuplicate;
 
   let rzPlan, rzSub;
   try {
@@ -371,6 +387,12 @@ async function activateSubscriptionPurchase({
     unit_price_minor: Math.round((l.subtotal_cents * (billing.fxRate ?? 1)) / l.qty),
   }));
   const invoiceBilling = { ...billingDetails, country: billingCountry ?? billingDetails.country };
+
+  // Persist the checkout billing to the customer's profile so the tax
+  // jurisdiction is on file for renewals, credit purchases, and any backfill —
+  // the checkout form was previously used only for this one invoice and thrown
+  // away, leaving `place of supply` unresolved on later documents.
+  await persistBillingProfile(user.id, invoiceBilling);
 
   const invoiceResult = await issueInvoiceForPayment({
     userId: user.id,
