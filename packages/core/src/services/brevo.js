@@ -29,7 +29,7 @@ const APP_URL    = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$
  * @param {{name:string, content:Buffer|string}[]} [opts.attachments]
  *        Binary attachments; Buffers are base64-encoded for Brevo's API.
  */
-async function sendEmail({ to, subject, htmlContent, textContent, attachments }) {
+async function sendEmail({ to, subject, htmlContent, textContent, attachments, bcc }) {
   if (!API_KEY) {
     console.warn('[brevo] BREVO_API_KEY not set — email skipped (logged below)');
     console.warn(`  To: ${to.map(r => r.email).join(', ')}  |  Subject: ${subject}`);
@@ -46,6 +46,8 @@ async function sendEmail({ to, subject, htmlContent, textContent, attachments })
     trackOpens  : false,
     trackClicks : false,
   };
+
+  if (Array.isArray(bcc) && bcc.length) body.bcc = bcc;
 
   if (Array.isArray(attachments) && attachments.length) {
     body.attachment = attachments.map((a) => ({
@@ -831,8 +833,12 @@ async function sendTaxInvoiceEmail({ invoice, lines, pdfBuffer, filename }) {
   </table>
 </body></html>`;
 
+  // Drop a copy of every invoice in the business inbox (owner/accounts).
+  const bccAddr = process.env.INVOICE_BCC_EMAIL || process.env.SELLER_EMAIL || null;
+
   return sendEmail({
     to: [{ email: buyer?.email, name: buyer?.name || undefined }],
+    bcc: bccAddr ? [{ email: bccAddr }] : undefined,
     subject: `${heading} ${invoice.invoice_number} — ${fmt(invoice.total_minor)}`,
     htmlContent,
     textContent:

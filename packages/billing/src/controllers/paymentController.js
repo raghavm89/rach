@@ -19,6 +19,7 @@ const asyncHandler = require('@rach/core').asyncHandler;
 const { paginated } = require('@rach/core').paginate;
 const issueInvoiceForPayment = require('../services/invoice/issueForPayment');
 const { syncFulfilmentForSubscription } = require('../services/purchase');
+const hooks = require('../hooks');
 
 // ─── Subscriptions (read + cancel) ───────────────────────────────────────────
 
@@ -184,19 +185,48 @@ async function webhook(req, res) {
 
         // Each billing cycle gets its own invoice. Keyed on the payment id, so
         // Razorpay's webhook retries can't produce duplicates.
+        //
+        // Prefer the billing snapshot captured at activation: pre-tax line
+        // inputs + the buyer's jurisdiction, so the tax engine reproduces the
+        // GST breakdown and place of supply and the invoice reconciles to the
+        // charge. Older subscriptions with no snapshot fall back to the legacy
+        // single tax-inclusive line.
+        const snap = parseJson(dbSub.billing_json);
+        const invoicePayload = (snap && Array.isArray(snap.lines) && snap.lines.length)
+          ? {
+              userId  : dbSub.user_id,
+              currency: snap.currency || pmt.currency,
+              lines   : snap.lines,
+              billing : snap.billing || {},
+            }
+          : {
+              userId  : dbSub.user_id,
+              currency: pmt.currency,
+              lines   : [{
+                description     : 'Monthly subscription billing cycle',
+                quantity        : 1,
+                unit_price_minor: Number(pmt.amount),
+              }],
+            };
+
         await issueInvoiceForPayment({
-          userId  : dbSub.user_id,
-          currency: pmt.currency,
-          lines   : [{
-            description     : 'Monthly subscription billing cycle',
-            quantity        : 1,
-            unit_price_minor: Number(pmt.amount),
-          }],
+          ...invoicePayload,
           payment: {
             razorpay_order_id       : pmt.order_id,
             razorpay_payment_id     : pmt.id,
             razorpay_subscription_id: sub.id,
           },
+        });
+
+        // Fulfilment (VM provisioning + order-notification email) lives in the
+        // host app. Fire its idempotent handler so a subscription is fulfilled
+        // even when the synchronous activation call never ran. Safe on renewals:
+        // the handler no-ops once a fulfilment record exists.
+        await hooks.fireSubscriptionCharged({
+          razorpaySubId: sub.id,
+          paymentId:     pmt.id,
+          amountMinor:   Number(pmt.amount),
+          currency:      pmt.currency,
         });
       }
       break;
@@ -229,6 +259,13 @@ async function webhook(req, res) {
   }
 
   return res.json({ received: true });
+}
+
+// jsonb columns arrive already parsed from pg, but tolerate a string too.
+function parseJson(v) {
+  if (v == null) return null;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch { return null; }
 }
 
 // ─── Payment history ──────────────────────────────────────────────────────────

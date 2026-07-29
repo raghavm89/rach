@@ -283,8 +283,27 @@ async function activateSubscriptionPurchase({
     ipCountry,
   });
 
-  // Confirm with Razorpay that this payment is real, for the amount we expect,
-  // and at least authorized. Subscription charges are captured asynchronously by
+  const subscription = await Subscription.findByRazorpayId(razorpay_subscription_id);
+  if (!subscription) {
+    throw Object.assign(
+      new Error('Subscription not found. It may have been created before this flow was consolidated.'),
+      { status: 404 }
+    );
+  }
+
+  // The authoritative amount for a subscription is the plan we created and the
+  // customer authenticated — Razorpay charges strictly that, immutably. The
+  // freshly-recomputed `billing` quote above can drift from it (FX rate moved
+  // between create and activate, tax config changed, country resolved
+  // differently), and comparing the real payment against that drifted quote was
+  // rejecting valid payments ("amount does not match") and stranding a paid
+  // customer with no order. Verify against the stored plan instead.
+  const plan = subscription.plan_id ? await Plan.findById(subscription.plan_id) : null;
+  const expectedMinor    = plan ? Number(plan.amount)   : billing.amountMinor;
+  const expectedCurrency = plan ? plan.currency         : billing.currency;
+
+  // Confirm with Razorpay that this payment is real, for the plan amount, and at
+  // least authorized. Subscription charges are captured asynchronously by
   // Razorpay, so the first cycle is commonly still `authorized` at this point and
   // capture is finalized via webhook — accept `authorized` here (funds are held)
   // rather than racing Razorpay's own capture.
@@ -293,7 +312,7 @@ async function activateSubscriptionPurchase({
     rzPayment = await razorpay.payments.fetch(razorpay_payment_id);
     assertPaymentMatches(
       rzPayment,
-      { amount: billing.amountMinor, currency: billing.currency },
+      { amount: expectedMinor, currency: expectedCurrency },
       { allowAuthorized: true }
     );
   } catch (err) {
@@ -303,15 +322,13 @@ async function activateSubscriptionPurchase({
     console.error('[purchase] could not verify payment with Razorpay:', err.message);
   }
 
-  const subscription = await Subscription.findByRazorpayId(razorpay_subscription_id);
-  if (!subscription) {
-    throw Object.assign(
-      new Error('Subscription not found. It may have been created before this flow was consolidated.'),
-      { status: 404 }
-    );
-  }
-
   await Subscription.updateStatus(razorpay_subscription_id, 'active', { paid_count: 1 });
+
+  // Record everything at the amount Razorpay actually charged (falling back to
+  // the plan amount if the gateway read failed), so the order, payment and
+  // invoice reconcile with the money that moved — never the drifted quote.
+  const chargedMinor    = Number(rzPayment?.amount) || expectedMinor;
+  const chargedCurrency = rzPayment?.currency ? String(rzPayment.currency).toUpperCase() : expectedCurrency;
 
   // First billing cycle as a first-class order + payment.
   const rzOrderId = rzPayment?.order_id || `sub_${razorpay_subscription_id}_1`;
@@ -322,8 +339,8 @@ async function activateSubscriptionPurchase({
       user_id: user.id,
       subscription_id: subscription.id,
       razorpay_order_id: rzOrderId,
-      amount: billing.amountMinor,
-      currency: billing.currency,
+      amount: chargedMinor,
+      currency: chargedCurrency,
       description: priced.description,
     });
   }
@@ -336,29 +353,43 @@ async function activateSubscriptionPurchase({
       order_id: order.id,
       subscription_id: subscription.id,
       razorpay_order_id: rzOrderId,
-      amount: billing.amountMinor,
-      currency: billing.currency,
+      amount: chargedMinor,
+      currency: chargedCurrency,
       description: priced.description,
     });
   }
   const payment = await Payment.capture(rzOrderId, razorpay_payment_id, rzPayment?.method);
 
+  // Pre-tax line inputs + billing jurisdiction. Snapshotted below so recurring
+  // cycles (billed only via the webhook) reissue an identical, GST-correct
+  // invoice — same taxable value, same IGST/CGST/SGST split, same place of
+  // supply — instead of the tax-inclusive single line the webhook used to emit.
+  const invoiceLines = priced.lines.map((l) => ({
+    description: l.name,
+    quantity: l.qty,
+    // Convert per line, then divide — keeps the total exact under FX.
+    unit_price_minor: Math.round((l.subtotal_cents * (billing.fxRate ?? 1)) / l.qty),
+  }));
+  const invoiceBilling = { ...billingDetails, country: billingCountry ?? billingDetails.country };
+
   const invoiceResult = await issueInvoiceForPayment({
     userId: user.id,
-    currency: billing.currency,
-    lines: priced.lines.map((l) => ({
-      description: l.name,
-      quantity: l.qty,
-      // Convert per line, then divide — keeps the total exact under FX.
-      unit_price_minor: Math.round((l.subtotal_cents * (billing.fxRate ?? 1)) / l.qty),
-    })),
-    billing: { ...billingDetails, country: billingCountry ?? billingDetails.country },
+    currency: chargedCurrency,
+    lines: invoiceLines,
+    billing: invoiceBilling,
     payment: {
       razorpay_order_id: rzOrderId,
       razorpay_payment_id,
       razorpay_subscription_id,
     },
   });
+
+  // Snapshot for recurring invoices. Best-effort — never fail activation over it.
+  await Subscription.saveBilling(razorpay_subscription_id, {
+    currency: chargedCurrency,
+    lines: invoiceLines,
+    billing: invoiceBilling,
+  }).catch((err) => console.error('[purchase] could not snapshot subscription billing:', err.message));
 
   return { priced, billing, subscription, order, payment, invoice: invoiceResult };
 }

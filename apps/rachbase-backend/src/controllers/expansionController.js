@@ -6,11 +6,130 @@ const razorpay  = require('@rach/billing').razorpay;
 const { priceCart, getBundle, PricingError } = require('@rach/billing').catalog;
 const { verifyOrderPayment } = require('@rach/billing').paymentSecurity;
 const purchase = require('@rach/billing').purchase;
+const Subscription = require('@rach/billing').Subscription;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { sendInvoiceEmail, sendOrderNotificationEmail, sendVmKeyProvisioningEmail } = require('@rach/core').brevo;
 const { VmKey } = require('../models/vmKey');
 const keyCrypto = require('../services/keyCrypto');
 const { purchasedQty } = require('../lib/entitlements');
+
+// jsonb columns arrive parsed from pg; tolerate a string too.
+function parseJson(v) {
+  if (v == null) return null;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+/**
+ * Idempotently fulfil a subscription's VM order: create the fulfilment record,
+ * email the order notification, and provision SSH keypairs. Called from BOTH the
+ * synchronous activate handler and the `subscription.charged` webhook, so a VM
+ * order is fulfilled exactly once even if activation was interrupted.
+ *
+ * Idempotency: a transaction-scoped advisory lock keyed on the subscription
+ * serializes concurrent callers, and an existing fulfilment row short-circuits —
+ * so renewals and webhook retries never re-provision.
+ *
+ * Inputs come from the fulfilment snapshot stored at creation; `ctx` supplies a
+ * fallback (the synchronous path has the live cart) plus the payment id.
+ */
+async function ensureSubscriptionFulfilment(razorpaySubId, ctx = {}) {
+  if (!razorpaySubId) return null;
+
+  const client = await pool.connect();
+  let order = null;
+  let sideEffects = null;
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sub_fulfil:${razorpaySubId}`]);
+
+    const { rows: existing } = await client.query(
+      'SELECT * FROM vm_expansion_requests WHERE razorpay_subscription_id = $1 ORDER BY id LIMIT 1',
+      [razorpaySubId]
+    );
+    if (existing.length) { await client.query('COMMIT'); return existing[0]; }
+
+    const { rows: subRows } = await client.query(
+      `SELECT s.*, p.name AS plan_name, p.amount AS plan_amount, p.currency AS plan_currency
+         FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+        WHERE s.razorpay_sub_id = $1`,
+      [razorpaySubId]
+    );
+    const sub = subRows[0];
+    if (!sub) { await client.query('ROLLBACK'); console.error(`[expansion] fulfilment: subscription ${razorpaySubId} not found`); return null; }
+
+    const snap = parseJson(sub.fulfilment_json) || {};
+    const requestedBy = snap.requested_by ?? ctx.requested_by ?? sub.user_id;
+    let tenantId = snap.tenant_id ?? ctx.tenant_id ?? null;
+    if (tenantId == null) {
+      const { rows: uRows } = await client.query('SELECT tenant_id FROM users WHERE id = $1', [requestedBy]);
+      tenantId = uRows[0]?.tenant_id ?? null;
+    }
+    const amountMinor  = snap.amount_minor ?? ctx.amountMinor ?? Number(sub.plan_amount);
+    const currency     = snap.currency || ctx.currency || sub.plan_currency;
+    const items        = Array.isArray(snap.items) ? snap.items : (Array.isArray(ctx.items) ? ctx.items : []);
+    const description  = snap.description || ctx.description || sub.plan_name || 'Subscription';
+    const vmCount      = snap.vm_count ?? ctx.vm_count ?? 0;
+    const notes        = `Monthly: ${(Number(amountMinor) / 100).toFixed(2)} ${currency}`;
+
+    const { rows: ordRows } = await client.query(
+      'SELECT id FROM orders WHERE subscription_id = $1 ORDER BY id DESC LIMIT 1',
+      [sub.id]
+    );
+
+    const { rows } = await client.query(
+      `INSERT INTO vm_expansion_requests
+         (tenant_id, requested_by, amount_paid, currency, status,
+          custom_description, items_json, notes,
+          razorpay_payment_id, razorpay_plan_id, razorpay_subscription_id,
+          subscription_status, subscription_id, order_id)
+       VALUES ($1,$2,$3,$4,'pending',$5,$6,$7,$8,$9,$10,'active',$11,$12)
+       RETURNING *`,
+      [
+        tenantId, requestedBy, amountMinor, currency, description,
+        JSON.stringify(items), notes,
+        ctx.paymentId || null,
+        snap.razorpay_plan_id || ctx.razorpay_plan_id || null,
+        razorpaySubId,
+        snap.subscription_id ?? ctx.subscription_id ?? sub.id ?? null,
+        ordRows[0]?.id ?? null,
+      ]
+    );
+    order = rows[0];
+    sideEffects = { items, vmCount, requestedBy };
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[expansion] ensureSubscriptionFulfilment failed:', err.message);
+    return null;
+  } finally {
+    client.release();
+  }
+
+  // Side effects run outside the lock — never block or fail on them.
+  if (order && sideEffects) {
+    try {
+      const { rows: uRows } = await pool.query('SELECT name, email FROM users WHERE id = $1', [sideEffects.requestedBy]);
+      const customer = uRows[0] || {};
+      sendInvoiceEmail({
+        orderId       : order.id,
+        customerName  : customer.name  || 'Customer',
+        customerEmail : customer.email || '',
+        description   : order.custom_description,
+        items         : sideEffects.items,
+        amountPaid    : order.amount_paid,
+        currency      : order.currency,
+        subscriptionId: razorpaySubId,
+        requestedAt   : order.requested_at,
+      }).catch((e) => console.error('[expansion] confirmation email failed:', e.message));
+    } catch (e) {
+      console.error('[expansion] confirmation email failed:', e.message);
+    }
+    notifyOrderPlaced(order, (sideEffects.items || []).map((l) => ({ name: l.name, qty: l.qty })));
+    provisionVmKeysForOrder(order, sideEffects.vmCount || 0);
+  }
+  return order;
+}
 
 /**
  * Notify raghav@rachdev.com that an order completed. Fire-and-forget: never
@@ -560,6 +679,25 @@ async function createSubscriptionOrder(req, res) {
 
   const { priced, billing, subscription, razorpay: rz } = result;
 
+  // Snapshot the cart so the webhook can fulfil this VM order even if the
+  // activation call never runs (browser closed after payment).
+  const vmCount = bundle_id
+    ? (getBundle(bundle_id)?.items?.vm || 0)
+    : (priced.lines || []).filter((l) => l.id === 'vm').reduce((n, l) => n + (Number(l.qty) || 0), 0);
+  if (rz.subscription_id) {
+    await Subscription.saveFulfilment(rz.subscription_id, {
+      tenant_id       : req.user.tenant_id,
+      requested_by    : req.user.id,
+      description     : priced.description,
+      currency        : billing.currency,
+      amount_minor    : billing.amountMinor,
+      items           : priced.lines,
+      vm_count        : vmCount,
+      razorpay_plan_id: rz.plan_id,
+      subscription_id : subscription?.id ?? null,
+    }).catch((e) => console.error('[expansion] saveFulfilment failed:', e.message));
+  }
+
   res.status(201).json({
     subscription_id : rz.subscription_id,
     plan_id         : rz.plan_id,
@@ -612,66 +750,29 @@ async function activateSubscription(req, res) {
     throw err;
   }
 
-  const { priced, billing, subscription, order: billingOrder, payment, invoice } = result;
+  const { priced, billing, subscription, payment, invoice } = result;
 
-  const notes = `Monthly: ${(billing.amountMinor / 100).toFixed(2)} ${billing.currency}`;
-
-  // The fulfilment record. Amounts here mirror the billing rows for display;
-  // subscriptions/orders remain the source of truth for money.
-  const { rows } = await pool.query(
-    `INSERT INTO vm_expansion_requests
-       (tenant_id, requested_by, amount_paid, currency, status,
-        custom_description, items_json, notes,
-        razorpay_payment_id, razorpay_plan_id, razorpay_subscription_id,
-        subscription_status, subscription_id, order_id)
-     VALUES ($1,$2,$3,$4,'pending',$5,$6,$7,$8,$9,$10,'active',$11,$12)
-     RETURNING *`,
-    [
-      caller.tenant_id,
-      caller.id,
-      billing.amountMinor,
-      billing.currency,
-      priced.description,
-      JSON.stringify(priced.lines),
-      notes,
-      req.body.razorpay_payment_id || null,
-      razorpay_plan_id || null,
-      req.body.razorpay_subscription_id || null,
-      subscription?.id ?? null,
-      billingOrder?.id ?? null,
-    ]
-  );
-
-  const order = rows[0];
-  if (invoice?.ok) order.invoice_number = invoice.invoice.invoice_number;
-
-  // Order-confirmation email (fire-and-forget). The tax invoice with its PDF is
-  // sent separately by the purchase service.
-  try {
-    const userRow = await pool.query('SELECT name, email FROM users WHERE id = $1', [caller.id]);
-    const customer = userRow.rows[0] || {};
-    sendInvoiceEmail({
-      orderId       : order.id,
-      customerName  : customer.name  || caller.name  || 'Customer',
-      customerEmail : customer.email || caller.email || '',
-      description   : priced.description,
-      items         : priced.lines,
-      amountPaid    : billing.amountMinor,
-      currency      : billing.currency,
-      subscriptionId: req.body.razorpay_subscription_id,
-      requestedAt   : order.requested_at,
-    }).catch((e) => console.error('[expansion] confirmation email failed:', e.message));
-  } catch (e) {
-    console.error('[expansion] confirmation email failed:', e.message);
-  }
-
-  // Notify admin the order completed (fire-and-forget)
-  notifyOrderPlaced(order, (priced.lines || []).map((l) => ({ name: l.name, qty: l.qty })));
-  // Mint one SSH keypair per VM (bundle VM count, or the vm line qty)
   const subVmCount = bundle_id
     ? (getBundle(bundle_id)?.items?.vm || 0)
     : (priced.lines || []).filter((l) => l.id === 'vm').reduce((n, l) => n + (Number(l.qty) || 0), 0);
-  provisionVmKeysForOrder(order, subVmCount);
+
+  // Fulfilment goes through the same idempotent path the webhook uses, so the
+  // synchronous activation and a `subscription.charged` webhook that arrives at
+  // the same time can't double-provision. Pass the live cart as a fallback in
+  // case the creation-time snapshot is missing.
+  const order = await ensureSubscriptionFulfilment(req.body.razorpay_subscription_id, {
+    paymentId       : req.body.razorpay_payment_id,
+    amountMinor     : billing.amountMinor,
+    currency        : billing.currency,
+    items           : priced.lines,
+    vm_count        : subVmCount,
+    description     : priced.description,
+    tenant_id       : caller.tenant_id,
+    requested_by    : caller.id,
+    razorpay_plan_id: razorpay_plan_id || null,
+    subscription_id : subscription?.id ?? null,
+  });
+  if (order && invoice?.ok) order.invoice_number = invoice.invoice.invoice_number;
 
   res.status(201).json({
     message: 'Subscription activated. Resources will be provisioned shortly.',
@@ -992,6 +1093,8 @@ async function myIps(req, res) {
 }
 
 module.exports = {
+  // Not an HTTP handler — invoked by the billing webhook hook (see app.js).
+  ensureSubscriptionFulfilment,
   listPackages:           asyncHandler(listPackages),
   createPackage:          asyncHandler(createPackage),
   updatePackage:          asyncHandler(updatePackage),
