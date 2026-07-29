@@ -660,6 +660,50 @@ exports.setServiceEnv = async (req, res) => {
   res.json({ ok: true, count: clean.length });
 };
 
+// POST /api/deployment/services/:id/link  { from_service_id }
+// Auto-CORS (WS7): append the source service's public origin(s) to this
+// service's CORS_ORIGINS env var (deduped), leaving other vars untouched.
+exports.linkService = async (req, res) => {
+  const svc = await serviceForTenant(req.params.id, req.user.tenant_id);
+  if (!svc) return res.status(404).json({ error: 'Service not found' });
+  if (!keyCrypto.isConfigured()) {
+    return res.status(503).json({ error: 'Env encryption not configured (RACHBASE_KEY_ENC_SECRET)' });
+  }
+
+  const fromId = Number(req.body.from_service_id);
+  if (!fromId || fromId === svc.id) return res.status(400).json({ error: 'Pick a different service to link' });
+  const from = await serviceForTenant(fromId, req.user.tenant_id);
+  if (!from) return res.status(404).json({ error: 'Linked service not found' });
+
+  const { rows: domRows } = await pool.query(
+    'SELECT hostname FROM deployment_domains WHERE service_id = $1', [fromId]
+  );
+  if (!domRows.length) return res.status(400).json({ error: 'The linked service has no domain yet — add one first.' });
+  const origins = domRows.map((d) => `https://${d.hostname}`);
+
+  const { rows: envRows } = await pool.query(
+    "SELECT value_enc FROM deployment_service_env WHERE service_id = $1 AND key = 'CORS_ORIGINS'", [svc.id]
+  );
+  let existing = '';
+  if (envRows.length) { try { existing = keyCrypto.open(envRows[0].value_enc); } catch { /* unreadable */ } }
+  const set = new Set(existing.split(',').map((s) => s.trim()).filter(Boolean));
+  origins.forEach((o) => set.add(o));
+  const merged = Array.from(set).join(',');
+
+  if (envRows.length) {
+    await pool.query(
+      "UPDATE deployment_service_env SET value_enc = $1, is_secret = FALSE WHERE service_id = $2 AND key = 'CORS_ORIGINS'",
+      [keyCrypto.seal(merged), svc.id]
+    );
+  } else {
+    await pool.query(
+      "INSERT INTO deployment_service_env (service_id, key, value_enc, is_secret) VALUES ($1, 'CORS_ORIGINS', $2, FALSE)",
+      [svc.id, keyCrypto.seal(merged)]
+    );
+  }
+  res.json({ ok: true, cors_origins: merged, added: origins });
+};
+
 // ── DELETE /api/deployment/services/:id ──────────────────────────────────────
 // Removes a service card: best-effort teardown of its VM-side resources (systemd
 // unit, release dirs, env file, Caddy vhosts) and its DNS, then deletes the DB
@@ -753,7 +797,39 @@ exports.listDomains = async (req, res) => {
     'SELECT id, hostname, is_auto, status, created_at FROM deployment_domains WHERE service_id = $1 ORDER BY id',
     [svc.id]
   );
-  res.json({ domains: rows });
+  // The ingress IP customers point their DNS `A` record at (WS4). For now this
+  // is the service's VM IP; a stable/anycast IP is a follow-up (Spike A).
+  const { rows: ipRows } = await pool.query(
+    'SELECT ip_address FROM vm_ssh_config WHERE vm_id = $1 AND tenant_id = $2',
+    [svc.vm_id, req.user.tenant_id]
+  );
+  res.json({ domains: rows, target_ip: ipRows[0]?.ip_address || null });
+};
+
+// GET /services/:id/domains/:domainId/check — resolve DNS and compare to the
+// ingress IP so the UI can show live "DNS detected" status (WS4).
+exports.verifyDomain = async (req, res) => {
+  const dns = require('dns').promises;
+  const svc = await serviceForTenant(req.params.id, req.user.tenant_id);
+  if (!svc) return res.status(404).json({ error: 'Service not found' });
+  const { rows } = await pool.query(
+    'SELECT hostname FROM deployment_domains WHERE id = $1 AND service_id = $2',
+    [req.params.domainId, svc.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Domain not found' });
+  const { rows: ipRows } = await pool.query(
+    'SELECT ip_address FROM vm_ssh_config WHERE vm_id = $1 AND tenant_id = $2',
+    [svc.vm_id, req.user.tenant_id]
+  );
+  const target_ip = ipRows[0]?.ip_address || null;
+  let resolved = [];
+  try { resolved = await dns.resolve4(rows[0].hostname); } catch { /* NXDOMAIN / not propagated yet */ }
+  res.json({
+    hostname: rows[0].hostname,
+    target_ip,
+    resolved,
+    matches: !!target_ip && resolved.includes(target_ip),
+  });
 };
 
 // POST /api/deployment/services/:id/domains  { hostname }  — attach a custom domain

@@ -13,7 +13,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { useCart } from '@rach/ui/contexts/CartContext';
-import { expansion, ExpansionRequest, agent } from '@rach/ui/lib/api';
+import { expansion, ExpansionRequest, agent, invoices as invoicesApi, type TaxQuote } from '@rach/ui/lib/api';
+import { TaxSummary } from '@rach/ui/components/billing/TaxSummary';
 import { VISIBLE_SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
 import { InvoiceList } from '@rach/ui/components/billing/InvoiceList';
 import { cn } from '@rach/ui/lib/utils';
@@ -394,10 +395,10 @@ type Tab = 'starter' | 'custom' | 'bundles' | 'compare' | 'credits' | 'usage' | 
 // -- Agent Credit Packs --------------------------------------------------------
 
 const CREDIT_PACKS = [
-  { id: 'starter', label: 'Starter', price_usd: 5,  credits: 500,  bonus: null },
-  { id: 'plus',    label: 'Plus',    price_usd: 10, credits: 1100, bonus: '+10%' },
-  { id: 'pro',     label: 'Pro',     price_usd: 25, credits: 3000, bonus: '+20%' },
-  { id: 'max',     label: 'Max',     price_usd: 50, credits: 7000, bonus: '+40%' },
+  { id: 'starter', label: 'Starter', price_usd: 5,  credits: 150,  bonus: null },
+  { id: 'plus',    label: 'Plus',    price_usd: 10, credits: 400,  bonus: '+33%' },
+  { id: 'pro',     label: 'Pro',     price_usd: 25, credits: 1500, bonus: '+100%' },
+  { id: 'max',     label: 'Max',     price_usd: 50, credits: 3500, bonus: '+133%' },
 ];
 
 export default function BillingPage() {
@@ -460,6 +461,26 @@ export default function BillingPage() {
   const [creditBalance, setCreditBalance]   = useState<number | null>(null);
   const [creditPurchasing, setCreditPurchasing] = useState(false);
   const [creditSuccess, setCreditSuccess]   = useState(false);
+  const [creditQuote, setCreditQuote]       = useState<TaxQuote | null>(null);
+  const [creditQuoteLoading, setCreditQuoteLoading] = useState(false);
+
+  // Server-side tax quote for the selected credit pack (adds GST for India via
+  // the saved billing address — same engine as the checkout page).
+  useEffect(() => {
+    if (!token || !selectedPack) { setCreditQuote(null); return; }
+    const pack = CREDIT_PACKS.find((p) => p.id === selectedPack);
+    if (!pack) return;
+    let cancelled = false;
+    setCreditQuoteLoading(true);
+    invoicesApi.quote(token, {
+      lines: [{ description: `${pack.label} credit pack — ${pack.credits} credits`, quantity: 1, unit_price_minor: pack.price_usd * 100 }],
+      currency: 'USD',
+    })
+      .then((q) => { if (!cancelled) setCreditQuote(q); })
+      .catch(() => { if (!cancelled) setCreditQuote(null); })
+      .finally(() => { if (!cancelled) setCreditQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [token, selectedPack]);
 
   // Usage state
   const [usageSummary, setUsageSummary]     = useState<{ balance: number; total_purchased: number; total_used: number; total_tokens: number } | null>(null);
@@ -1192,9 +1213,9 @@ export default function BillingPage() {
                           )}
                         </div>
 
-                        <div className="border-t border-neutral-border pt-3 flex justify-between items-baseline mb-4">
-                          <span className="font-semibold text-text-primary">Total</span>
-                          <span className="text-2xl font-bold font-mono">${pack.price_usd}</span>
+                        {/* Tax breakdown from the server (adds GST for India) */}
+                        <div className="border-t border-neutral-border pt-3 mb-4">
+                          <TaxSummary quote={creditQuote} loading={creditQuoteLoading} fallbackSubtotalMinor={pack.price_usd * 100} />
                         </div>
 
                         {/* Billing info from profile */}

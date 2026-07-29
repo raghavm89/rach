@@ -6,6 +6,8 @@ const authorize    = require('@rach/identity').authorize;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { deployLimiter } = require('@rach/core').rateLimit;
 const ctrl         = require('../controllers/deploymentController');
+const dbCtrl       = require('../controllers/dbBrowserController');
+const groupCtrl    = require('../controllers/serviceGroupsController');
 
 const router = Router();
 
@@ -46,6 +48,21 @@ router.get   ('/services/:id/domains',            authorize('tenant_admin'), asy
 router.post  ('/services/:id/domains',            authorize('tenant_admin'), asyncHandler(ctrl.addDomain));
 router.post  ('/services/:id/domains/auto',       authorize('tenant_admin'), asyncHandler(ctrl.addAutoDomain));
 router.delete('/services/:id/domains/:domainId',  authorize('tenant_admin'), asyncHandler(ctrl.removeDomain));
+router.get   ('/services/:id/domains/:domainId/check', authorize('tenant_admin'), asyncHandler(ctrl.verifyDomain));
+
+// Postgres data viewer + read-only query runner (Phase 2 · WS3)
+router.get ('/services/:id/db/tables', authorize('tenant_admin'), asyncHandler(dbCtrl.listTables));
+router.post('/services/:id/db/query',  authorize('tenant_admin'), asyncHandler(dbCtrl.runQuery));
+
+// Service groups (Phase 2 · WS6)
+router.get   ('/groups',            authorize('tenant_admin'), asyncHandler(groupCtrl.listGroups));
+router.post  ('/groups',            authorize('tenant_admin'), asyncHandler(groupCtrl.createGroup));
+router.patch ('/groups/:groupId',   authorize('tenant_admin'), asyncHandler(groupCtrl.updateGroup));
+router.delete('/groups/:groupId',   authorize('tenant_admin'), asyncHandler(groupCtrl.deleteGroup));
+router.patch ('/services/:id/group', authorize('tenant_admin'), asyncHandler(groupCtrl.setServiceGroup));
+
+// Auto-CORS service linking (Phase 2 · WS7)
+router.post  ('/services/:id/link',  authorize('tenant_admin'), asyncHandler(ctrl.linkService));
 
 // Canvas node positions (drag-and-drop layout persistence)
 router.get ('/canvas', authorize('tenant_admin'), asyncHandler(ctrl.getCanvas));

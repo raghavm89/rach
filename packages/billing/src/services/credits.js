@@ -21,10 +21,10 @@ const { pool } = require('@rach/core');
  * amount to charge — that is the float path this codebase has been removing.
  */
 const CREDIT_PACKS = [
-  { id: 'starter', label: 'Starter', price_usd: 5,  price_cents: 500,  credits: 500  },
-  { id: 'plus',    label: 'Plus',    price_usd: 10, price_cents: 1000, credits: 1100 },
-  { id: 'pro',     label: 'Pro',     price_usd: 25, price_cents: 2500, credits: 3000 },
-  { id: 'max',     label: 'Max',     price_usd: 50, price_cents: 5000, credits: 7000 },
+  { id: 'starter', label: 'Starter', price_usd: 5,  price_cents: 500,  credits: 150  },
+  { id: 'plus',    label: 'Plus',    price_usd: 10, price_cents: 1000, credits: 400  },
+  { id: 'pro',     label: 'Pro',     price_usd: 25, price_cents: 2500, credits: 1500 },
+  { id: 'max',     label: 'Max',     price_usd: 50, price_cents: 5000, credits: 3500 },
 ];
 
 function getCreditPack(packId) {
@@ -130,6 +130,144 @@ async function hasSufficientCredits(tenantId, tokensUsed) {
 }
 
 /**
+ * Reserve credits BEFORE doing metered work (reserve → settle pattern).
+ *
+ * This is the atomic gate for metered LLM calls: it deducts the worst-case
+ * credits up front under a row lock, so two concurrent calls can't both read the
+ * same balance and each conclude there is enough (the TOCTOU race). The response
+ * is generated only after the reservation succeeds, and `settleReservation`
+ * later reconciles the reservation down to actual usage (refunding the unused
+ * remainder). If the work fails before producing output, call
+ * `releaseReservation` to refund the whole hold.
+ *
+ * Returns the ledger row id so the caller can settle/release it.
+ * @throws {InsufficientCreditsError}
+ */
+async function reserveCredits(tenantId, userId, creditAmount, description) {
+  const amount = Math.max(1, Math.ceil(creditAmount));
+
+  await getOrCreateBalance(tenantId); // ensure the row exists for FOR UPDATE
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: locked } = await client.query(
+      'SELECT balance FROM tenant_credits WHERE tenant_id = $1 FOR UPDATE',
+      [tenantId]
+    );
+    const balance = locked[0]?.balance ?? 0;
+
+    if (balance < amount) {
+      await client.query('ROLLBACK');
+      throw new InsufficientCreditsError(balance, amount);
+    }
+
+    await client.query(
+      `UPDATE tenant_credits SET balance = balance - $1, updated_at = NOW()
+       WHERE tenant_id = $2`,
+      [amount, tenantId]
+    );
+    const { rows } = await client.query(
+      `INSERT INTO credit_transactions
+         (tenant_id, user_id, type, amount, description, tokens_used)
+       VALUES ($1, $2, 'usage', $3, $4, NULL)
+       RETURNING id`,
+      [tenantId, userId, -amount, description]
+    );
+
+    await client.query('COMMIT');
+    return { id: rows[0].id, credits: amount };
+  } catch (err) {
+    if (!(err instanceof InsufficientCreditsError)) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Reconcile a reservation to ACTUAL usage. Rewrites the reservation's ledger row
+ * in place (one authoritative row per call — keeps the ledger and any per-message
+ * accounting in agreement) and refunds the unused credits. If actual usage
+ * somehow exceeds the reservation (e.g. large input tokens on top of a capped
+ * output), the extra is charged as a recorded overdraft rather than lost.
+ *
+ * @returns {Promise<{creditsUsed:number, balance:number}>}
+ */
+async function settleReservation(tenantId, userId, { reservationId, reservedCredits, billedTokens, description }) {
+  const actualCredits = Math.max(0, Math.ceil(billedTokens / TOKENS_PER_CREDIT));
+  const delta = reservedCredits - actualCredits; // >0 refund, <0 extra charge
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      'SELECT balance FROM tenant_credits WHERE tenant_id = $1 FOR UPDATE',
+      [tenantId]
+    );
+
+    if (delta !== 0) {
+      await client.query(
+        `UPDATE tenant_credits SET balance = balance + $1, updated_at = NOW()
+         WHERE tenant_id = $2`,
+        [delta, tenantId]
+      );
+    }
+    await client.query(
+      `UPDATE credit_transactions
+         SET amount = $1, tokens_used = $2, description = COALESCE($3, description)
+       WHERE id = $4`,
+      [-actualCredits, billedTokens, description ?? null, reservationId]
+    );
+
+    const { rows } = await client.query(
+      'SELECT balance FROM tenant_credits WHERE tenant_id = $1',
+      [tenantId]
+    );
+    await client.query('COMMIT');
+    return { creditsUsed: actualCredits, balance: rows[0]?.balance ?? 0 };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Cancel a reservation and refund the whole hold — used when metered work fails
+ * before producing billable output, so a failed call is never charged.
+ */
+async function releaseReservation(tenantId, reservationId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT amount FROM credit_transactions WHERE id = $1 AND tenant_id = $2 FOR UPDATE',
+      [reservationId, tenantId]
+    );
+    if (rows.length) {
+      const refund = -rows[0].amount; // stored negative → refund positive
+      await client.query(
+        `UPDATE tenant_credits SET balance = balance + $1, updated_at = NOW()
+         WHERE tenant_id = $2`,
+        [refund, tenantId]
+      );
+      await client.query('DELETE FROM credit_transactions WHERE id = $1', [reservationId]);
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Add purchased credits and record the ledger entry.
  * Extracted from verifyPurchase — used after a payment is verified.
  */
@@ -193,5 +331,8 @@ module.exports = {
   getOrCreateBalance,
   hasSufficientCredits,
   deductCredits,
+  reserveCredits,
+  settleReservation,
+  releaseReservation,
   addCredits,
 };

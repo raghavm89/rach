@@ -8,8 +8,9 @@ import {
   SlidersHorizontal, Eye, EyeOff, Trash2, Settings2, ScrollText, Globe,
   Link2, GitCommit, Copy, Activity, Lock as LockIcon, Power,
 } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@rach/ui/contexts/AuthContext";
-import { monitoring, deployment, expansion, endpoints, VM, GithubRepo, DeploymentService, CanvasPosition, ServiceEnvVar, ServiceDomain, MonitoredEndpoint } from "@rach/ui/lib/api";
+import { monitoring, deployment, expansion, endpoints, VM, GithubRepo, DeploymentService, CanvasPosition, ServiceEnvVar, ServiceDomain, MonitoredEndpoint, ServiceGroup } from "@rach/ui/lib/api";
 import { cn } from "@rach/ui/lib/utils";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AgentChat } from "@/components/dashboard/AgentChat";
@@ -63,7 +64,7 @@ function statusBadge(status: string) {
 // ─── Service card (draggable node) ──────────────────────────────────────────
 
 function ServiceNode({
-  service, pos, onDragStart, onDeploy, onOpen, deploying,
+  service, pos, onDragStart, onDeploy, onOpen, deploying, group,
 }: {
   service: DeploymentService;
   pos: Pos;
@@ -71,6 +72,7 @@ function ServiceNode({
   onDeploy: (s: DeploymentService) => void;
   onOpen: (s: DeploymentService) => void;
   deploying: boolean;
+  group?: ServiceGroup;
 }) {
   const isPg = service.source_type === "postgres";
   const title = isPg ? (service.name || "postgres") : (service.repo_full_name?.split("/").slice(-1)[0] || "repo");
@@ -93,6 +95,12 @@ function ServiceNode({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-black truncate">{title}</p>
             <p className="text-[10px] text-black/40 font-mono truncate">{subtitle}</p>
+            {group && (
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                style={{ background: `${group.color}1a`, color: group.color }}>
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: group.color }} /> {group.name}
+              </span>
+            )}
           </div>
           <span className={statusBadge(service.status)}>{service.status}</span>
         </div>
@@ -101,6 +109,10 @@ function ServiceNode({
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-black/50 hover:bg-black/5 hover:text-black/70 transition-colors">
             <SlidersHorizontal size={11} /> Manage
           </button>
+          <Link href={`/dashboard/deployment/services/${service.id}`}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-black/50 hover:bg-black/5 hover:text-black/70 transition-colors">
+            <Eye size={11} /> Open
+          </Link>
           <div className="flex-1" />
           <button
             onClick={() => onDeploy(service)}
@@ -235,12 +247,17 @@ export default function DeploymentPage() {
 
   const [vms, setVMs]           = useState<VM[]>([]);
   const [services, setServices] = useState<DeploymentService[]>([]);
+  const [groups, setGroups]     = useState<ServiceGroup[]>([]);
   const [pos, setPos]           = useState<PosMap>({});
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]       = useState("");
   const [deployingId, setDeployingId] = useState<number | null>(null);
   const [detailService, setDetailService]     = useState<DeploymentService | null>(null);
+  // Service groups (WS6) — for the colored badge on each card.
+  useEffect(() => {
+    if (token) deployment.listGroups(token).then((d) => setGroups(d.groups)).catch(() => {});
+  }, [token]);
 
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubAccount, setGithubAccount]     = useState<string | null>(null);
@@ -585,6 +602,13 @@ export default function DeploymentPage() {
         )}
 
         {/* Canvas */}
+        {!loading && !error && vms.length > 0 && services.length === 0 && (
+          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 rounded-xl border border-primary-blue/20 bg-blue-50/80 px-4 py-2.5 text-center shadow-sm backdrop-blur">
+            <p className="text-sm font-semibold text-black/80">Deploy your first service</p>
+            <p className="mt-0.5 text-xs text-black/50">Click the <span className="font-semibold text-primary-blue">+</span> on a VM to add a GitHub app or a Postgres database.</p>
+          </div>
+        )}
+
         {!loading && !error && vms.length > 0 && (
           <div ref={canvasRef} className="relative z-10" style={{ minHeight: 1200, minWidth: 1400 }}>
             <Arrows vms={vms} services={services} pos={pos} />
@@ -592,7 +616,7 @@ export default function DeploymentPage() {
               <VMNode key={vm.id} vm={vm} pos={pos[vmKey(vm.id)]} onDragStart={onDragStart} onAdd={openAdd} onTerminal={openTerminal} />
             ))}
             {services.map((s) => pos[svcKey(s.id)] && (
-              <ServiceNode key={s.id} service={s} pos={pos[svcKey(s.id)]} onDragStart={onDragStart} onDeploy={handleDeploy} onOpen={setDetailService} deploying={deployingId === s.id} />
+              <ServiceNode key={s.id} service={s} pos={pos[svcKey(s.id)]} onDragStart={onDragStart} onDeploy={handleDeploy} onOpen={setDetailService} deploying={deployingId === s.id} group={groups.find((g) => g.id === s.group_id)} />
             ))}
           </div>
         )}
