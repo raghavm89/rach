@@ -35,6 +35,11 @@ function getCreditPack(packId) {
 const TOKENS_PER_CREDIT = 1000;
 
 async function getOrCreateBalance(tenantId) {
+  // A user with no tenant yet (freshly registered, pre-provisioning) has no
+  // balance row and inserting NULL violates the NOT NULL constraint. Treat it as
+  // an empty balance instead of crashing the request.
+  if (tenantId == null) return 0;
+
   await pool.query(
     `INSERT INTO tenant_credits (tenant_id, balance) VALUES ($1, 0)
      ON CONFLICT (tenant_id) DO NOTHING`,

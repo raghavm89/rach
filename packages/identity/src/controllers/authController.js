@@ -141,6 +141,43 @@ function accessTokenExpiresIn() {
   return typeof msValue === 'number' ? Math.floor(msValue / 1000) : 1800;
 }
 
+/**
+ * Provision a tenant for a newly-verified user and make them its admin so
+ * credits/billing work immediately. `tenants.name` is UNIQUE, so on a name
+ * collision we append " (2)", " (3)", … until one is free. The workspace creator
+ * becomes tenant_admin (they own it — and only tenant_admins can buy credits).
+ * @returns {Promise<number>} the new tenant id
+ */
+async function provisionTenantForUser(userId, workspaceName) {
+  const base = String(workspaceName).trim().slice(0, 150) || `Workspace ${userId}`;
+  let tenantId = null;
+
+  for (let attempt = 0; attempt < 25 && tenantId == null; attempt++) {
+    const suffix    = attempt === 0 ? '' : ` (${attempt + 1})`;
+    const candidate = `${base.slice(0, 150 - suffix.length)}${suffix}`;
+    try {
+      const { rows } = await pool.query(
+        'INSERT INTO tenants (name) VALUES ($1) RETURNING id',
+        [candidate]
+      );
+      tenantId = rows[0].id;
+    } catch (err) {
+      if (err.code === '23505') continue; // name taken — try the next suffix
+      throw err;
+    }
+  }
+  if (tenantId == null) {
+    throw new Error(`Could not allocate a unique tenant name for "${base}"`);
+  }
+
+  await pool.query(
+    `UPDATE users SET tenant_id = $1, role = 'tenant_admin', updated_at = NOW()
+     WHERE id = $2`,
+    [tenantId, userId]
+  );
+  return tenantId;
+}
+
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
 // POST /api/auth/register
@@ -152,6 +189,11 @@ async function register(req, res) {
 
   const { name, password, phone_number, address, role = 'tenant_user' } = req.body;
   const email = normalizeEmail(req.body.email);
+
+  // Optional workspace/company name. If given, a tenant is provisioned on verify;
+  // if blank, the user is created tenantless. Trimmed and capped to the column
+  // width (tenants.name is VARCHAR(150)).
+  const workspaceName = (req.body.workspace_name || '').trim().slice(0, 150) || null;
 
   // System admin and tenant_admin roles cannot be self-registered
   if (!ROLES.includes(role) || role === 'admin' || role === 'tenant_admin') {
@@ -182,9 +224,9 @@ async function register(req, res) {
   // same email before verification (refreshes OTP and all fields).
   const { rows } = await pool.query(
     `INSERT INTO pending_registrations
-       (name, email, password_hash, phone_number, address, role, otp_token, otp_expires_at,
+       (name, email, password_hash, phone_number, address, role, workspace_name, otp_token, otp_expires_at,
         resend_count, last_resent_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, NOW())
      ON CONFLICT (email) DO UPDATE SET
        attempt_count = 0,
        name          = EXCLUDED.name,
@@ -192,13 +234,14 @@ async function register(req, res) {
        phone_number  = EXCLUDED.phone_number,
        address       = EXCLUDED.address,
        role          = EXCLUDED.role,
+       workspace_name= EXCLUDED.workspace_name,
        otp_token     = EXCLUDED.otp_token,
        otp_expires_at= EXCLUDED.otp_expires_at,
        resend_count  = 0,
        last_resent_at= NOW(),
        created_at    = NOW()
      RETURNING id, otp_expires_at`,
-    [name, email, hashed, e164, address || null, role, otp, expires]
+    [name, email, hashed, e164, address || null, role, workspaceName, otp, expires]
   );
   const pendingId  = rows[0].id;
   const expiresAt  = rows[0].otp_expires_at;
@@ -358,6 +401,18 @@ async function verifyEmail(req, res) {
     User.markEmailVerified(user.id),
     pool.query('DELETE FROM pending_registrations WHERE id = $1', [pending_id]),
   ]);
+
+  // If a workspace name was given at signup, provision a tenant and make this
+  // user its admin so credits/billing work immediately. If it was blank, the
+  // user stays tenantless until an admin assigns them a tenant. A provisioning
+  // failure must not fail the signup — the account is already created.
+  if (pending.workspace_name) {
+    try {
+      await provisionTenantForUser(user.id, pending.workspace_name);
+    } catch (err) {
+      console.error('[verifyEmail] tenant provisioning failed:', err.message);
+    }
+  }
 
   const freshUser    = await User.findById(user.id);
   const access_token = await issueTokens(freshUser, res);
