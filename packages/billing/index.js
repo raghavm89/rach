@@ -24,6 +24,7 @@ const credits          = require('./src/services/credits');
 const catalogModule    = require('./src/catalog');
 const paymentSecurity  = require('./src/services/paymentSecurity');
 const purchase         = require('./src/services/purchase');
+const hooks            = require('./src/hooks');
 const tax     = require('./src/services/tax');
 const money   = require('./src/services/tax/money');
 const invoice = require('./src/services/invoice');
@@ -47,6 +48,7 @@ module.exports = {
   catalog: catalogModule,   // THE pricing authority — { priceOrder, priceCart, priceBundle, ... }
   paymentSecurity,          // { verifyOrderPayment, verifySubscriptionPayment, assertPaymentMatches }
   purchase,                 // THE money path — every purchase flows through this
+  hooks,                    // { onSubscriptionCharged } — host app registers fulfilment
   credits,          // { CREDIT_PACKS, TOKENS_PER_CREDIT, getOrCreateBalance, deductCredits, addCredits }
   tax,              // { calculateTax, findRegistration, hasAnyRegistration, SELLER }
   money,            // integer minor-unit helpers — use these, never floats

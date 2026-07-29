@@ -120,6 +120,36 @@ const Subscription = {
     return { rows, total: countRows[0].total };
   },
 
+  /**
+   * Persist the billing snapshot (jurisdiction + pre-tax line inputs) used for
+   * this subscription's invoices. The `subscription.charged` webhook reissues
+   * recurring invoices from it so every cycle is a proper GST tax invoice.
+   */
+  async saveBilling(razorpay_sub_id, billing) {
+    const { rows } = await pool.query(
+      `UPDATE subscriptions SET billing_json = $1::jsonb, updated_at = NOW()
+        WHERE razorpay_sub_id = $2
+        RETURNING *`,
+      [JSON.stringify(billing), razorpay_sub_id]
+    );
+    return rows[0] || null;
+  },
+
+  /**
+   * Persist the cart/fulfilment inputs captured at subscription creation, so the
+   * `subscription.charged` webhook can fulfil a VM order even if the synchronous
+   * activation call never runs.
+   */
+  async saveFulfilment(razorpay_sub_id, fulfilment) {
+    const { rows } = await pool.query(
+      `UPDATE subscriptions SET fulfilment_json = $1::jsonb, updated_at = NOW()
+        WHERE razorpay_sub_id = $2
+        RETURNING *`,
+      [JSON.stringify(fulfilment), razorpay_sub_id]
+    );
+    return rows[0] || null;
+  },
+
   async updateStatus(razorpay_sub_id, status, extra = {}) {
     const { rows } = await pool.query(
       `UPDATE subscriptions

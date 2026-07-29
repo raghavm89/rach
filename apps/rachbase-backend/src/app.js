@@ -103,6 +103,14 @@ if (process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_WEBHOOK_SECRET) {
 // long-dead refresh tokens. RachBase is the identity provider, so it owns this.
 if (process.env.NODE_ENV !== 'test') startAuthCleanup();
 
+// Fulfil VM subscriptions off the Razorpay webhook too, so an order is provisioned
+// even if the synchronous activation call never runs (browser closed after pay).
+// The handler is idempotent, so it's safe alongside the activate handler and on
+// every renewal.
+require('@rach/billing').hooks.onSubscriptionCharged(({ razorpaySubId, paymentId, amountMinor, currency }) =>
+  require('./controllers/expansionController').ensureSubscriptionFulfilment(razorpaySubId, { paymentId, amountMinor, currency })
+);
+
 // Shared identity + billing
 app.use('/api/auth',     authRoutes);
 app.use('/api/auth',     oauthRoutes);

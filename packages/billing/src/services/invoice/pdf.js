@@ -48,20 +48,30 @@ function renderInvoicePdf({ invoice, lines }) {
       const right = PAGE_MARGIN + pageW;
 
       // ── Header ───────────────────────────────────────────────────────────
+      // Two independent columns share the top band: seller (left) and the
+      // invoice title/number (right). They're laid out separately, so we must
+      // continue BELOW whichever runs taller — otherwise a long seller address
+      // pushes the left column past the right one and the divider + "Bill to"
+      // block render on top of the GSTIN/PAN/email lines.
+      const headerTop = PAGE_MARGIN;
+
+      // Left column — seller. Constrain the width so it never runs under the
+      // right column.
       doc.fillColor(COLORS.ink).fontSize(20).font('Helvetica-Bold')
-         .text(seller.legal_name || 'Rach Dev LLP', PAGE_MARGIN, PAGE_MARGIN);
+         .text(seller.legal_name || 'Rach Dev LLP', PAGE_MARGIN, headerTop, { width: pageW * 0.55 });
 
       doc.fontSize(9).font('Helvetica').fillColor(COLORS.muted);
       if (seller.address) doc.text(seller.address, { width: pageW * 0.55 });
-      if (seller.gstin)   doc.text(`GSTIN: ${seller.gstin}`);
-      if (seller.pan)     doc.text(`PAN: ${seller.pan}`);
-      if (seller.email)   doc.text(seller.email);
+      if (seller.gstin)   doc.text(`GSTIN: ${seller.gstin}`, { width: pageW * 0.55 });
+      if (seller.pan)     doc.text(`PAN: ${seller.pan}`, { width: pageW * 0.55 });
+      if (seller.email)   doc.text(seller.email, { width: pageW * 0.55 });
+      const leftBottom = doc.y;
 
-      // Title block, right aligned
+      // Right column — title, number, date.
       const isZeroTax = Number(invoice.tax_total_minor) === 0;
       const title = isZeroTax ? 'INVOICE' : 'TAX INVOICE';
       doc.fillColor(COLORS.accent).fontSize(16).font('Helvetica-Bold')
-         .text(title, PAGE_MARGIN, PAGE_MARGIN, { width: pageW, align: 'right' });
+         .text(title, PAGE_MARGIN, headerTop, { width: pageW, align: 'right' });
 
       doc.fontSize(9).font('Helvetica').fillColor(COLORS.ink)
          .text(invoice.invoice_number, { width: pageW, align: 'right' })
@@ -74,7 +84,11 @@ function renderInvoicePdf({ invoice, lines }) {
         doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(11)
            .text('VOID', { width: pageW, align: 'right' });
       }
+      const rightBottom = doc.y;
 
+      // Drop below the taller of the two columns before the divider.
+      doc.x = PAGE_MARGIN;
+      doc.y = Math.max(leftBottom, rightBottom);
       doc.moveDown(2);
       rule(doc, right);
 
@@ -97,16 +111,20 @@ function renderInvoicePdf({ invoice, lines }) {
         doc.font('Helvetica-Bold').fillColor(COLORS.ink)
            .text(`GSTIN: ${buyer.gstin}`, { width: pageW * 0.5 });
       }
+      const buyerBottom = doc.y;
 
       // Place of supply, right column
+      let placeBottom = billTop;
       if (invoice.place_of_supply) {
         doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.muted)
            .text('PLACE OF SUPPLY', PAGE_MARGIN + pageW * 0.55, billTop, { width: pageW * 0.45 });
         doc.fontSize(9).font('Helvetica').fillColor(COLORS.ink)
            .text(invoice.place_of_supply, { width: pageW * 0.45 });
+        placeBottom = doc.y;
       }
 
-      doc.y = Math.max(doc.y, billTop) + 12;
+      // Drop below the taller of the two columns before the line-items table.
+      doc.y = Math.max(buyerBottom, placeBottom) + 12;
       doc.x = PAGE_MARGIN;
 
       // ── Line items ───────────────────────────────────────────────────────
