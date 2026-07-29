@@ -30,6 +30,7 @@ const {
   assertPaymentMatches,
 } = require('./paymentSecurity');
 const issueInvoiceForPayment = require('./invoice/issueForPayment');
+const { calculateTax } = require('./tax');
 const credits = require('./credits');
 const Plan = require('../models/plan');
 const Order = require('../models/order');
@@ -73,6 +74,29 @@ function resolveBilling({ subtotalCents, catalogCurrency, billingCountry, ipCoun
   return { country, currency: catalogCurrency, amountMinor: subtotalCents, fxRate: null };
 }
 
+/** Pre-tax subtotal in the charged currency, recomputed from a credit pack. */
+function creditSubtotalMinor(pack, currency) {
+  if (currency === 'INR') {
+    const usdToInr = parseFloat(process.env.USD_TO_INR || '90');
+    return Math.round(pack.price_cents * usdToInr);
+  }
+  return pack.price_cents;
+}
+
+/**
+ * Tax (e.g. India 18% GST) on a pre-tax subtotal, via the same engine the
+ * invoice uses — so the amount charged equals the invoice total. Returns 0
+ * unless an active `tax_registrations` row covers the buyer's jurisdiction.
+ */
+async function taxOnSubtotal({ subtotalMinor, currency, buyer, description }) {
+  const result = await calculateTax({
+    lines: [{ description, quantity: 1, unit_price_minor: subtotalMinor, subtotal_minor: subtotalMinor }],
+    currency,
+    buyer,
+  });
+  return result.tax_total_minor || 0;
+}
+
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 
 /**
@@ -96,12 +120,28 @@ async function createSubscriptionPurchase({
     throw Object.assign(new Error('Order total must be greater than zero'), { status: 400 });
   }
 
-  const billing = resolveBilling({
+  const subtotal = resolveBilling({
     subtotalCents: priced.subtotal_cents,
     catalogCurrency: priced.currency,
     billingCountry,
     ipCountry,
   });
+
+  // Add tax (India GST etc.) to the recurring charge, computed the same way the
+  // invoice does, so the amount charged each cycle equals the invoice total.
+  // Zero without a matching active tax registration.
+  const subTaxMinor = await taxOnSubtotal({
+    subtotalMinor: subtotal.amountMinor,
+    currency: subtotal.currency,
+    buyer: { country_code: isoCountry(billingCountry) || subtotal.country || null },
+    description: priced.description,
+  });
+  const billing = {
+    ...subtotal,
+    subtotalMinor: subtotal.amountMinor,
+    taxMinor: subTaxMinor,
+    amountMinor: subtotal.amountMinor + subTaxMinor,   // recurring charge, tax-inclusive
+  };
 
   const hasRazorpay = Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
   if (!hasRazorpay) {
@@ -334,13 +374,39 @@ async function createCreditPurchase({ user, packId, billingCountry, ipCountry })
   const pack = credits.getCreditPack(packId);
   if (!pack) throw Object.assign(new Error('Invalid credit pack'), { status: 400, code: 'unknown_pack' });
 
+  // Credits have no billing form, so resolve the buyer from the saved profile —
+  // the same source the invoice uses. This is what makes Indian customers get
+  // INR pricing + GST on credits automatically.
+  const { rows: urows } = await pool.query(
+    'SELECT gstin, billing_address FROM users WHERE id = $1', [user.id]
+  );
+  const addr = urows[0]?.billing_address || {};
+  const country = isoCountry(billingCountry) || isoCountry(addr.country) || isoCountry(ipCountry) || null;
+  const gstin = urows[0]?.gstin || addr.gstin || null;
+
   // price_cents, not price_usd * 100.
-  const billing = resolveBilling({
+  const subtotal = resolveBilling({
     subtotalCents: pack.price_cents,
     catalogCurrency: 'USD',
-    billingCountry,
+    billingCountry: country,
     ipCountry,
   });
+
+  // Add tax (India GST etc.) to the amount charged, computed the same way the
+  // invoice will, so the charge and the invoice reconcile. Zero without a
+  // matching active tax registration.
+  const taxMinor = await taxOnSubtotal({
+    subtotalMinor: subtotal.amountMinor,
+    currency: subtotal.currency,
+    buyer: { country_code: country, region_code: addr.state || null, gstin },
+    description: `${pack.label} credit pack`,
+  });
+  const billing = {
+    ...subtotal,
+    subtotalMinor: subtotal.amountMinor,
+    taxMinor,
+    amountMinor: subtotal.amountMinor + taxMinor,   // total charged, tax-inclusive
+  };
 
   const receipt = `credits_${user.id}_${Date.now()}`;
 
@@ -437,13 +503,15 @@ async function verifyCreditPurchase({
   });
 
   // Credits are revenue like anything else and now produce a tax invoice.
+  // The invoice line is the PRE-TAX subtotal (order.amount is tax-inclusive);
+  // the invoice engine re-adds the same tax, so its total equals what we charged.
   const invoice = await issueInvoiceForPayment({
     userId: order.user_id,
     currency: order.currency,
     lines: [{
       description: order.description,
       quantity: 1,
-      unit_price_minor: Number(order.amount),
+      unit_price_minor: creditSubtotalMinor(pack, order.currency),
     }],
     billing: billingDetails,
     payment: { razorpay_order_id, razorpay_payment_id },

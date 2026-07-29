@@ -14,6 +14,23 @@ const { pool } = require('@rach/core');
 const invoiceService = require('../services/invoice');
 const { renderInvoicePdf, pdfFilename } = require('../services/invoice/pdf');
 const { calculateTax } = require('../services/tax');
+const geoip = require('geoip-lite');
+
+// Resolve the client IP behind proxies (ngrok, Railway, etc.).
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.socket?.remoteAddress || req.ip || '';
+}
+
+/** ISO country for the request IP, or null (loopback/private ranges → null). */
+function countryFromReq(req) {
+  const ip = clientIp(req);
+  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return null;
+  }
+  return geoip.lookup(ip)?.country ?? null;
+}
 
 /** Admins see everything; everyone else sees only their own. */
 function canRead(invoice, user) {
@@ -86,10 +103,25 @@ async function quoteTax(req, res) {
     });
   }
 
+  // The JWT has no billing_address — load the saved profile so the quote knows
+  // the buyer's country (and GSTIN) even when the client sends no billing block.
+  const { rows: urows } = await pool.query(
+    `SELECT id, name, email, phone_number, gstin, account_type, business_name, billing_address
+       FROM users WHERE id = $1`,
+    [req.user.id]
+  );
+  const dbUser = urows[0] || req.user;
+
   const buyer = invoiceService.buildBuyer(
-    { ...req.user, gstin: billing.gstin ?? req.user.gstin },
+    { ...dbUser, gstin: billing.gstin ?? dbUser.gstin },
     billing
   );
+
+  // Still unknown? Fall back to IP geolocation.
+  if (!buyer.country_code) {
+    const ipCountry = countryFromReq(req);
+    if (ipCountry) buyer.country_code = ipCountry;
+  }
 
   const tax = await calculateTax({ lines: normalized, currency, buyer });
 

@@ -6,10 +6,14 @@ import { useParams } from 'next/navigation';
 import {
   ArrowLeft, Box, GitBranch, Rocket, Globe, Gauge, Activity, GitPullRequestArrow,
   Loader2, Lock, RotateCcw, Cpu, MemoryStick, HardDrive, Copy, Plus,
+  Terminal as TerminalIcon, Database,
 } from 'lucide-react';
 import { cn } from '@rach/ui/lib/utils';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { projects as api, type Service, type Deployment } from '@rach/ui/lib/api';
+import { ResourceTabs, useResourceTab } from '@/components/dashboard/ResourceTabs';
+import { Terminal } from '@/components/dashboard/Terminal';
+import { DbConsole } from '@/components/dashboard/database/DbConsole';
 
 declare global {
   interface Window {
@@ -33,10 +37,12 @@ const TABS = [
   { key: 'network', label: 'Network', icon: Globe },
   { key: 'scale', label: 'Scale', icon: Gauge },
   { key: 'monitor', label: 'Monitor', icon: Activity },
+  { key: 'console', label: 'Console', icon: TerminalIcon },
   { key: 'evolve', label: 'Evolve', icon: GitPullRequestArrow },
 ] as const;
 
-type TabKey = typeof TABS[number]['key'];
+// Extra tab shown only for Postgres services (source_type='postgres').
+const DATA_TAB = { key: 'data', label: 'Data', icon: Database } as const;
 
 const STATUS_COLOR: Record<string, string> = {
   online: 'bg-emerald-500', deploying: 'bg-amber-500', building: 'bg-amber-500',
@@ -54,7 +60,9 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<Service | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<TabKey>('deploy');
+  const isPg = service?.source_type === 'postgres';
+  const tabs = isPg ? [DATA_TAB, ...TABS] : TABS;
+  const [tab, setTab] = useResourceTab(tabs.map((t) => t.key), isPg ? 'data' : 'deploy');
   const [deploying, setDeploying] = useState(false);
   const [buying, setBuying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -161,16 +169,15 @@ export default function ServiceDetailPage() {
       )}
       {payError && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{payError}</p>}
 
-      {/* Tabs */}
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-neutral-border">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={cn('flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
-              tab === t.key ? 'border-primary-blue text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary')}>
-            <t.icon size={15} /> {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — shared deep-linkable resource IA (Phase 2 · WS1) */}
+      <ResourceTabs tabs={tabs} active={tab} onChange={setTab} />
+
+      {/* ── Data (Postgres) ── */}
+      {tab === 'data' && (
+        isPg && token
+          ? <DbConsole serviceId={sid} token={token} />
+          : <Panel title="Data"><p className="py-2 text-sm text-text-muted">The data viewer is available for Postgres services once provisioned.</p></Panel>
+      )}
 
       {/* ── Deploy ── */}
       {tab === 'deploy' && (
@@ -265,6 +272,41 @@ export default function ServiceDetailPage() {
               <p className="text-text-muted">Live logs stream here once the service is running on the cluster.</p>
             </div>
           </Panel>
+        </div>
+      )}
+
+      {/* ── Console ── */}
+      {tab === 'console' && (
+        <div className="space-y-3">
+          {service.vm_id && token ? (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-text-primary">Console</p>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(`ssh root@${service.vm_id}`)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-neutral-border px-3 py-1 text-xs text-text-muted hover:text-text-primary"
+                >
+                  <Copy size={13} /> Copy SSH command
+                </button>
+              </div>
+              <Terminal
+                vmId={service.vm_id}
+                vmName={service.name}
+                token={token}
+                onClose={() => setTab('deploy')}
+              />
+              <p className="text-xs text-text-muted">
+                Live shell into the VM running this service. Sessions are scoped to your tenant.
+              </p>
+            </>
+          ) : (
+            <Panel title="Console">
+              <p className="py-2 text-sm text-text-muted">
+                The console is available once this service is running on a VM.
+              </p>
+            </Panel>
+          )}
         </div>
       )}
 

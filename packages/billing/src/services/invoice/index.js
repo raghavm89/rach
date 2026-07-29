@@ -36,8 +36,15 @@ function buildBuyer(user, billing = {}) {
     gstin        : (billing.gstin       || user?.gstin || null)?.toUpperCase?.() ?? null,
     account_type : user?.account_type   || 'individual',
     business_name: billing.business_name || user?.business_name || null,
-    country_code : normalizeCountry(billing.country || billing.country_code),
-    region_code  : billing.state || billing.region_code || null,
+    // Fall back to the saved billing_address country/state when the checkout
+    // snapshot omits them (e.g. credit purchases, which have no billing form),
+    // so the invoice's tax jurisdiction matches what was charged.
+    country_code : normalizeCountry(
+      billing.country || billing.country_code ||
+      (addr && typeof addr === 'object' ? addr.country : null)
+    ),
+    region_code  : billing.state || billing.region_code ||
+      (addr && typeof addr === 'object' ? addr.state : null) || null,
     city         : billing.city || null,
     postal_code  : billing.pincode || billing.postal_code || null,
     address_line : typeof addr === 'string' ? addr : addr?.line1 ?? null,

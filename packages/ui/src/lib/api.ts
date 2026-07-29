@@ -975,8 +975,17 @@ export interface DeploymentService {
   name:            string | null;
   config:          Record<string, unknown> | null;
   status:          'connected' | 'deploying' | 'deployed' | 'failed';
+  group_id?:       number | null;
   created_at:      string;
   updated_at:      string;
+}
+
+export interface ServiceGroup {
+  id: number;
+  name: string;
+  color: string;
+  created_at: string;
+  service_count?: number;
 }
 
 export interface CanvasPosition { node_key: string; x: number; y: number }
@@ -1129,7 +1138,12 @@ export const deployment = {
     apiFetch<{ logs: string }>(`/api/deployment/services/${serviceId}/runtime-logs`, {}, token),
 
   getDomains: (token: string, serviceId: number) =>
-    apiFetch<{ domains: ServiceDomain[] }>(`/api/deployment/services/${serviceId}/domains`, {}, token),
+    apiFetch<{ domains: ServiceDomain[]; target_ip: string | null }>(`/api/deployment/services/${serviceId}/domains`, {}, token),
+
+  verifyDomain: (token: string, serviceId: number, domainId: number) =>
+    apiFetch<{ hostname: string; target_ip: string | null; resolved: string[]; matches: boolean }>(
+      `/api/deployment/services/${serviceId}/domains/${domainId}/check`, {}, token,
+    ),
 
   addDomain: (token: string, serviceId: number, hostname: string) =>
     apiFetch<{ domain: ServiceDomain; message: string }>(
@@ -1159,6 +1173,26 @@ export const deployment = {
 
   saveCanvas: (token: string, positions: CanvasPosition[]) =>
     apiFetch<{ ok: boolean }>('/api/deployment/canvas', { method: 'PUT', body: JSON.stringify({ positions }) }, token),
+
+  // Service groups (Phase 2 · WS6)
+  listGroups: (token: string) =>
+    apiFetch<{ groups: ServiceGroup[] }>('/api/deployment/groups', {}, token),
+  createGroup: (token: string, name: string, color?: string) =>
+    apiFetch<{ group: ServiceGroup }>('/api/deployment/groups', { method: 'POST', body: JSON.stringify({ name, color }) }, token),
+  updateGroup: (token: string, groupId: number, patch: { name?: string; color?: string }) =>
+    apiFetch<{ group: ServiceGroup }>(`/api/deployment/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+  deleteGroup: (token: string, groupId: number) =>
+    apiFetch<{ ok: boolean }>(`/api/deployment/groups/${groupId}`, { method: 'DELETE' }, token),
+  setServiceGroup: (token: string, serviceId: number, groupId: number | null) =>
+    apiFetch<{ service: { id: number; group_id: number | null } }>(
+      `/api/deployment/services/${serviceId}/group`, { method: 'PATCH', body: JSON.stringify({ group_id: groupId }) }, token,
+    ),
+
+  // Auto-CORS: append the linked service's origin(s) to this service's CORS_ORIGINS.
+  linkService: (token: string, serviceId: number, fromServiceId: number) =>
+    apiFetch<{ ok: boolean; cors_origins: string; added: string[] }>(
+      `/api/deployment/services/${serviceId}/link`, { method: 'POST', body: JSON.stringify({ from_service_id: fromServiceId }) }, token,
+    ),
 };
 
 // ─── Projects / Services (Railway-style) ──────────────────────────────────────
@@ -1286,6 +1320,35 @@ export const projects = {
       `/api/projects/${projectId}/services/${sid}/units/verify`, {
         method: 'POST',
         body: JSON.stringify(payload),
+      }, token,
+    ),
+};
+
+// ── Postgres data viewer + read-only query runner (Phase 2 · WS3) ─────────────
+export interface DbTable {
+  table_schema: string;
+  table_name: string;
+  column_count: number;
+}
+export interface DbQueryResult {
+  fields: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+  mode?: 'read' | 'write';
+}
+
+export const dbBrowser = {
+  tables: (token: string, serviceId: number) =>
+    apiFetch<{ tables: DbTable[] }>(
+      `/api/deployment/services/${serviceId}/db/tables`, {}, token,
+    ),
+  /** Run SQL. `write: true` opts into a committing (read-write) transaction. */
+  query: (token: string, serviceId: number, sql: string, write = false) =>
+    apiFetch<DbQueryResult>(
+      `/api/deployment/services/${serviceId}/db/query`, {
+        method: 'POST',
+        body: JSON.stringify({ sql, write }),
       }, token,
     ),
 };

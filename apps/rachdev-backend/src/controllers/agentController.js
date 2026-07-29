@@ -219,6 +219,10 @@ Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
     { role: 'user', content: message },
   ];
 
+  // Accumulate streamed text so the reply can be persisted even on a mid-call
+  // failure — otherwise the session keeps the user message with no answer.
+  let streamed = '';
+
   try {
     const result = await gateway.chat({
       tenantId:    req.user.tenant_id,
@@ -226,7 +230,7 @@ Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
       system:      systemPrompt,
       messages,
       description: `Chat in session ${req.params.id}`,
-      onText:      (text) => res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`),
+      onText:      (text) => { streamed += text; res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`); },
     });
 
     // Save assistant message
@@ -256,7 +260,21 @@ Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
 
   } catch (err) {
     console.error('[agent/chat]', err.message);
-    res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+    // Persist whatever streamed so the turn isn't lost. The gateway already
+    // refunded / never charged on failure, so credits_used = 0 here.
+    if (streamed.trim()) {
+      await pool.query(
+        `INSERT INTO agent_chat_messages
+           (session_id, role, content, tokens_used, credits_used)
+         VALUES ($1, 'assistant', $2, NULL, 0)`,
+        [req.params.id, streamed]
+      ).catch((e) => console.error('[agent/chat] persist partial', e.message));
+      await pool.query('UPDATE agent_chat_sessions SET updated_at = NOW() WHERE id = $1', [req.params.id]).catch(() => {});
+    }
+    const payload = err.code === 'insufficient_credits'
+      ? { type: 'error', code: err.code, message: err.message, balance: err.balance, required: err.required }
+      : { type: 'error', message: err.message };
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
   }
 
   res.end();

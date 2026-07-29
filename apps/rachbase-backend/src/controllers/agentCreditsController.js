@@ -15,6 +15,15 @@
 
 const { pool } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
+const geoip = require('geoip-lite');
+
+// ISO country from the request IP (proxy-aware), or null for local/private IPs.
+function countryFromReq(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || req.ip || '');
+  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) return null;
+  return geoip.lookup(ip)?.country ?? null;
+}
 
 // GET /api/agent/credits
 exports.getCredits = async (req, res) => {
@@ -31,6 +40,7 @@ exports.purchaseCredits = async (req, res) => {
       user: req.user,
       packId: pack_id,
       billingCountry: billing_country,
+      ipCountry: countryFromReq(req),
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message, code: err.code });
@@ -39,7 +49,9 @@ exports.purchaseCredits = async (req, res) => {
   const { pack, billing, razorpay: rz } = result;
   res.json({
     order_id:        rz.order_id,
-    amount:          billing.amountMinor,
+    amount:          billing.amountMinor,      // total charged (tax-inclusive)
+    subtotal:        billing.subtotalMinor,
+    tax:             billing.taxMinor,
     currency:        billing.currency,
     razorpay_key_id: rz.key_id,
     pack,

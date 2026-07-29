@@ -458,6 +458,10 @@ function CheckoutInner() {
   const [taxQuote, setTaxQuote] = useState<TaxQuote | null>(null);
   const [taxLoading, setTaxLoading] = useState(false);
 
+  // Amount the customer actually pays: tax-inclusive when the server quote is
+  // in (e.g. +18% GST), else the pre-tax subtotal while it loads.
+  const totalWithTax = taxQuote ? taxQuote.total_minor / 100 : (cart?.totalDollars ?? 0);
+
   const cartKey = cart ? `${cart.description}|${cart.totalCents}` : '';
 
   useEffect(() => {
@@ -590,7 +594,7 @@ function CheckoutInner() {
             </div>
             <div className="flex justify-between text-sm border-t border-neutral-border pt-2">
               <span className="font-semibold text-text-primary">Total</span>
-              <span className="font-bold text-text-primary font-mono">{usd(cart.totalDollars)}/mo</span>
+              <span className="font-bold text-text-primary font-mono">{usd(totalWithTax)}/mo</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-text-muted">Status</span>
@@ -900,7 +904,7 @@ function CheckoutInner() {
             )}
             <div className="border-t-2 border-neutral-border px-6 py-4 flex justify-between items-center">
               <span className="font-semibold text-text-primary">Monthly Total</span>
-              <span className="text-2xl font-bold font-mono text-text-primary">{usd(cart.totalDollars)}<span className="text-sm font-normal text-text-muted">/mo</span></span>
+              <span className="text-2xl font-bold font-mono text-text-primary">{usd(totalWithTax)}<span className="text-sm font-normal text-text-muted">/mo</span></span>
             </div>
           </div>
 
@@ -955,7 +959,7 @@ function CheckoutInner() {
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-blue to-primary-purple px-5 py-4 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
             >
               <Lock size={14} />
-              Subscribe — {usd(cart.totalDollars)}/mo
+              Subscribe — {usd(totalWithTax)}/mo
             </button>
 
             <p className="mt-3 text-center text-xs text-text-muted flex items-center justify-center gap-1">
@@ -993,7 +997,7 @@ function CheckoutInner() {
                   </div>
                   <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                     <strong>Recurring payment:</strong> You will be auto-charged{' '}
-                    <strong>{usd(cart.totalDollars)}/mo</strong> every month at 12:00 AM IST on the same date.
+                    <strong>{usd(totalWithTax)}/mo</strong> every month at 12:00 AM IST on the same date.
                     Cancel before <strong>{nextLabel}</strong> to avoid the next charge.
                   </div>
                 </div>
