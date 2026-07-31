@@ -13,6 +13,7 @@ const BARE_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/auth-callback",
+  "/dashboard", // authenticated workspace — brings its own shell, no marketing chrome
 ];
 
 /**

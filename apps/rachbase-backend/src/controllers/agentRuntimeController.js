@@ -203,7 +203,7 @@ exports.runCommand = async (req, res) => {
   try {
     await ssh.connect({
       host: cfg.ip_address, port: cfg.ssh_port || 22,
-      username: cfg.ssh_user || 'rachops', privateKey,
+      username: cfg.ssh_user || 'ubuntu', privateKey,
     });
     const result = await ssh.execCommand(command);
     res.json({ stdout: result.stdout, stderr: result.stderr, code: result.code });

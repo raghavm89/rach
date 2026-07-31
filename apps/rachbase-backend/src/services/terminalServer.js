@@ -27,7 +27,23 @@ async function resolveVmAccess(user, vmId) {
   const cfg = rows[0];
 
   if (user.role === 'admin') return cfg;
-  if (cfg.tenant_id !== user.tenant_id) return null;         // different tenant → deny
+  if (user.tenant_id == null) return null;                   // tenantless → deny
+
+  // A VM belongs to a tenant via EITHER source of truth: vm_ssh_config.tenant_id
+  // or the tenant_vm_assignments pool. These historically diverged — a VM could
+  // be assigned to the pool (and shown to the user) while vm_ssh_config.tenant_id
+  // stayed null, denying the terminal for a VM the user could plainly see. Accept
+  // either so the console always agrees with the pool.
+  let ownedByTenant = cfg.tenant_id === user.tenant_id;
+  if (!ownedByTenant) {
+    const { rows: assigned } = await pool.query(
+      'SELECT 1 FROM tenant_vm_assignments WHERE tenant_id = $1 AND vm_id = $2',
+      [user.tenant_id, vmId]
+    );
+    ownedByTenant = assigned.length > 0;
+  }
+  if (!ownedByTenant) return null;                           // not this tenant's VM → deny
+
   if (user.role === 'tenant_admin') return cfg;              // all tenant VMs
   if (user.role === 'tenant_user') {
     const { rows: a } = await pool.query(

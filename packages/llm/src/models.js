@@ -30,9 +30,27 @@ const MODELS = {
     credit_multiplier: 8.0,
     max_tokens_default: 2048,
   },
+
+  // ── On-prem sovereign models (served by vLLM inside the hospital) ──
+  // Indian open models for the AFMS deployment; no data leaves the base.
+  // credit_multiplier 0 = not metered (on-prem is licensed, not per-call billed).
+  'sarvam-105b': {
+    provider: 'vllm',
+    label: 'Sarvam 105B (on-prem)',
+    credit_multiplier: 0,
+    max_tokens_default: 2048,
+  },
+  'sarvam-30b': {
+    provider: 'vllm',
+    label: 'Sarvam 30B (on-prem)',
+    credit_multiplier: 0,
+    max_tokens_default: 2048,
+  },
 };
 
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+// Deploy-profile switch: cloud POC defaults to Claude; an on-prem build sets
+// LLM_DEFAULT_MODEL=sarvam-105b to route everything through the vLLM adapter.
+const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'claude-haiku-4-5-20251001';
 
 function resolveModel(model) {
   const id = model || DEFAULT_MODEL;

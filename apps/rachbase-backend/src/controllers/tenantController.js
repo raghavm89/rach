@@ -232,11 +232,20 @@ async function setTenantVMs(req, res) {
   try {
     await client.query('BEGIN');
     await client.query(`DELETE FROM tenant_vm_assignments WHERE tenant_id = $1`, [id]);
+    // Keep vm_ssh_config.tenant_id (the terminal's source of truth) in lockstep
+    // with the pool, so a VM shown in the pool is always reachable from the
+    // console. Clear this tenant off any VM it no longer owns, then stamp it on
+    // the current set.
+    await client.query(`UPDATE vm_ssh_config SET tenant_id = NULL WHERE tenant_id = $1`, [id]);
     if (vmIds.length > 0) {
       const values = vmIds.map((vmId, i) => `($1, $${i + 2})`).join(', ');
       await client.query(
         `INSERT INTO tenant_vm_assignments (tenant_id, vm_id) VALUES ${values}`,
         [id, ...vmIds]
+      );
+      await client.query(
+        `UPDATE vm_ssh_config SET tenant_id = $1 WHERE vm_id = ANY($2::text[])`,
+        [id, vmIds]
       );
     }
     await client.query('COMMIT');

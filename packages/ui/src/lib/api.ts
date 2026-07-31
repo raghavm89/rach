@@ -31,6 +31,8 @@ export interface User {
   role: UserRole;
   tenant_id: number | null;
   tenant_name: string | null;
+  /** Tenant's industry (e.g. 'healthcare') — gates the industry workspace nav. */
+  tenant_industry?: string | null;
   pve_pool?: string | null;
   // Business profile (migration 018)
   account_type?:        'individual' | 'business';
@@ -1069,8 +1071,13 @@ export const agent = {
 
 export const deployment = {
   getGithubStatus: (token: string) =>
-    apiFetch<{ connected: boolean; installation_id?: number; github_account?: string; installed_at?: string }>(
+    apiFetch<{ connected: boolean; installation_id?: number; github_account?: string; installed_at?: string; installations?: { installation_id: number; github_account: string; installed_at: string }[] }>(
       '/api/deployment/github/status', {}, token
+    ),
+
+  removeInstallation: (token: string, installationId: number | string) =>
+    apiFetch<{ message: string; installation_id: string }>(
+      `/api/deployment/github/installations/${installationId}`, { method: 'DELETE' }, token
     ),
 
   getInstallUrl: (token: string) =>
@@ -1351,4 +1358,24 @@ export const dbBrowser = {
         body: JSON.stringify({ sql, write }),
       }, token,
     ),
+};
+
+// ─── Workspace (RachDev): a tenant_admin sets their own tenant's industry ──────
+
+export interface WorkspaceTenant {
+  id: number;
+  name: string | null;
+  industry: string | null;
+}
+
+export const workspace = {
+  /** The caller's own tenant (id, name, industry). */
+  get: (token: string) =>
+    apiFetch<{ tenant: WorkspaceTenant | null }>('/api/tenant', {}, token),
+  /** Set the tenant's industry (e.g. 'healthcare'); pass null to clear. */
+  setIndustry: (token: string, industry: string | null) =>
+    apiFetch<{ tenant: WorkspaceTenant | null }>('/api/tenant/industry', {
+      method: 'PATCH',
+      body: JSON.stringify({ industry }),
+    }, token),
 };

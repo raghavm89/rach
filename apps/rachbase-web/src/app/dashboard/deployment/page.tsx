@@ -261,6 +261,9 @@ export default function DeploymentPage() {
 
   const [githubConnected, setGithubConnected] = useState(false);
   const [githubAccount, setGithubAccount]     = useState<string | null>(null);
+  const [githubInstallations, setGithubInstallations] = useState<{ installation_id: number; github_account: string; installed_at: string }[]>([]);
+  const [removingInstall, setRemovingInstall] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ installation_id: number; github_account: string } | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -309,6 +312,7 @@ export default function DeploymentPage() {
       setServices(servicesData.services);
       setGithubConnected(githubStatus.connected);
       setGithubAccount(githubStatus.github_account || null);
+      setGithubInstallations(githubStatus.installations || []);
       const saved: PosMap = {};
       for (const p of canvas.positions) saved[p.node_key] = { x: p.x, y: p.y };
       setPos((prev) => ({ ...saved, ...prev }));
@@ -450,6 +454,30 @@ export default function DeploymentPage() {
     } catch (err) { setFlowError((err as Error).message); setConnectingGithub(false); }
   };
 
+  // Add another GitHub installation (a second account or org) — opens the same
+  // install flow and refreshes the list as it links.
+  const handleAddInstall = async () => {
+    if (!token) return;
+    try {
+      const { install_url } = await deployment.getInstallUrl(token);
+      window.open(install_url, "_blank", "noopener");
+      const poll = setInterval(async () => {
+        try { await deployment.reconcileGithub(token); await fetchAll(true); } catch { /* ignore */ }
+      }, 4000);
+      setTimeout(() => clearInterval(poll), 180000);
+    } catch (err) { setFlowError((err as Error).message); }
+  };
+
+  const handleRemoveInstall = async (installationId: number) => {
+    if (!token) return;
+    setRemovingInstall(installationId);
+    try {
+      await deployment.removeInstallation(token, installationId);
+      await fetchAll(true);
+    } catch (err) { setFlowError((err as Error).message); }
+    finally { setRemovingInstall(null); setConfirmRemove(null); }
+  };
+
   // Manual re-check — reconciles straight from GitHub's API, so it works even if
   // the post-install redirect never reached the callback.
   const checkGithubNow = async () => {
@@ -565,17 +593,37 @@ export default function DeploymentPage() {
         }} />
 
         {/* Toolbar */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur border-b border-black/8">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur border-b border-black/8">
           <p className="text-xs font-semibold text-black/40 uppercase tracking-wider">Deployment canvas — drag cards to arrange</p>
           <div className="flex items-center gap-2">
             <button onClick={toggleChat} className={cn(
               "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors shadow-sm",
               chatOpen ? "bg-primary-blue text-white border-primary-blue" : "bg-white border-black/12 text-black/60 hover:text-black hover:bg-black/5",
             )}><Bot size={13} /> Agent</button>
-            {githubConnected && githubAccount && (
-              <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-black/12 text-xs text-black/50 shadow-sm">
-                <GitFork size={12} /> {githubAccount}
+            {(githubInstallations.length ? githubInstallations : (githubConnected && githubAccount ? [{ installation_id: 0, github_account: githubAccount, installed_at: "" }] : [])).map((inst) => (
+              <span key={inst.installation_id} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-black/12 text-xs text-black/50 shadow-sm">
+                <GitFork size={12} /> {inst.github_account}
+                {inst.installation_id !== 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setConfirmRemove(inst); }}
+                    disabled={removingInstall === inst.installation_id}
+                    title="Remove this GitHub installation"
+                    className="relative z-10 ml-1 -mr-1 rounded p-1 text-black/30 hover:text-red-500 hover:bg-red-50 disabled:opacity-40"
+                  >
+                    {removingInstall === inst.installation_id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                  </button>
+                )}
               </span>
+            ))}
+            {githubConnected && (
+              <button
+                onClick={handleAddInstall}
+                title="Add another GitHub account or org"
+                className="flex items-center gap-1 px-2.5 py-2 rounded-lg border border-dashed border-black/20 text-xs text-black/50 hover:text-black hover:border-black/40 transition-colors"
+              >
+                <Plus size={12} /> Add
+              </button>
             )}
             <button onClick={() => fetchAll(true)} disabled={refreshing}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-black/12 text-xs font-medium text-black/60 hover:text-black hover:bg-black/5 transition-colors shadow-sm disabled:opacity-50">
@@ -603,14 +651,26 @@ export default function DeploymentPage() {
 
         {/* Canvas */}
         {!loading && !error && vms.length > 0 && services.length === 0 && (
-          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 rounded-xl border border-primary-blue/20 bg-blue-50/80 px-4 py-2.5 text-center shadow-sm backdrop-blur">
+          <div className="pointer-events-none absolute left-1/2 top-20 z-10 -translate-x-1/2 rounded-xl border border-primary-blue/20 bg-blue-50/80 px-4 py-2.5 text-center shadow-sm backdrop-blur">
             <p className="text-sm font-semibold text-black/80">Deploy your first service</p>
             <p className="mt-0.5 text-xs text-black/50">Click the <span className="font-semibold text-primary-blue">+</span> on a VM to add a GitHub app or a Postgres database.</p>
           </div>
         )}
 
         {!loading && !error && vms.length > 0 && (
-          <div ref={canvasRef} className="relative z-10" style={{ minHeight: 1200, minWidth: 1400 }}>
+          <div
+            ref={canvasRef}
+            className="relative z-10"
+            // Fit the canvas to its cards, with a floor of the container size so
+            // it fills the viewport at rest (no scrollbars on load) and only grows
+            // — and scrolls — once a card is dragged past the visible area.
+            style={{
+              minWidth: "100%",
+              minHeight: "100%",
+              width:  Object.values(pos).reduce((m, p) => Math.max(m, p.x), 0) + 424,
+              height: Object.values(pos).reduce((m, p) => Math.max(m, p.y), 0) + 320,
+            }}
+          >
             <Arrows vms={vms} services={services} pos={pos} />
             {vms.map((vm) => pos[vmKey(vm.id)] && (
               <VMNode key={vm.id} vm={vm} pos={pos[vmKey(vm.id)]} onDragStart={onDragStart} onAdd={openAdd} onTerminal={openTerminal} />
@@ -618,6 +678,40 @@ export default function DeploymentPage() {
             {services.map((s) => pos[svcKey(s.id)] && (
               <ServiceNode key={s.id} service={s} pos={pos[svcKey(s.id)]} onDragStart={onDragStart} onDeploy={handleDeploy} onOpen={setDetailService} deploying={deployingId === s.id} group={groups.find((g) => g.id === s.group_id)} />
             ))}
+          </div>
+        )}
+
+        {/* Confirm remove GitHub installation */}
+        {confirmRemove && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/20" onClick={() => setConfirmRemove(null)} />
+            <div className="relative w-full max-w-sm bg-white border border-black/12 rounded-xl shadow-xl overflow-hidden">
+              <div className="px-5 pt-5 pb-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 shrink-0">
+                    <Trash2 size={16} className="text-red-500" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-black">Remove GitHub connection?</h3>
+                </div>
+                <p className="mt-3 text-xs leading-relaxed text-black/55">
+                  This unlinks <span className="font-semibold text-black/80">{confirmRemove.github_account}</span> from this workspace and uninstalls the RachBase app on GitHub. Its repos will no longer be deployable and auto-deploys for its services will stop. Already-deployed services keep running.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2 px-5 py-4">
+                <button
+                  onClick={() => setConfirmRemove(null)}
+                  className="rounded-lg border border-black/12 px-3 py-2 text-xs font-semibold text-black/60 hover:bg-black/5 transition-colors"
+                >Cancel</button>
+                <button
+                  onClick={() => handleRemoveInstall(confirmRemove.installation_id)}
+                  disabled={removingInstall === confirmRemove.installation_id}
+                  className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+                >
+                  {removingInstall === confirmRemove.installation_id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Remove
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Backend port (8080), matching the shared api client — not the frontend's own
+// port. (auth audit #25)
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 function OAuthButtons() {
   return (

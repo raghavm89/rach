@@ -21,6 +21,7 @@ const idempotency   = require('./src/middleware/idempotency');
 
 const IdempotencyKey = require('./src/models/idempotencyKey');
 const WebhookEvent   = require('./src/models/webhookEvent');
+const AgentDefinition = require('./src/models/agentDefinition');
 
 const brevo = require('./src/services/brevo');
 const sms   = require('./src/services/sms');
@@ -40,6 +41,7 @@ module.exports = {
   // models (cross-cutting)
   IdempotencyKey,
   WebhookEvent,
+  AgentDefinition,
 
   // notifications
   brevo,

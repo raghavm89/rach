@@ -183,7 +183,7 @@ async function provisionVmKeysForOrder(order, vmCount) {
       orderId      : order.id,
       customerName : cust.name  || 'Customer',
       customerEmail: cust.email || '',
-      sshUser      : 'rachops',
+      sshUser      : 'ubuntu',
       keys,
     });
   } catch (e) {

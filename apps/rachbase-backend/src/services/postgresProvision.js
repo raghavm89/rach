@@ -111,7 +111,7 @@ async function provisionPostgres(service) {
   try {
     await ssh.connect({
       host: cfg.ip_address, port: cfg.ssh_port || 22,
-      username: cfg.ssh_user || 'rachops', privateKey, readyTimeout: 15000,
+      username: cfg.ssh_user || 'ubuntu', privateKey, readyTimeout: 15000,
     });
     const r = await ssh.execCommand(script);
     if (r.code === 0) {

@@ -25,7 +25,8 @@ router.use(authenticate);
 router.get ('/github/install',  authorize('tenant_admin'), asyncHandler(ctrl.redirectToInstall));
 router.get ('/github/status',   authorize('tenant_admin'), asyncHandler(ctrl.getGithubStatus));
 router.post('/github/reconcile',authorize('tenant_admin'), asyncHandler(ctrl.reconcileGithub));
-router.get ('/github/repos',    authorize('tenant_admin'), asyncHandler(ctrl.listRepos));
+router.get   ('/github/repos',    authorize('tenant_admin'), asyncHandler(ctrl.listRepos));
+router.delete('/github/installations/:installationId', authorize('tenant_admin'), asyncHandler(ctrl.removeInstallation));
 router.get ('/github/branches', authorize('tenant_admin'), asyncHandler(ctrl.listBranches));
 
 // Services
