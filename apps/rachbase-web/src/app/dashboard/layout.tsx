@@ -202,9 +202,13 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-auto p-4 lg:p-8 relative">
           {children}
-          <PersistentTerminal />
         </main>
       </div>
+
+      {/* Rendered at the layout root (outside the scrolling <main>) so its
+          position:fixed is relative to the viewport and isn't clipped by main's
+          overflow — a WebKit quirk that left it hidden/off the canvas. */}
+      <PersistentTerminal />
     </div>
   );
 }
@@ -225,16 +229,14 @@ function PersistentTerminal() {
   const rightOffset = isDeploymentPage && chatOpen ? CHAT_WIDTH + PADDING : PADDING;
 
   return (
-    <div style={{
-      // Show whenever a terminal is open (we already return null above if not),
-      // so the SSH terminal works on my-vms / vm-monitor, not just deployment.
-      display:  'block',
-      position: 'absolute',
-      bottom:   PADDING,
-      left:     PADDING,
-      right:    rightOffset,
-      zIndex:   30,
-    }}>
+    // `fixed` pins the terminal to the visible bottom of the viewport so it stays
+    // docked while the canvas (or page) scrolls, instead of anchoring to the
+    // bottom of the tall scrollable content and sitting off-screen. Left offset
+    // clears the sidebar on desktop (lg:w-60 = 15rem) + 2rem padding.
+    <div
+      className="fixed z-30 left-8 lg:left-[17rem]"
+      style={{ bottom: PADDING, right: rightOffset }}
+    >
       <Terminal
         key={terminalVM.id}
         vmId={terminalVM.id}

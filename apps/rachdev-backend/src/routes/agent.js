@@ -18,6 +18,11 @@ router.get ('/usage',           asyncHandler(ctrl.getUsageSummary));
 router.get ('/credits/history', asyncHandler(ctrl.getCreditHistory));
 router.get ('/usage/sessions',  asyncHandler(ctrl.getSessionUsage));
 
+// Agent definitions (AgentSpec — builder ↔ operate seam)
+router.get ('/definitions',     authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listDefinitions));
+router.post('/definitions',     authorize('tenant_admin', 'admin'), asyncHandler(ctrl.createDefinition));
+router.put ('/definitions/:id', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.updateDefinition));
+
 // Sessions
 router.get ('/sessions',              asyncHandler(ctrl.listSessions));
 router.post('/sessions',              asyncHandler(ctrl.createSession));

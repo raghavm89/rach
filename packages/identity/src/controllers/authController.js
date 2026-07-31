@@ -90,6 +90,7 @@ function publicUser(u) {
     role          : u.role,
     tenant_id     : u.tenant_id     ?? null,
     tenant_name   : u.tenant_name   ?? null,
+    tenant_industry: u.tenant_industry ?? null,
     email_verified: u.email_verified ?? false,
     phone_verified: u.phone_verified ?? false,
   };
@@ -110,7 +111,7 @@ function toE164(rawPhone) {
 // (rotation); otherwise a new family is started.
 async function issueTokens(user, res, familyId = null) {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id ?? null },
+    { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id ?? null, tenant_industry: user.tenant_industry ?? null },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_TTL }
   );

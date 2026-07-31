@@ -13,10 +13,12 @@
 
 const { resolveModel } = require('./models');
 const anthropic = require('./providers/anthropic');
+const vllm = require('./providers/vllm');
 const { credits } = require('@rach/billing');
 
 const PROVIDERS = {
   anthropic,
+  vllm, // on-prem sovereign path (Sarvam); stubbed until the endpoint is wired
 };
 
 /**

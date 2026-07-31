@@ -22,6 +22,7 @@ const morgan       = require('morgan');
 const { pool } = require('@rach/core');
 const { authRoutes, oauthRoutes, userRoutes } = require('@rach/identity');
 const agentRoutes = require('./routes/agent');
+const tenantRoutes = require('./routes/tenant');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/users', userRoutes);
 
 // RachDev agent builder
 app.use('/api/agent', agentRoutes);
+app.use('/api/tenant', tenantRoutes);
 
 // 404 + error handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

@@ -16,7 +16,7 @@ const VmKey = {
    * Mint a fresh pending keypair (VM not created yet). Returns the row WITHOUT
    * the private key — callers only need the public key (to email ARKA).
    */
-  async createPending({ orderId, userId, tenantId, sshUser = 'rachops', comment = 'rachbase' }) {
+  async createPending({ orderId, userId, tenantId, sshUser = 'ubuntu', comment = 'rachbase' }) {
     const { publicKey, privateKey, fingerprint } = keyCrypto.generateKeypair(comment);
     const sealed = keyCrypto.seal(privateKey);
     const { rows } = await pool.query(
@@ -93,7 +93,7 @@ const VmKey = {
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'rotating', $8)
        RETURNING ${PUBLIC_COLS}, private_key_encrypted`,
       [vmId, base.user_id ?? null, base.tenant_id ?? null, publicKey, sealed, fingerprint,
-       base.ssh_user ?? 'rachops', (base.key_version ?? 0) + 1]
+       base.ssh_user ?? 'ubuntu', (base.key_version ?? 0) + 1]
     );
     const row = rows[0];
     return { ...row, privateKey };

@@ -14,7 +14,7 @@
  * contract in apps/rachbase-backend/src/routes/internal.js.
  */
 
-const { pool }    = require('@rach/core');
+const { pool, AgentDefinition } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
 const { gateway } = require('@rach/llm');
 const rachbase   = require('../services/rachbaseClient');
@@ -378,4 +378,32 @@ exports.getSessionUsage = async (req, res) => {
   );
 
   res.json({ sessions: rows });
+};
+
+// ── Agent definitions (the AgentSpec builder ↔ operate seam) ─────────────────
+
+// GET /api/agent/definitions — tenant's definitions + platform templates
+exports.listDefinitions = async (req, res) => {
+  const rows = await AgentDefinition.listForTenant(req.user.tenant_id);
+  res.json({ definitions: rows });
+};
+
+// POST /api/agent/definitions — create/configure an agent in the builder
+exports.createDefinition = async (req, res) => {
+  const { key, name } = req.body;
+  if (!key?.trim() || !name?.trim()) {
+    return res.status(400).json({ error: 'key and name are required' });
+  }
+  const def = await AgentDefinition.create({ ...req.body, tenant_id: req.user.tenant_id });
+  res.status(201).json({ definition: def });
+};
+
+// PUT /api/agent/definitions/:id — update a definition (must belong to tenant)
+exports.updateDefinition = async (req, res) => {
+  const existing = await AgentDefinition.findById(req.params.id);
+  if (!existing || existing.tenant_id !== req.user.tenant_id) {
+    return res.status(404).json({ error: 'Definition not found' });
+  }
+  const def = await AgentDefinition.update(req.params.id, req.body);
+  res.json({ definition: def });
 };

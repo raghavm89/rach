@@ -94,7 +94,7 @@ async function reissueKey(req, res) {
       orderId      : `reissue-${vm_id}`,
       customerName : cust.name  || 'Customer',
       customerEmail: cust.email || '',
-      sshUser      : next.ssh_user || 'rachops',
+      sshUser      : next.ssh_user || 'ubuntu',
       keys         : [{ fingerprint: next.fingerprint, publicKey: next.public_key }],
     });
   } catch (e) {

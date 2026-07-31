@@ -8,6 +8,7 @@ import { SectionHeader } from '@rach/ui/components/ui/SectionHeader';
 import { cn } from '@rach/ui/lib/utils';
 import { ICONS } from "@/lib/industries/icons";
 import type { IndustryConfig, Scenario } from "@/lib/industries/types";
+import { useAgentFeed, type AgentFeedSource } from "@/lib/agentFeed";
 
 type Phase = "idle" | "running" | "complete";
 type StageState = "idle" | "reached" | "done" | "flag";
@@ -108,7 +109,16 @@ const badgeFor = (status: "ok" | "gate" | "esc", gateBy?: string) =>
 const wordFor = (status: "ok" | "gate" | "esc") =>
   status === "esc" ? "Escalated" : status === "gate" ? "Approved" : "Done";
 
-export function ControlTower({ config }: { config: IndustryConfig }) {
+export function ControlTower({
+  config,
+  source = "mock",
+}: {
+  config: IndustryConfig;
+  /** "mock" = scripted marketing demo · "live" = authenticated workspace (later sprint). */
+  source?: AgentFeedSource;
+}) {
+  // Agent-feed seam: same component, mock or live data source.
+  const feed = useAgentFeed(config, source);
   const agentKeys = config.agents.map((a) => a.key);
   const stageKeys = config.stages.map((s) => s.key);
 
@@ -255,6 +265,8 @@ export function ControlTower({ config }: { config: IndustryConfig }) {
 
       <div
         ref={towerRef}
+        data-feed-source={feed.source}
+        data-live={feed.isLive || undefined}
         className="overflow-hidden rounded-3xl border border-line bg-gradient-to-b from-surface to-band p-3 shadow-well-sm sm:p-4"
       >
         {/* Bar */}

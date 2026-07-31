@@ -10,6 +10,17 @@ export interface Industry {
   templateSlugs: string[];
   /** Slug of the live agent demo at /agents/<slug>, if one exists for this industry. */
   agentDemoSlug?: string;
+  /**
+   * Live workspace this industry provisions inside the authenticated dashboard.
+   * When enabled, a tenant on this industry gets the role-scoped views below
+   * (the "one product" seam — same app, different workspace by tenant.industry
+   * + role). Consumed by the dashboard nav once the workspace shell exists.
+   */
+  workspace?: {
+    enabled: boolean;
+    roles: string[];
+    views: { key: string; label: string; href: string; roles: string[] }[];
+  };
 }
 
 export const industries: Industry[] = [
@@ -72,6 +83,17 @@ Every clinical action — orders, prescriptions, admissions — pauses for a lic
       "symptom-checker",
     ],
     agentDemoSlug: "medical",
+    workspace: {
+      enabled: true,
+      roles: ["doctor", "reception", "store_manager"],
+      views: [
+        { key: "control-tower", label: "Control Tower", href: "/dashboard/clinical/control-tower", roles: ["tenant_admin", "admin"] },
+        { key: "scribe",        label: "Scribe",        href: "/dashboard/clinical/scribe",        roles: ["doctor"] },
+        { key: "reception",     label: "Reception",     href: "/dashboard/clinical/reception",     roles: ["reception"] },
+        { key: "inventory",     label: "Inventory",     href: "/dashboard/clinical/inventory",     roles: ["store_manager", "tenant_admin"] },
+        { key: "audit",         label: "Audit Log",     href: "/dashboard/clinical/audit",         roles: ["tenant_admin", "admin"] },
+      ],
+    },
   },
   {
     id: 3,

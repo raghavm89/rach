@@ -192,8 +192,8 @@ exports.handleInstallCallback = async (req, res) => {
     await pool.query(
       `INSERT INTO deployment_github_installations (tenant_id, installation_id, github_account, installed_by)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (tenant_id) DO UPDATE
-         SET installation_id = EXCLUDED.installation_id,
+       ON CONFLICT (installation_id) DO UPDATE
+         SET tenant_id       = EXCLUDED.tenant_id,
              github_account  = EXCLUDED.github_account,
              installed_by    = EXCLUDED.installed_by,
              installed_at    = NOW()`,
@@ -216,14 +216,9 @@ exports.reconcileGithub = async (req, res) => {
   const tenantId = req.user.tenant_id;
   const userId   = req.user.id;
 
-  // Already linked — nothing to do.
-  const existing = await pool.query(
-    'SELECT installation_id, github_account FROM deployment_github_installations WHERE tenant_id = $1',
-    [tenantId]
-  );
-  if (existing.rows.length) {
-    return res.json({ connected: true, reconciled: false, ...existing.rows[0] });
-  }
+  // Note: we no longer early-return when the tenant already has an installation —
+  // a tenant may link several (personal + orgs), so reconcile must be able to
+  // attach a newly-granted one alongside existing links.
 
   // Ask GitHub which installations exist for this App.
   let installs;
@@ -246,26 +241,46 @@ exports.reconcileGithub = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 
+  const linkedRows = async () => (await pool.query(
+    `SELECT installation_id, github_account, installed_at
+       FROM deployment_github_installations WHERE tenant_id = $1 ORDER BY installed_at`,
+    [tenantId]
+  )).rows;
+
   if (!Array.isArray(installs) || installs.length === 0) {
-    return res.json({ connected: false, reason: 'no_installations' });
+    const rows = await linkedRows();
+    return rows.length
+      ? res.json({ connected: true, reconciled: false, installations: rows, ...rows[0] })
+      : res.json({ connected: false, reason: 'no_installations' });
   }
 
-  // Only auto-link when it's unambiguous: exactly one installation, or there is a
-  // pending install for THIS tenant (then take the most recently created one).
+  // Which of these installations are already claimed, and by whom?
+  const ids = installs.map((i) => i.id);
+  const { rows: claimed } = await pool.query(
+    'SELECT installation_id, tenant_id FROM deployment_github_installations WHERE installation_id = ANY($1::bigint[])',
+    [ids]
+  );
+  const claimedByThis  = new Set(claimed.filter((c) => c.tenant_id === tenantId).map((c) => String(c.installation_id)));
+  const claimedByOther = new Set(claimed.filter((c) => c.tenant_id !== tenantId).map((c) => String(c.installation_id)));
+  const unclaimed = installs.filter((i) => !claimedByThis.has(String(i.id)) && !claimedByOther.has(String(i.id)));
+
   const hasPending = [...pendingInstalls.values()].some(
     (p) => p.tenant_id === tenantId && p.expires > Date.now()
   );
 
-  let chosen = null;
-  if (installs.length === 1) {
-    chosen = installs[0];
-  } else if (hasPending) {
-    chosen = installs
-      .slice()
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  // Attach unclaimed installations to this tenant:
+  //   * during an active connect/add flow (pending) → attach ALL unclaimed —
+  //     they're the ones this user just granted;
+  //   * otherwise only the safe unambiguous case: exactly one, tenant has none.
+  let toLink = [];
+  if (unclaimed.length) {
+    if (hasPending) toLink = unclaimed;
+    else if (unclaimed.length === 1 && claimedByThis.size === 0) toLink = unclaimed;
   }
 
-  if (!chosen) {
+  if (!toLink.length) {
+    const rows = await linkedRows();
+    if (rows.length) return res.json({ connected: true, reconciled: false, installations: rows, ...rows[0] });
     return res.json({
       connected: false,
       reason: 'ambiguous',
@@ -273,35 +288,77 @@ exports.reconcileGithub = async (req, res) => {
     });
   }
 
+  for (const inst of toLink) {
+    await pool.query(
+      `INSERT INTO deployment_github_installations (tenant_id, installation_id, github_account, installed_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (installation_id) DO UPDATE
+         SET tenant_id       = EXCLUDED.tenant_id,
+             github_account  = EXCLUDED.github_account,
+             installed_by    = EXCLUDED.installed_by,
+             installed_at    = NOW()`,
+      [tenantId, inst.id, inst.account?.login || null, userId]
+    );
+    console.log(`[reconcile] Linked installation ${inst.id} (${inst.account?.login}) to tenant ${tenantId}`);
+  }
+
   // Consume any pending entries for this tenant.
   for (const [state, p] of pendingInstalls.entries()) {
     if (p.tenant_id === tenantId) pendingInstalls.delete(state);
   }
 
-  await pool.query(
-    `INSERT INTO deployment_github_installations (tenant_id, installation_id, github_account, installed_by)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (tenant_id) DO UPDATE
-       SET installation_id = EXCLUDED.installation_id,
-           github_account  = EXCLUDED.github_account,
-           installed_by    = EXCLUDED.installed_by,
-           installed_at    = NOW()`,
-    [tenantId, chosen.id, chosen.account?.login || null, userId]
-  );
-
-  console.log(`[reconcile] Linked installation ${chosen.id} (${chosen.account?.login}) to tenant ${tenantId}`);
-  res.json({ connected: true, reconciled: true, installation_id: chosen.id, github_account: chosen.account?.login || null });
+  const rows = await linkedRows();
+  res.json({ connected: true, reconciled: true, installations: rows, ...rows[0] });
 };
 
 // ── GET /api/deployment/github/status ────────────────────────────────────────
 
 exports.getGithubStatus = async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT installation_id, github_account, installed_at FROM deployment_github_installations WHERE tenant_id = $1',
+    `SELECT installation_id, github_account, installed_at
+       FROM deployment_github_installations WHERE tenant_id = $1
+      ORDER BY installed_at`,
     [req.user.tenant_id]
   );
-  if (!rows.length) return res.json({ connected: false });
-  res.json({ connected: true, ...rows[0] });
+  if (!rows.length) return res.json({ connected: false, installations: [] });
+  // `installations` is the full list; the flat fields are kept for back-compat
+  // with clients that expected a single installation.
+  res.json({ connected: true, installations: rows, ...rows[0] });
+};
+
+// DELETE /api/deployment/github/installations/:installationId
+// Unlink a GitHub App installation from this tenant and uninstall it on GitHub.
+exports.removeInstallation = async (req, res) => {
+  const installationId = String(req.params.installationId);
+
+  const { rows } = await pool.query(
+    'SELECT installation_id FROM deployment_github_installations WHERE tenant_id = $1 AND installation_id = $2',
+    [req.user.tenant_id, installationId]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Installation not found for this tenant' });
+
+  // Best-effort: uninstall the app on GitHub too so it's fully removed. If this
+  // fails (already uninstalled, permissions), we still drop the local link.
+  try {
+    const appJwt = buildAppJwt();
+    await fetch(`https://api.github.com/app/installations/${installationId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${appJwt}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'RachDev',
+      },
+    });
+  } catch (e) {
+    console.error(`[deployment] GitHub uninstall failed for ${installationId}:`, e.message);
+  }
+
+  await pool.query(
+    'DELETE FROM deployment_github_installations WHERE tenant_id = $1 AND installation_id = $2',
+    [req.user.tenant_id, installationId]
+  );
+  res.json({ message: 'GitHub installation removed', installation_id: installationId });
 };
 
 // ── GET /api/deployment/github/repos ─────────────────────────────────────────
@@ -313,28 +370,42 @@ exports.listRepos = async (req, res) => {
   );
   if (!rows.length) return res.status(400).json({ error: 'GitHub not connected' });
 
-  const token = await getInstallationToken(rows[0].installation_id);
-
-  let repos = [];
-  let page  = 1;
-  while (true) {
-    const r = await fetch(
-      `https://api.github.com/installation/repositories?per_page=100&page=${page}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-          'User-Agent': 'RachDev',
-        },
-      }
-    );
-    if (!r.ok) break;
-    const data = await r.json();
-    repos = repos.concat(data.repositories || []);
-    if (!data.repositories || data.repositories.length < 100) break;
-    page++;
+  // Aggregate repos across EVERY installation linked to the tenant (personal
+  // account + orgs), deduped by repo id. A single installation only exposes the
+  // repos owned by the account it was installed on, so a tenant with more than
+  // one installation must union them or the extra installations' repos vanish.
+  const byId = new Map();
+  for (const { installation_id } of rows) {
+    let token;
+    try {
+      token = await getInstallationToken(installation_id);
+    } catch (e) {
+      console.error(`[deployment/repos] token failed for installation ${installation_id}:`, e.message);
+      continue;
+    }
+    let page = 1;
+    while (true) {
+      const r = await fetch(
+        `https://api.github.com/installation/repositories?per_page=100&page=${page}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'RachDev',
+          },
+        }
+      );
+      if (!r.ok) break;
+      const data = await r.json();
+      for (const repo of data.repositories || []) byId.set(repo.id, repo);
+      if (!data.repositories || data.repositories.length < 100) break;
+      page++;
+    }
   }
+
+  const repos = [...byId.values()]
+    .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
 
   res.json({
     repos: repos.map((r) => ({
@@ -360,25 +431,32 @@ exports.listBranches = async (req, res) => {
   );
   if (!rows.length) return res.status(400).json({ error: 'GitHub not connected' });
 
-  const token = await getInstallationToken(rows[0].installation_id);
-
-  const r = await fetch(
-    `https://api.github.com/repos/${repo}/branches?per_page=100`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'RachDev',
-      },
+  // The repo may belong to any of the tenant's installations — try each until
+  // one can read its branches.
+  for (const { installation_id } of rows) {
+    let token;
+    try {
+      token = await getInstallationToken(installation_id);
+    } catch {
+      continue;
     }
-  );
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    return res.status(r.status).json({ error: err.message || 'Failed to fetch branches' });
+    const r = await fetch(
+      `https://api.github.com/repos/${repo}/branches?per_page=100`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'RachDev',
+        },
+      }
+    );
+    if (r.ok) {
+      const data = await r.json();
+      return res.json({ branches: data.map((b) => b.name) });
+    }
   }
-  const data = await r.json();
-  res.json({ branches: data.map((b) => b.name) });
+  return res.status(404).json({ error: 'Repo not accessible from any linked installation' });
 };
 
 // ── POST /api/deployment/services ────────────────────────────────────────────
@@ -594,7 +672,7 @@ exports.getRuntimeLogs = async (req, res) => {
 
   const ssh = new NodeSSH();
   try {
-    await ssh.connect({ host: cfg.ip_address, port: cfg.ssh_port || 22, username: cfg.ssh_user || 'rachops', privateKey, readyTimeout: 12000 });
+    await ssh.connect({ host: cfg.ip_address, port: cfg.ssh_port || 22, username: cfg.ssh_user || 'ubuntu', privateKey, readyTimeout: 12000 });
     const r = await ssh.execCommand(`sudo journalctl -u rb-svc-${svc.id} -n 200 --no-pager 2>&1 || echo '(no logs yet)'`);
     res.json({ logs: (r.stdout || r.stderr || '(no logs)').slice(0, 60000) });
   } catch (e) {
@@ -748,7 +826,7 @@ exports.deleteService = async (req, res) => {
           const ssh = new NodeSSH();
           await ssh.connect({
             host: cfg.ip_address, port: cfg.ssh_port || 22,
-            username: cfg.ssh_user || 'rachops',
+            username: cfg.ssh_user || 'ubuntu',
             privateKey: vk ? vk.privateKey : getSshPrivateKey(),
           });
           await ssh.execCommand([
@@ -1006,7 +1084,7 @@ exports.listVmSshConfigs = async (req, res) => {
 };
 
 exports.setVmSshConfig = async (req, res) => {
-  const { vm_id, tenant_id, ip_address, ssh_user = 'rachops', ssh_port = 22 } = req.body;
+  const { vm_id, tenant_id, ip_address, ssh_user = 'ubuntu', ssh_port = 22 } = req.body;
   if (!vm_id || !ip_address || !tenant_id) {
     return res.status(400).json({ error: 'vm_id, tenant_id and ip_address are required' });
   }
@@ -1104,6 +1182,18 @@ exports.handleWebhook = async (req, res) => {
     }
   }
 
+  // Uninstalled from GitHub's own UI → drop the link so it stops showing.
+  if (event === 'installation' && body?.action === 'deleted') {
+    const installationId = body?.installation?.id;
+    if (installationId) {
+      await pool.query(
+        'DELETE FROM deployment_github_installations WHERE installation_id = $1',
+        [installationId]
+      ).catch((e) => console.error('[webhook] failed to remove deleted installation:', e.message));
+      console.log(`[webhook] Installation ${installationId} deleted on GitHub — link removed`);
+    }
+  }
+
   // Save installation whenever app is installed or repos are added
   if (
     (event === 'installation' && ['created', 'added'].includes(body?.action)) ||
@@ -1134,8 +1224,8 @@ exports.handleWebhook = async (req, res) => {
             `INSERT INTO deployment_github_installations
                (tenant_id, installation_id, github_account, installed_by)
              VALUES ($1, $2, $3, $4)
-             ON CONFLICT (tenant_id) DO UPDATE
-               SET installation_id = EXCLUDED.installation_id,
+             ON CONFLICT (installation_id) DO UPDATE
+               SET tenant_id       = EXCLUDED.tenant_id,
                    github_account  = EXCLUDED.github_account,
                    installed_at    = NOW()`,
             [tenantId, installationId, githubAccount, userId]

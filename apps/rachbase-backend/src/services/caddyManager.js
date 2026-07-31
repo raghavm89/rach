@@ -30,7 +30,7 @@ async function sshForVm(vmId, tenantId) {
   const ssh = new NodeSSH();
   await ssh.connect({
     host: cfg.ip_address, port: cfg.ssh_port || 22,
-    username: cfg.ssh_user || 'rachops', privateKey, readyTimeout: 15000,
+    username: cfg.ssh_user || 'ubuntu', privateKey, readyTimeout: 15000,
   });
   return ssh;
 }

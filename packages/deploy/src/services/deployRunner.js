@@ -57,7 +57,7 @@ async function runDeploy({ serviceId, commitSha = null, triggeredBy = 'webhook',
   const buildCmd   = cfg.build_cmd   || 'npm run build --if-present';
   const startCmd   = cfg.start_cmd   || 'npm start';
   const port       = Number(cfg.port) || 3000;
-  const sshUser    = service.ssh_user || 'rachops';
+  const sshUser    = service.ssh_user || 'ubuntu';
 
   const base    = `/opt/rachbase/svc-${serviceId}`;
   const repoDir = `${base}/repo`;

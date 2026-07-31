@@ -7,8 +7,12 @@ import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { auth } from '@rach/ui/lib/api';
 import { cn } from '@rach/ui/lib/utils';
+import { PasswordStrength, isPasswordValid } from '@rach/ui/components/auth/PasswordStrength';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Falls back to the BACKEND port (8080), matching the shared api client — the
+// old default was 3000 (the frontend's own port), so OAuth links pointed at the
+// app itself when the env var was unset. (auth audit #25)
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 function OAuthDivider() {
   return (
@@ -70,6 +74,8 @@ function LoginForm() {
   // Sign-up only
   const [name, setName]   = useState('');
   const [phone, setPhone] = useState('');
+  const [workspace, setWorkspace] = useState('');
+  const [accepted, setAccepted] = useState(false); // Terms acceptance (auth audit: legal)
 
   // OTP verification state (shown after sign-up or login with unverified email)
   const [pendingId, setPendingId]           = useState<number | null>(null);
@@ -135,7 +141,7 @@ function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      const result = await register(name, email, password, phone || undefined);
+      const result = await register(name, email, password, phone || undefined, workspace || undefined);
       // Registration succeeded — show email-verification pending screen
       setPendingId(result.pending_id);
       const expiry = new Date(result.expires_at).getTime();
@@ -149,7 +155,7 @@ function LoginForm() {
     } finally {
       setLoading(false);
     }
-  }, [name, email, password, phone, register]);
+  }, [name, email, password, phone, workspace, register]);
 
   const handleOtpChange = useCallback((index: number, value: string) => {
     // Accept only digits; handle paste of full code
@@ -300,7 +306,7 @@ function LoginForm() {
                 </div>
 
                 {otpError && (
-                  <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 text-center">
+                  <div role="alert" aria-live="assertive" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 text-center">
                     {otpError}
                   </div>
                 )}
@@ -415,13 +421,13 @@ function LoginForm() {
               </div>
 
               {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                <div role="alert" aria-live="assertive" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                   {error}
                 </div>
               )}
 
               {noAccount && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-1">
+                <div role="alert" aria-live="polite" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-1">
                   <p className="font-semibold">No account found</p>
                   <p className="text-amber-700">
                     There&apos;s no account registered with this email address.{' '}
@@ -481,6 +487,17 @@ function LoginForm() {
               </div>
 
               <div>
+                <label className="mb-1.5 block text-sm font-medium text-text-primary" htmlFor="su-workspace">
+                  Workspace name <span className="text-xs font-normal text-text-muted">(optional)</span>
+                </label>
+                <input id="su-workspace" type="text" autoComplete="organization" value={workspace}
+                  onChange={(e) => setWorkspace(e.target.value)} placeholder="Acme Inc" className={inputCls} />
+                <p className="mt-1 text-xs text-text-muted">
+                  Sets up your billing workspace so you can add credits. You can add this later if you skip it.
+                </p>
+              </div>
+
+              <div>
                 <label className="mb-1.5 block text-sm font-medium text-text-primary" htmlFor="su-password">
                   Password <span className="text-red-400">*</span>
                 </label>
@@ -494,11 +511,36 @@ function LoginForm() {
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                <PasswordStrength password={password} />
               </div>
 
-              {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+              {/* Terms acceptance — previously only on the /signup stub, i.e. not
+                  on the form people actually submit. (auth audit: legal) */}
+              <label className="flex items-start gap-2.5 text-sm text-text-muted">
+                <input
+                  type="checkbox" checked={accepted} required
+                  onChange={(e) => setAccepted(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-border text-primary-blue focus:ring-2 focus:ring-primary-blue/30"
+                />
+                <span>
+                  I agree to the{' '}
+                  <Link href="/legal/terms" className="text-primary-blue hover:underline">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link href="/legal/privacy" className="text-primary-blue hover:underline">Privacy Policy</Link>.
+                </span>
+              </label>
 
-              <button type="submit" disabled={loading} className={submitCls}>
+              {error && (
+                <div role="alert" aria-live="assertive" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !(name && email && isPasswordValid(password) && accepted)}
+                className={submitCls}
+              >
                 {loading && <Loader2 size={16} className="animate-spin" />}
                 {loading ? 'Creating account…' : 'Create account →'}
               </button>
