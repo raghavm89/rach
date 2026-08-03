@@ -1379,3 +1379,73 @@ export const workspace = {
       body: JSON.stringify({ industry }),
     }, token),
 };
+
+// ─── Scribe (RachDev Healthcare): transcript → SOAP note → clinician sign-off ──
+
+export interface SoapNote {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+}
+
+export interface CodeSuggestion {
+  system: string;      // 'CPT' | 'ICD-10-CM'
+  code: string;
+  description: string;
+}
+
+export interface ClinicalNote {
+  id: number;
+  patient_ref: string | null;
+  transcript: string;
+  source: string;      // 'text' | 'dictation' | 'asr'
+  soap: SoapNote;
+  codes: CodeSuggestion[];
+  follow_ups: string[];
+  status: 'draft' | 'signed';
+  model: string | null;
+  signed_by: number | null;
+  signed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClinicalNoteSummary {
+  id: number;
+  patient_ref: string | null;
+  source: string;
+  status: 'draft' | 'signed';
+  model: string | null;
+  signed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const scribe = {
+  list: (token: string) =>
+    apiFetch<{ notes: ClinicalNoteSummary[] }>('/api/scribe/notes', {}, token),
+  get: (token: string, id: number) =>
+    apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}`, {}, token),
+  /** Generate a SOAP draft from a transcript and persist it. */
+  create: (token: string, body: { transcript: string; patient_ref?: string; source?: string }) =>
+    apiFetch<{ note: ClinicalNote }>('/api/scribe/notes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }, token),
+  /** Clinician edits to a draft before signing. */
+  update: (
+    token: string,
+    id: number,
+    patch: { soap?: SoapNote; codes?: CodeSuggestion[]; follow_ups?: string[]; patient_ref?: string },
+  ) =>
+    apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }, token),
+  /** Clinician sign-off (human-in-the-loop gate). */
+  sign: (token: string, id: number) =>
+    apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}/sign`, {
+      method: 'POST',
+    }, token),
+};

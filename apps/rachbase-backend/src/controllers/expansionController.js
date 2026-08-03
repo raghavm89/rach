@@ -630,7 +630,7 @@ async function verifyCustomPayment(req, res) {
   notifyOrderPlaced(rows[0], (items || []).map((i) => ({ name: i.name, qty: i.qty })));
   // Mint one SSH keypair per VM ordered
   const customVmCount = (items || [])
-    .filter((i) => i.id === 'vm' || i.name === 'Virtual Machine')
+    .filter((i) => i.id === 'vm' || i.id === 'cluster' || i.name === 'Virtual Machine' || i.name === 'Cluster')
     .reduce((n, i) => n + (Number(i.qty) || 0), 0);
   provisionVmKeysForOrder(rows[0], customVmCount);
 
@@ -670,8 +670,8 @@ async function createSubscriptionOrder(req, res) {
   // Snapshot the cart so the webhook can fulfil this VM order even if the
   // activation call never runs (browser closed after payment).
   const vmCount = bundle_id
-    ? (getBundle(bundle_id)?.items?.vm || 0)
-    : (priced.lines || []).filter((l) => l.id === 'vm').reduce((n, l) => n + (Number(l.qty) || 0), 0);
+    ? ((getBundle(bundle_id)?.items?.vm || 0) + (getBundle(bundle_id)?.items?.cluster || 0))
+    : (priced.lines || []).filter((l) => l.id === 'vm' || l.id === 'cluster').reduce((n, l) => n + (Number(l.qty) || 0), 0);
   if (rz.subscription_id) {
     await Subscription.saveFulfilment(rz.subscription_id, {
       tenant_id       : req.user.tenant_id,
@@ -741,8 +741,8 @@ async function activateSubscription(req, res) {
   const { priced, billing, subscription, payment, invoice } = result;
 
   const subVmCount = bundle_id
-    ? (getBundle(bundle_id)?.items?.vm || 0)
-    : (priced.lines || []).filter((l) => l.id === 'vm').reduce((n, l) => n + (Number(l.qty) || 0), 0);
+    ? ((getBundle(bundle_id)?.items?.vm || 0) + (getBundle(bundle_id)?.items?.cluster || 0))
+    : (priced.lines || []).filter((l) => l.id === 'vm' || l.id === 'cluster').reduce((n, l) => n + (Number(l.qty) || 0), 0);
 
   // Fulfilment goes through the same idempotent path the webhook uses, so the
   // synchronous activation and a `subscription.charged` webhook that arrives at

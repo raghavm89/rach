@@ -566,8 +566,8 @@ exports.listServices = async (req, res) => {
 exports.getDeployLogs = async (req, res) => {
   const svc = await serviceForTenant(req.params.id, req.user.tenant_id);
   if (!svc) return res.status(404).json({ error: 'Service not found' });
-  const gate = await ensureLogsEntitlement(req, svc.vm_id);
-  if (gate) return res.status(gate.status).json(gate.body);
+  // Deployment logs are included free with the VM/Cluster subscription. Only the
+  // live runtime logs (getRuntimeLogs) require the paid VM Logs add-on.
 
   const { rows } = await pool.query(
     `SELECT l.* FROM deployment_logs l

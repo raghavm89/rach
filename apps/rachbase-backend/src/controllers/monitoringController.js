@@ -295,6 +295,52 @@ async function getSummary(req, res) {
 // GET /api/monitoring/vms
 // ---------------------------------------------------------------------------
 
+// In-guest memory via node_exporter, keyed by host IP (the `instance` label with
+// its :port stripped). `MemAvailable` excludes reclaimable page cache, so
+// 1 - MemAvailable/MemTotal reflects real memory pressure — more accurate than
+// the hypervisor's pve_memory_usage_bytes. Returns { "10.0.31.10": {total,avail}, … }.
+// Empty/absent when node_exporter isn't scraped, so callers fall back to PVE.
+// Escape a literal (an IP) for use inside a PromQL =~ regex (RE2).
+function escapeRelabel(s) {
+  return String(s).replace(/[.*+?()|[\]{}^$\\]/g, '\\$&');
+}
+
+async function nodeMemByHost() {
+  let totalRes = [], availRes = [];
+  try {
+    [totalRes, availRes] = await Promise.all([
+      promInstant('node_memory_MemTotal_bytes'),
+      promInstant('node_memory_MemAvailable_bytes'),
+    ]);
+  } catch (e) {
+    console.warn('[monitoring] node_exporter memory query failed, using PVE:', e.message);
+    return {};
+  }
+  const host = (inst) => String(inst || '').split(':')[0].trim();
+  // Index each series under BOTH keys we might join on: the Proxmox `id` label
+  // (present only if ARKA relabels node_exporter with it — the reliable key) and
+  // the host IP from `instance`. The lookup then tries id first, then IP.
+  const map = {};
+  const put = (r, field) => {
+    const val = safeFloat(r.value[1]);
+    for (const key of [r.metric.id, host(r.metric.instance)]) {
+      if (key) (map[key] ??= {})[field] = val;
+    }
+  };
+  for (const r of totalRes) put(r, 'total');
+  for (const r of availRes) put(r, 'avail');
+  return map;
+}
+
+// Proxmox id → guest IP, so node_exporter series (keyed by IP) can be joined to
+// the VM list (keyed by Proxmox id).
+async function vmIpMap() {
+  const { rows } = await dbPool.query('SELECT vm_id, ip_address FROM vm_ssh_config');
+  const m = {};
+  for (const r of rows) if (r.ip_address) m[r.vm_id] = String(r.ip_address).trim();
+  return m;
+}
+
 async function getVMs(req, res) {
   const scope = await resolveScope(req);
 
@@ -320,6 +366,10 @@ async function getVMs(req, res) {
   const uptimeMap   = byId(uptimeRes,   (r) => safeFloat(r.value[1]));
   const upMap       = byId(upRes,       (r) => safeFloat(r.value[1]));
 
+  // In-guest memory (node_exporter) + the id→IP map to join it. Both degrade to
+  // {} on failure so memory silently falls back to the PVE numbers.
+  const [nodeMem, ipById] = await Promise.all([nodeMemByHost(), vmIpMap()]);
+
   // Use pve_guest_info as the authoritative VM list (includes stopped guests)
   const allIds = new Set(infoRes.map((r) => r.metric.id));
 
@@ -336,8 +386,19 @@ async function getVMs(req, res) {
 
   const vms = Array.from(allIds).map((id) => {
     const meta     = metaMap[id] ?? { name: id, type: 'qemu', status: 'stopped', pool: null };
-    const memUsed  = memUsedMap[id]  ?? 0;
-    const memTotal = memSizeMap[id]  ?? 0;
+    let   memUsed  = memUsedMap[id]  ?? 0;   // PVE (GiB) — fallback
+    let   memTotal = memSizeMap[id]  ?? 0;
+    let   memSource = 'pve';
+
+    // Prefer in-guest node_exporter when scraped — matched by Proxmox id label
+    // first, then by the guest IP.
+    const node = nodeMem[id] || (ipById[id] ? nodeMem[ipById[id]] : null);
+    if (node && node.total > 0 && node.avail != null) {
+      memTotal   = node.total / 1073741824;
+      memUsed    = (node.total - node.avail) / 1073741824;
+      memSource  = 'node_exporter';
+    }
+
     const diskUsed = diskUsedMap[id] ?? 0;
     const diskTotal= diskSizeMap[id] ?? 0;
     return {
@@ -350,6 +411,7 @@ async function getVMs(req, res) {
       memoryUsedGib : Math.round(memUsed   * 100) / 100,
       memoryTotalGib: Math.round(memTotal  * 100) / 100,
       memoryPct     : memTotal  > 0 ? Math.round((memUsed  / memTotal)  * 1000) / 10 : 0,
+      memorySource  : memSource,
       diskUsedGib   : Math.round(diskUsed  * 100) / 100,
       diskTotalGib  : Math.round(diskTotal * 100) / 100,
       diskPct       : diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 1000) / 10 : 0,
@@ -502,13 +564,34 @@ async function getHistory(req, res) {
   const now   = Date.now();
   const start = now - hours * 3_600_000;
 
-  const [cpuHistory, memHistory] = await Promise.all([
+  // Prefer in-guest node_exporter memory history — matched by the Proxmox id
+  // label first (if ARKA relabels), then the guest IP; else the pve series.
+  let nodeSel = null;
+  try {
+    if ((await promInstant(`node_memory_MemTotal_bytes{id="${vmId}"}`)).length) {
+      nodeSel = `{id="${vmId}"}`;
+    } else {
+      const { rows } = await dbPool.query('SELECT ip_address FROM vm_ssh_config WHERE vm_id = $1', [vmId]);
+      const ip = rows[0]?.ip_address ? String(rows[0].ip_address).trim() : null;
+      if (ip) {
+        const sel = `{instance=~"^${escapeRelabel(ip)}(:.*)?$"}`;
+        if ((await promInstant(`node_memory_MemTotal_bytes${sel}`)).length) nodeSel = sel;
+      }
+    }
+  } catch { /* fall back to PVE */ }
+
+  const [cpuHistory, memNode] = await Promise.all([
     promRange(`avg by (id) (pve_cpu_usage_ratio{id="${vmId}"}) * 100`, start, now, stepSec),
-    promRange(
-      `avg by (id) (pve_memory_usage_bytes{id="${vmId}"}) / avg by (id) (pve_memory_size_bytes{id="${vmId}"}) * 100`,
-      start, now, stepSec
-    ),
+    nodeSel
+      ? promRange(`(1 - node_memory_MemAvailable_bytes${nodeSel} / node_memory_MemTotal_bytes${nodeSel}) * 100`, start, now, stepSec)
+      : Promise.resolve([]),
   ]);
+  const memHistory = (memNode && memNode.length)
+    ? memNode
+    : await promRange(
+        `avg by (id) (pve_memory_usage_bytes{id="${vmId}"}) / avg by (id) (pve_memory_size_bytes{id="${vmId}"}) * 100`,
+        start, now, stepSec
+      );
 
   const cpuPoints = cpuHistory[0]?.values ?? [];
   const memPoints = memHistory[0]?.values ?? [];
