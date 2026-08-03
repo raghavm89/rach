@@ -114,6 +114,18 @@ async function runDeploy({ serviceId, commitSha = null, triggeredBy = 'webhook',
       `( cd "$BASE/repo" && git archive HEAD ) | tar -x -C "$REL"`,
       `echo "$REL" > /tmp/rb-rel-${serviceId}`,   // hand the path to phase B
       `cd "$REL"${subPath ? ` && cd ${shq(rootDir)}` : ''}`,
+      // Ensure Node.js/npm is present before building — install NodeSource LTS if
+      // the Cluster/VM doesn't have it yet, so a fresh box can build Node apps
+      // instead of failing with "npm: command not found" (exit 127).
+      'if ! command -v npm >/dev/null 2>&1; then ' +
+        'echo "[bootstrap] Node.js/npm not found — installing NodeSource LTS…"; ' +
+        'export DEBIAN_FRONTEND=noninteractive; ' +
+        'sudo apt-get update -y >/dev/null 2>&1 || true; ' +
+        'sudo apt-get install -y ca-certificates curl gnupg >/dev/null; ' +
+        'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null 2>&1; ' +
+        'sudo apt-get install -y nodejs >/dev/null; ' +
+        'echo "[bootstrap] installed node $(node -v) / npm $(npm -v)"; ' +
+      'else echo "[bootstrap] node $(node -v) / npm $(npm -v) already present"; fi',
       installCmd,
       buildCmd,
       // Env file + unit are written now (safe — they don't affect the running svc

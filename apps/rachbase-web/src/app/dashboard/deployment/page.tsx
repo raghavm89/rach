@@ -1010,7 +1010,7 @@ function ServiceDetailPanel({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          {tab === "deployments" && <DeploymentsTab service={service} token={token} onDeploy={onDeploy} logsEntitled={logsEntitled} />}
+          {tab === "deployments" && <DeploymentsTab service={service} token={token} onDeploy={onDeploy} />}
           {tab === "variables"   && <VariablesTab   service={service} token={token} />}
           {tab === "settings"    && <SettingsTab    service={service} token={token} onSaved={onSaved} />}
           {tab === "logs"        && <LogsTab        service={service} token={token} logsEntitled={logsEntitled} />}
@@ -1056,7 +1056,7 @@ function LogsPaywall() {
     <div className="mx-1 my-2 rounded-xl border border-amber-200 bg-amber-50 p-5 text-center space-y-2">
       <div className="mx-auto grid place-items-center w-10 h-10 rounded-lg bg-amber-100 text-amber-700"><LockIcon size={18} /></div>
       <p className="text-sm font-semibold text-amber-800">VM Logs is a paid add-on</p>
-      <p className="text-xs text-amber-700/90 max-w-sm mx-auto">Deployment &amp; runtime logs for this VM require the VM Logs add-on. Purchase it from Billing, then an admin enables it for this VM.</p>
+      <p className="text-xs text-amber-700/90 max-w-sm mx-auto">Runtime logs for this VM require the VM Logs add-on. Purchase it from Billing, then an admin enables it for this VM. (Deployment logs are free.)</p>
       <a href="/dashboard/billing" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-amber-700">
         Go to Billing
       </a>
@@ -1064,22 +1064,22 @@ function LogsPaywall() {
   );
 }
 
-function DeploymentsTab({ service, token, onDeploy, logsEntitled }: { service: DeploymentService; token: string; onDeploy: (s: DeploymentService) => void; logsEntitled: boolean | null }) {
+function DeploymentsTab({ service, token, onDeploy }: { service: DeploymentService; token: string; onDeploy: (s: DeploymentService) => void }) {
   const [logs, setLogs]       = useState<{ id: number; status: string; log_output: string; started_at: string; finished_at: string | null; commit_sha: string | null; triggered_by: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
   const [open, setOpen]       = useState<number | null>(null);
 
+  // Deployment history is free (included with the VM/Cluster) — no entitlement gate.
   const load = useCallback(() => {
-    if (logsEntitled === false) { setLoading(false); return; }
     setLoading(true); setError("");
     deployment.getDeployLogs(token, service.id)
       .then((d) => setLogs(d.logs))
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
-  }, [token, service.id, logsEntitled]);
+  }, [token, service.id]);
 
-  useEffect(() => { if (logsEntitled !== null) load(); }, [load, logsEntitled]);
+  useEffect(() => { load(); }, [load]);
 
   const badge = (s: string) => cn(
     "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold capitalize",
@@ -1103,11 +1103,7 @@ function DeploymentsTab({ service, token, onDeploy, logsEntitled }: { service: D
 
       {error && <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertCircle size={12} /> {error}</p>}
 
-      {logsEntitled === null ? (
-        <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-black/30" /></div>
-      ) : logsEntitled === false ? (
-        <LogsPaywall />
-      ) : loading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-black/30" /></div>
       ) : logs.length === 0 ? (
         <p className="text-center text-black/30 text-sm py-8">No deployments yet. Hit Deploy to ship the latest commit.</p>
