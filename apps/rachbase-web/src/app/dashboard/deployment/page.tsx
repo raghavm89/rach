@@ -410,9 +410,24 @@ export default function DeploymentPage() {
     try {
       await deployment.triggerDeploy(token, service.id);
       setServices((prev) => prev.map((s) => s.id === service.id ? { ...s, status: "deploying" } : s));
-      setTimeout(() => fetchAll(true), 3000);
+      // The deploy runs in the background on the VM (clone → install → build →
+      // restart) and can take a couple of minutes on a fresh Cluster. Poll until
+      // the status settles instead of a single early refresh that always caught
+      // it mid-"deploying".
+      const startedAt = Date.now();
+      const poll = setInterval(async () => {
+        try {
+          const data = await deployment.listServices(token);
+          const svc = data.services.find((s) => s.id === service.id);
+          if ((svc && svc.status !== "deploying") || Date.now() - startedAt > 6 * 60 * 1000) {
+            clearInterval(poll);
+            if (svc) setServices((prev) => prev.map((s) => s.id === service.id ? { ...s, status: svc.status } : s));
+          }
+        } catch { /* keep polling */ }
+      }, 4000);
     } catch (err) {
       setError((err as Error).message);
+      setServices((prev) => prev.map((s) => s.id === service.id ? { ...s, status: "failed" } : s));
     } finally {
       setDeployingId(null);
     }
@@ -1337,7 +1352,7 @@ function SettingsTab({ service, token, onSaved }: { service: DeploymentService; 
               <div className="flex items-center gap-1">
                 <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="myapp"
                   className="w-32 bg-white border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
-                <span className="text-xs text-black/40 font-mono">.rachbase.com</span>
+                <span className="text-xs text-black/40 font-mono">.rachbase.app</span>
                 <div className="flex-1" />
                 <button onClick={generate} disabled={genBusy || !sub.trim()}
                   className="shrink-0 rounded-lg bg-primary-blue px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-1">

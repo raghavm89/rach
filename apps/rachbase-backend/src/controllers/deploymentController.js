@@ -952,7 +952,7 @@ exports.addDomain = async (req, res) => {
 };
 
 // POST /api/deployment/services/:id/domains/auto  { subdomain }
-// Auto domain <subdomain>.rachbase.com — creates the GoDaddy A record → VM IP,
+// Auto domain <subdomain>.rachbase.app — creates the GoDaddy A record → VM IP,
 // then applies Caddy. Subdomain is globally unique + not reserved.
 const RESERVED = new Set([
   'www', 'api', 'app', 'admin', 'root', 'mail', 'smtp', 'imap', 'ftp', 'ns1', 'ns2',

@@ -81,7 +81,7 @@ export function DomainsPanel({ serviceId, token }: { serviceId: number; token: s
           <div className="flex flex-1 items-center rounded-lg border border-neutral-border bg-white px-2">
             <input value={sub} onChange={(e) => setSub(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addAuto()}
               placeholder="myapp" className="flex-1 py-2 text-sm outline-none" />
-            <span className="text-sm text-text-muted">.rachbase.com</span>
+            <span className="text-sm text-text-muted">.rachbase.app</span>
           </div>
           <button onClick={addAuto} disabled={busy || !sub.trim()}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary-blue px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">

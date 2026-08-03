@@ -1,30 +1,39 @@
 'use strict';
 
 /**
- * GoDaddy DNS client for auto domains `<name>.rachbase.com` (PaaS phase 4).
+ * GoDaddy DNS client for auto domains, on the **v3 Domains API** (Bearer PAT).
  *
- * Manages A records in the rachbase.com zone via GoDaddy's Domains API. Used to
- * point an auto-generated subdomain at a VM's IP; Caddy on the VM then issues
- * HTTPS over HTTP-01. Server-side only.
+ * v3 replaced the old v1 `sso-key` (API key+secret) auth with a Personal Access
+ * Token: `Authorization: Bearer <PAT>`. The v3 DNS Records API has only
+ * list / create / delete (no replace-by-name), so an upsert = list existing A
+ * records for the name, delete them, then create the new one. Changes are
+ * synchronous. Server-side only.
  *
  * Env:
- *   GODADDY_API_KEY, GODADDY_API_SECRET  — production key on the rachbase.com account
- *   RACHBASE_DOMAIN                       — zone root (default rachbase.com)
- *   GODADDY_API_URL                       — default https://api.godaddy.com
+ *   GODADDY_PAT             — Personal Access Token, scopes: domains.dns:update
+ *                             + domains.domain:read (developer.godaddy.com)
+ *   RACHBASE_DOMAIN         — the registered zone (default rachbase.app)
+ *   RACHBASE_APP_SUBDOMAIN  — optional namespace so customer apps live under
+ *                             e.g. apps.rachbase.com without a separate domain.
+ *                             When set to "apps", a sub becomes <sub>.apps.<root>.
+ *   GODADDY_API_URL         — default https://api.godaddy.com
  */
 
 const API    = (process.env.GODADDY_API_URL || 'https://api.godaddy.com').replace(/\/$/, '');
-const ROOT   = process.env.RACHBASE_DOMAIN || 'rachbase.com';
+const ROOT   = process.env.RACHBASE_DOMAIN || 'rachbase.app';
+const PREFIX = String(process.env.RACHBASE_APP_SUBDOMAIN || '').replace(/^\.+|\.+$/g, '');
 
-function isConfigured() { return !!(process.env.GODADDY_API_KEY && process.env.GODADDY_API_SECRET); }
-function domainRoot()   { return ROOT; }
-function fqdn(sub)      { return `${sub}.${ROOT}`; }
+function isConfigured() { return !!process.env.GODADDY_PAT; }
+function domainRoot()   { return PREFIX ? `${PREFIX}.${ROOT}` : ROOT; }
+function fqdn(sub)      { return PREFIX ? `${sub}.${PREFIX}.${ROOT}` : `${sub}.${ROOT}`; }
+/** The record name relative to the registered zone (ROOT). */
+function recordName(sub) { return PREFIX ? `${sub}.${PREFIX}` : sub; }
 
 async function req(method, path, body) {
   const res = await fetch(`${API}${path}`, {
     method,
     headers: {
-      Authorization: `sso-key ${process.env.GODADDY_API_KEY}:${process.env.GODADDY_API_SECRET}`,
+      Authorization: `Bearer ${process.env.GODADDY_PAT}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
@@ -39,17 +48,35 @@ async function req(method, path, body) {
   return res;
 }
 
-/** Create/replace the A record for `name` → `ip` in the zone. */
-async function upsertARecord(name, ip) {
-  if (!isConfigured()) { const e = new Error('GoDaddy not configured'); e.status = 503; throw e; }
-  await req('PUT', `/v1/domains/${ROOT}/records/A/${encodeURIComponent(name)}`, [{ data: ip, ttl: 600 }]);
+/** Existing A records for `name` in the zone (v3 list). */
+async function listA(name) {
+  const res  = await req('GET', `/v3/domains/zones/${ROOT}/dns-records?type=A&name=${encodeURIComponent(name)}`);
+  const data = await res.json().catch(() => ({}));
+  return Array.isArray(data.items) ? data.items : [];
 }
 
-/** Delete the A record for `name` (ignores 404). */
-async function deleteARecord(name) {
+/** Create/replace the A record for `sub` → `ip` (list → delete existing → create). */
+async function upsertARecord(sub, ip) {
+  if (!isConfigured()) { const e = new Error('GoDaddy not configured'); e.status = 503; throw e; }
+  const name = recordName(sub);
+  for (const rec of await listA(name)) {
+    if (rec.recordId) {
+      await req('DELETE', `/v3/domains/zones/${ROOT}/dns-records/${encodeURIComponent(rec.recordId)}`).catch(() => {});
+    }
+  }
+  await req('POST', `/v3/domains/zones/${ROOT}/dns-records`, { name, type: 'A', data: ip, ttl: 600 });
+}
+
+/** Delete the A record(s) for `sub` (ignores absence). */
+async function deleteARecord(sub) {
   if (!isConfigured()) return;
+  const name = recordName(sub);
   try {
-    await req('DELETE', `/v1/domains/${ROOT}/records/A/${encodeURIComponent(name)}`);
+    for (const rec of await listA(name)) {
+      if (rec.recordId) {
+        await req('DELETE', `/v3/domains/zones/${ROOT}/dns-records/${encodeURIComponent(rec.recordId)}`);
+      }
+    }
   } catch (e) {
     if (e.status !== 404) throw e;
   }
