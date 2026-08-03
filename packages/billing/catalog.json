@@ -27,6 +27,14 @@
       "orderable": true
     },
     {
+      "id": "cluster",
+      "name": "Cluster",
+      "specs": "1 vCPU · 2 GB RAM · 5 GB SSD",
+      "unit_price_cents": 2000,
+      "unit": "per cluster / month",
+      "orderable": true
+    },
+    {
       "id": "svc",
       "name": "Service",
       "specs": "0.5 vCPU · 0.5 GB RAM · 0.5 GB disk · from GitHub or Postgres",
@@ -87,8 +95,8 @@
     {
       "id": "logs",
       "name": "VM Logs",
-      "specs": "Deployment & runtime logs — streamed, searchable, retained",
-      "unit_price_cents": 2500,
+      "specs": "Runtime logs — streamed, searchable, retained (deployment logs included with your VM)",
+      "unit_price_cents": 1500,
       "unit": "per VM / month",
       "orderable": true
     },
