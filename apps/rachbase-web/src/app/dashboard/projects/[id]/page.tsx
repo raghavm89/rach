@@ -9,7 +9,7 @@ import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { projects as api, type Project, type Service, type Environment } from '@rach/ui/lib/api';
 
 const DOT_GRID: React.CSSProperties = {
-  backgroundImage: 'radial-gradient(circle, var(--line, #E5E7EB) 1px, transparent 1px)',
+  backgroundImage: 'radial-gradient(circle, var(--dot-color) 1px, transparent 1px)',
   backgroundSize: '20px 20px',
 };
 
@@ -104,10 +104,10 @@ export default function ProjectDetailPage() {
           <div className="relative min-h-[360px] overflow-hidden rounded-2xl border border-neutral-border bg-bg-secondary p-6" style={DOT_GRID}>
             {services.length === 0 ? (
               <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-text-muted shadow-sm"><Box size={24} /></div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-card text-text-muted shadow-sm"><Box size={24} /></div>
                 <p className="mt-4 font-semibold text-text-primary">No services yet</p>
                 <p className="mt-1 max-w-sm text-sm text-text-muted">Add a service — an app deployed from a GitHub repo or a managed Postgres.</p>
-                <button onClick={() => setShowCreate(true)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-white border border-neutral-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary">
+                <button onClick={() => setShowCreate(true)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-surface-card border border-neutral-border px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-secondary">
                   <Plus size={16} /> Add a service
                 </button>
               </div>
@@ -117,7 +117,7 @@ export default function ProjectDetailPage() {
                   <Link
                     key={s.id}
                     href={`/dashboard/projects/${project.id}/services/${s.id}`}
-                    className="w-56 rounded-xl border border-neutral-border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    className="w-56 rounded-xl border border-neutral-border bg-surface-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-primary-blue"><Box size={18} /></div>
@@ -144,7 +144,7 @@ export default function ProjectDetailPage() {
       {/* New service modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-display text-lg font-bold text-text-primary">New Service</h3>
               <button onClick={() => setShowCreate(false)} className="text-text-muted hover:text-text-primary"><X size={18} /></button>

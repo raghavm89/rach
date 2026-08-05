@@ -30,6 +30,7 @@ import { Card } from "@rach/ui/components/ui/Card";
 import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 import { Hero } from "@rach/ui/components/home/Hero";
 import { features } from "@/data/features";
+import { ThemeSwitchShowcase } from "@/components/ThemeSwitchShowcase";
 
 export const metadata: Metadata = {
   title: "Backend as a Service",
@@ -215,14 +216,7 @@ export default function BaaSPage() {
         />
         <AnimateIn>
           <div className="mx-auto max-w-5xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
-            <Image
-              src="/images/deployment-canvas.png"
-              alt="RachBase deployment canvas — a running VM card (acme-vm-01) showing live CPU and RAM usage, connected to a Postgres 16 database and a Git repository, each with one-click Provision and Deploy actions"
-              width={1960}
-              height={1026}
-              className="h-auto w-full"
-              priority
-            />
+            <ThemeSwitchShowcase />
           </div>
         </AnimateIn>
         <div className="mx-auto mt-8 grid max-w-4xl gap-6 sm:grid-cols-3">

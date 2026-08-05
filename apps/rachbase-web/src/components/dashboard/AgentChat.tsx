@@ -184,7 +184,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-white border-l border-black/10">
+    <div className="flex flex-col h-full bg-surface-card border-l border-black/10">
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-3 border-b border-black/8 shrink-0">
@@ -299,8 +299,8 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
                 <div className={cn(
                   "max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap",
                   msg.role === "user"
-                    ? "bg-black text-white rounded-tr-sm"
-                    : "bg-neutral-100 text-black rounded-tl-sm"
+                    ? "bg-ink-solid text-white rounded-tr-sm"
+                    : "bg-surface-hover text-black rounded-tl-sm"
                 )}>
                   {msg.content}
                   {msg.credits_used > 0 && (
@@ -315,7 +315,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
             {/* Streaming */}
             {streaming && (
               <div className="flex gap-2">
-                <div className="max-w-[85%] rounded-xl rounded-tl-sm px-3 py-2 bg-neutral-100 text-xs text-black leading-relaxed whitespace-pre-wrap">
+                <div className="max-w-[85%] rounded-xl rounded-tl-sm px-3 py-2 bg-surface-hover text-xs text-black leading-relaxed whitespace-pre-wrap">
                   {streaming}
                   <span className="inline-block w-1.5 h-3 bg-black/40 ml-0.5 animate-pulse rounded-sm" />
                 </div>
@@ -324,7 +324,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
 
             {sending && !streaming && (
               <div className="flex gap-2">
-                <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-neutral-100">
+                <div className="rounded-xl rounded-tl-sm px-3 py-2 bg-surface-hover">
                   <Loader2 size={13} className="animate-spin text-black/40" />
                 </div>
               </div>
@@ -350,12 +350,12 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
                 placeholder={balance <= 0 ? "Add credits to chat…" : "Ask about your deployment…"}
                 disabled={balance <= 0 || sending}
                 rows={2}
-                className="flex-1 resize-none rounded-lg border border-black/12 px-3 py-2 text-xs text-black placeholder:text-black/30 focus:outline-none focus:border-black/30 transition-colors disabled:opacity-50 bg-neutral-50"
+                className="flex-1 resize-none rounded-lg border border-black/12 px-3 py-2 text-xs text-black placeholder:text-black/30 focus:outline-none focus:border-black/30 transition-colors disabled:opacity-50 bg-surface-hover"
               />
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || sending || balance <= 0}
-                className="self-end flex items-center justify-center w-8 h-8 rounded-lg bg-black text-white hover:bg-neutral-800 disabled:opacity-40 transition-colors"
+                className="self-end flex items-center justify-center w-8 h-8 rounded-lg bg-ink-solid text-white hover:bg-neutral-800 disabled:opacity-40 transition-colors"
               >
                 <Send size={13} />
               </button>
@@ -379,7 +379,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
             <button
               key={pack.id}
               onClick={() => buyPack(pack)}
-              className="flex items-center justify-between w-full rounded-xl border border-black/10 bg-white hover:border-primary-blue/40 hover:bg-primary-blue/3 px-4 py-3 transition-all text-left"
+              className="flex items-center justify-between w-full rounded-xl border border-black/10 bg-surface-card hover:border-primary-blue/40 hover:bg-primary-blue/3 px-4 py-3 transition-all text-left"
             >
               <div>
                 <p className="text-sm font-semibold text-black">{pack.label}</p>
@@ -415,7 +415,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
                     { label: "Used",      value: `${usageSummary.total_used} cr`,        icon: <Activity size={12} />,  color: "text-black/60" },
                     { label: "Tokens",    value: usageSummary.total_tokens.toLocaleString(), icon: <Bot size={12} />,   color: "text-black/60" },
                   ].map((s) => (
-                    <div key={s.label} className="rounded-lg border border-black/8 bg-neutral-50 p-3">
+                    <div key={s.label} className="rounded-lg border border-black/8 bg-surface-hover p-3">
                       <div className={cn("flex items-center gap-1 text-[10px] font-semibold mb-1", s.color)}>
                         {s.icon}{s.label}
                       </div>
@@ -427,7 +427,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
 
               {sessionUsage.length > 0 && (
                 <div className="rounded-lg border border-black/8 overflow-hidden">
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-black/8">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-surface-hover border-b border-black/8">
                     <Bot size={12} className="text-black/40" />
                     <span className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">Sessions</span>
                   </div>
@@ -447,7 +447,7 @@ export function AgentChat({ token, onClose }: AgentChatProps) {
 
               {creditHistory.length > 0 && (
                 <div className="rounded-lg border border-black/8 overflow-hidden">
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-black/8">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-surface-hover border-b border-black/8">
                     <Receipt size={12} className="text-black/40" />
                     <span className="text-[11px] font-semibold text-black/60 uppercase tracking-wide">History</span>
                   </div>

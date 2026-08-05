@@ -77,7 +77,7 @@ export default function DeploymentServiceDetailPage() {
 
       {tab === 'overview' && (
         <div className="space-y-4">
-          <div className="space-y-2 rounded-xl border border-neutral-border bg-white p-5 text-sm">
+          <div className="space-y-2 rounded-xl border border-neutral-border bg-surface-card p-5 text-sm">
             <Row label="Type" value={isPg ? 'Managed PostgreSQL' : 'GitHub service'} />
             <Row label="VM" value={service.vm_id} />
             {service.repo_full_name && <Row label="Repository" value={service.repo_full_name} />}

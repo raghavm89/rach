@@ -173,23 +173,23 @@ export default function MonitoringPage() {
       <div className="max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-8 w-48 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-            <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100" />
+            <div className="h-8 w-48 animate-pulse rounded-lg bg-surface-hover mb-2" />
+            <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover" />
           </div>
-          <div className="h-9 w-24 animate-pulse rounded-lg bg-neutral-100" />
+          <div className="h-9 w-24 animate-pulse rounded-lg bg-surface-hover" />
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[0,1,2,3].map((i) => (
-            <div key={i} className="rounded-xl border border-neutral-border bg-white p-5">
-              <div className="mb-3 h-8 w-8 animate-pulse rounded-lg bg-neutral-100" />
-              <div className="h-8 w-14 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-              <div className="h-3.5 w-24 animate-pulse rounded bg-neutral-100" />
+            <div key={i} className="rounded-xl border border-neutral-border bg-surface-card p-5">
+              <div className="mb-3 h-8 w-8 animate-pulse rounded-lg bg-surface-hover" />
+              <div className="h-8 w-14 animate-pulse rounded-lg bg-surface-hover mb-2" />
+              <div className="h-3.5 w-24 animate-pulse rounded bg-surface-hover" />
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+        <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
           <div className="border-b border-neutral-border px-6 py-4">
-            <div className="h-4 w-36 animate-pulse rounded bg-neutral-100" />
+            <div className="h-4 w-36 animate-pulse rounded bg-surface-hover" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -204,26 +204,26 @@ export default function MonitoringPage() {
                 {[...Array(8)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4">
-                      <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-3 w-16 animate-pulse rounded bg-neutral-100" />
+                      <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-neutral-100" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-surface-hover" /></td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-8 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-neutral-100" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-8 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-surface-hover" />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-6 w-10 animate-pulse rounded-full bg-neutral-100" /></td>
+                    <td className="px-6 py-4">
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
+                    </td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-6 w-10 animate-pulse rounded-full bg-surface-hover" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -257,7 +257,7 @@ export default function MonitoringPage() {
         <button
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
         >
           <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
           Refresh
@@ -273,7 +273,7 @@ export default function MonitoringPage() {
             { label: 'Containers Running', value: summary.lxc.running,                    icon: <Server size={16} />, accent: false },
             { label: 'Total Guests',       value: summary.vms.total + summary.lxc.total,  icon: <Server size={16} />, accent: false },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-neutral-border bg-white p-5">
+            <div key={stat.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
               <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-lg', stat.accent ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted')}>
                 {stat.icon}
               </div>
@@ -329,7 +329,7 @@ export default function MonitoringPage() {
       )}
 
       {/* VM Table */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4">
           <h3 className="text-sm font-semibold text-text-primary">Virtual Machines</h3>
         </div>
@@ -371,7 +371,7 @@ export default function MonitoringPage() {
                   </td>
                   {/* Status */}
                   <td className="px-6 py-4">
-                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-text-muted')}>
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-hover text-text-muted')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', vm.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400')} />
                       {vm.status}
                     </span>
@@ -445,7 +445,7 @@ export default function MonitoringPage() {
                             hasObs
                               ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
                               : isFull
-                              ? 'bg-neutral-100 text-text-muted border border-neutral-border cursor-not-allowed'
+                              ? 'bg-surface-hover text-text-muted border border-neutral-border cursor-not-allowed'
                               : 'bg-bg-secondary text-text-muted border border-neutral-border hover:border-amber-300 hover:text-amber-700',
                           )}
                         >
@@ -477,7 +477,7 @@ export default function MonitoringPage() {
                             hasLogs
                               ? 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'
                               : isFull
-                              ? 'bg-neutral-100 text-text-muted border border-neutral-border cursor-not-allowed'
+                              ? 'bg-surface-hover text-text-muted border border-neutral-border cursor-not-allowed'
                               : 'bg-bg-secondary text-text-muted border border-neutral-border hover:border-sky-300 hover:text-sky-700',
                           )}
                         >
@@ -495,7 +495,7 @@ export default function MonitoringPage() {
       </div>
 
       {/* Additional Public IPs */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
           <Network size={15} className="text-text-muted" />
           <h3 className="text-sm font-semibold text-text-primary">Additional Public IPs</h3>
@@ -521,7 +521,7 @@ export default function MonitoringPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-text-muted">VM</label>
               <select value={ipForm.vm_id} onChange={(e) => setIpForm((p) => ({ ...p, vm_id: e.target.value }))}
-                className="rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue">
+                className="rounded-lg border border-neutral-border bg-surface-card px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue">
                 <option value="">Select VM…</option>
                 {vms.filter((v) => poolToTenantId.get(v.pool ?? '')).map((v) => (
                   <option key={v.id} value={v.id}>{v.name} ({v.pool})</option>
@@ -532,13 +532,13 @@ export default function MonitoringPage() {
               <label className="text-xs font-medium text-text-muted">IP address</label>
               <input value={ipForm.ip_address} onChange={(e) => setIpForm((p) => ({ ...p, ip_address: e.target.value }))}
                 placeholder="203.0.113.5"
-                className="w-40 rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-blue" />
+                className="w-40 rounded-lg border border-neutral-border bg-surface-card px-2.5 py-1.5 text-sm font-mono focus:outline-none focus:border-primary-blue" />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-text-muted">Purpose</label>
               <input value={ipForm.purpose} onChange={(e) => setIpForm((p) => ({ ...p, purpose: e.target.value }))}
                 placeholder="egress / mail / …"
-                className="w-40 rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue" />
+                className="w-40 rounded-lg border border-neutral-border bg-surface-card px-2.5 py-1.5 text-sm focus:outline-none focus:border-primary-blue" />
             </div>
             <button onClick={assignIp} disabled={ipBusy}
               className="rounded-lg bg-primary-blue text-white px-4 py-1.5 text-sm font-semibold hover:opacity-90 disabled:opacity-50">
@@ -555,7 +555,7 @@ export default function MonitoringPage() {
               {ipAssignments.filter((a) => a.status === 'active').map((a) => (
                 <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <span className="font-mono text-text-primary">{a.ip_address}</span>
-                  {a.purpose && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-text-muted">{a.purpose}</span>}
+                  {a.purpose && <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-text-muted">{a.purpose}</span>}
                   <span className="text-xs text-text-muted">{a.tenant_name} · {a.vm_id}</span>
                   <div className="flex-1" />
                   <button onClick={() => releaseIp(a.id)}

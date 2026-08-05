@@ -57,7 +57,7 @@ function statusBadge(status: string) {
     status === "deployed"  ? "bg-emerald-100 text-emerald-700" :
     status === "deploying" ? "bg-blue-100 text-blue-700" :
     status === "failed"    ? "bg-red-100 text-red-700" :
-                             "bg-neutral-100 text-neutral-600",
+                             "bg-surface-hover text-neutral-600",
   );
 }
 
@@ -84,7 +84,7 @@ function ServiceNode({
       className="absolute select-none"
       style={{ left: pos.x, top: pos.y, width: SERVICE_W }}
     >
-      <div className="bg-white rounded-xl border border-black/12 shadow-sm">
+      <div className="bg-surface-card rounded-xl border border-black/12 shadow-sm">
         <div
           onPointerDown={(e) => onDragStart(e, svcKey(service.id))}
           className="flex items-center gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing border-b border-black/8"
@@ -142,7 +142,7 @@ function VMNode({
   const isRunning = vm.status === "running";
   return (
     <div className="absolute select-none" style={{ left: pos.x, top: pos.y, width: VM_W }}>
-      <div className="bg-white rounded-xl border border-black/12 shadow-sm">
+      <div className="bg-surface-card rounded-xl border border-black/12 shadow-sm">
         <div
           onPointerDown={(e) => onDragStart(e, vmKey(vm.id))}
           className="flex items-start justify-between gap-2 px-4 py-3 cursor-grab active:cursor-grabbing border-b border-black/8"
@@ -158,7 +158,7 @@ function VMNode({
           </div>
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
-            isRunning ? "bg-emerald-50 text-emerald-700" : "bg-neutral-100 text-neutral-500",
+            isRunning ? "bg-emerald-50 text-emerald-700" : "bg-surface-hover text-neutral-500",
           )}>
             <span className={cn("h-1.5 w-1.5 rounded-full", isRunning ? "bg-emerald-500" : "bg-neutral-400")} />
             {vm.status}
@@ -228,11 +228,11 @@ function Arrows({ vms, services, pos }: { vms: VM[]; services: DeploymentService
     <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: "visible" }}>
       <defs>
         <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L6,3 L0,6 Z" fill="rgba(0,0,0,0.35)" />
+          <path d="M0,0 L6,3 L0,6 Z" fill="var(--edge-color)" />
         </marker>
       </defs>
       {paths.map((p) => (
-        <path key={p.id} d={p.d} fill="none" stroke="rgba(0,0,0,0.28)" strokeWidth={1.5} markerEnd="url(#arrowhead)" />
+        <path key={p.id} d={p.d} fill="none" stroke="var(--edge-color)" strokeWidth={1.5} markerEnd="url(#arrowhead)" />
       ))}
     </svg>
   );
@@ -601,22 +601,22 @@ export default function DeploymentPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex w-full min-h-[calc(100vh-64px)] rounded-xl border border-black/12 overflow-hidden" style={{ isolation: "isolate" }}>
-      <div className="relative flex-1 bg-white overflow-auto">
+      <div className="relative flex-1 bg-surface-card overflow-auto">
         {/* Dot grid */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: "radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px)", backgroundSize: "28px 28px",
+          backgroundImage: "radial-gradient(circle, var(--dot-color) 1px, transparent 1px)", backgroundSize: "28px 28px",
         }} />
 
         {/* Toolbar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur border-b border-black/8">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-surface-card/80 backdrop-blur border-b border-black/8">
           <p className="text-xs font-semibold text-black/40 uppercase tracking-wider">Deployment canvas — drag cards to arrange</p>
           <div className="flex items-center gap-2">
             <button onClick={toggleChat} className={cn(
               "flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors shadow-sm",
-              chatOpen ? "bg-primary-blue text-white border-primary-blue" : "bg-white border-black/12 text-black/60 hover:text-black hover:bg-black/5",
+              chatOpen ? "bg-primary-blue text-white border-primary-blue" : "bg-surface-card border-black/12 text-black/60 hover:text-black hover:bg-black/5",
             )}><Bot size={13} /> Agent</button>
             {(githubInstallations.length ? githubInstallations : (githubConnected && githubAccount ? [{ installation_id: 0, github_account: githubAccount, installed_at: "" }] : [])).map((inst) => (
-              <span key={inst.installation_id} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-black/12 text-xs text-black/50 shadow-sm">
+              <span key={inst.installation_id} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-card border border-black/12 text-xs text-black/50 shadow-sm">
                 <GitFork size={12} /> {inst.github_account}
                 {inst.installation_id !== 0 && (
                   <button
@@ -641,7 +641,7 @@ export default function DeploymentPage() {
               </button>
             )}
             <button onClick={() => fetchAll(true)} disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-black/12 text-xs font-medium text-black/60 hover:text-black hover:bg-black/5 transition-colors shadow-sm disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-card border border-black/12 text-xs font-medium text-black/60 hover:text-black hover:bg-black/5 transition-colors shadow-sm disabled:opacity-50">
               <RefreshCw size={12} className={cn(refreshing && "animate-spin")} /> Refresh
             </button>
           </div>
@@ -700,7 +700,7 @@ export default function DeploymentPage() {
         {confirmRemove && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/20" onClick={() => setConfirmRemove(null)} />
-            <div className="relative w-full max-w-sm bg-white border border-black/12 rounded-xl shadow-xl overflow-hidden">
+            <div className="relative w-full max-w-sm bg-surface-card border border-black/12 rounded-xl shadow-xl overflow-hidden">
               <div className="px-5 pt-5 pb-1">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 shrink-0">
@@ -734,7 +734,7 @@ export default function DeploymentPage() {
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
             <div className="absolute inset-0 bg-black/20" onClick={closeModal} />
-            <div className="relative w-full max-w-sm bg-white border border-black/12 rounded-xl shadow-xl overflow-hidden">
+            <div className="relative w-full max-w-sm bg-surface-card border border-black/12 rounded-xl shadow-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <div>
                   {targetVM && <p className="text-xs text-black/40 mb-0.5 flex items-center gap-1"><Server size={11} /> {targetVM.name}</p>}
@@ -759,7 +759,7 @@ export default function DeploymentPage() {
               {step === "pick-type" && (
                 <div className="px-4 pb-3">
                   <input autoFocus type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)}
-                    className="w-full bg-neutral-50 border border-black/12 rounded-lg px-3 py-2 text-sm text-black placeholder:text-black/30 focus:outline-none focus:border-black/30 mb-2" />
+                    className="w-full bg-surface-hover border border-black/12 rounded-lg px-3 py-2 text-sm text-black placeholder:text-black/30 focus:outline-none focus:border-black/30 mb-2" />
                   {filtered.map((option) => {
                     const Icon = option.icon;
                     return (
@@ -780,13 +780,13 @@ export default function DeploymentPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-black/60">Database name</label>
                     <input value={pgName} onChange={(e) => setPgName(e.target.value)} placeholder="app"
-                      className="w-full bg-neutral-50 border border-black/12 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-black/30" />
+                      className="w-full bg-surface-hover border border-black/12 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-black/30" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-black/60">Postgres version</label>
                     <div className="relative">
                       <select value={pgVersion} onChange={(e) => setPgVersion(e.target.value)}
-                        className="w-full appearance-none bg-neutral-50 border border-black/12 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-black/30 pr-8">
+                        className="w-full appearance-none bg-surface-hover border border-black/12 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-black/30 pr-8">
                         {PG_VERSIONS.map((v) => <option key={v} value={v}>Postgres {v}</option>)}
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" />
@@ -796,7 +796,7 @@ export default function DeploymentPage() {
                   <div className="flex gap-2">
                     <button onClick={() => setStep("pick-type")} className="flex-1 rounded-lg border border-black/12 py-2 text-xs font-semibold text-black/60 hover:bg-black/5">Back</button>
                     <button onClick={handleCreatePg} disabled={saving}
-                      className="flex-1 rounded-lg bg-black text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                      className="flex-1 rounded-lg bg-ink-solid text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
                       {saving ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : <><Database size={12} /> Create database</>}
                     </button>
                   </div>
@@ -805,15 +805,15 @@ export default function DeploymentPage() {
 
               {step === "github-connect" && (
                 <div className="px-4 pb-4 space-y-4">
-                  <div className="rounded-xl border border-black/10 bg-neutral-50 p-4 text-center space-y-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black mx-auto"><GitBranch size={22} className="text-white" /></div>
+                  <div className="rounded-xl border border-black/10 bg-surface-hover p-4 text-center space-y-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-ink-solid mx-auto"><GitBranch size={22} className="text-white" /></div>
                     <div>
                       <p className="text-sm font-semibold text-black">Install GitHub App</p>
                       <p className="text-xs text-black/50 mt-1">Grant RachBase access to your repositories. You choose which repos to share.</p>
                     </div>
                   </div>
                   <button onClick={handleConnectGithub} disabled={connectingGithub}
-                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-black text-white py-2.5 text-sm font-semibold hover:bg-neutral-800 disabled:opacity-60">
+                    className="w-full flex items-center justify-center gap-2 rounded-lg bg-ink-solid text-white py-2.5 text-sm font-semibold hover:bg-neutral-800 disabled:opacity-60">
                     {connectingGithub ? <><Loader2 size={14} className="animate-spin" /> Waiting for installation…</> : <><GitBranch size={14} /> Install on GitHub</>}
                   </button>
                   <button onClick={checkGithubNow} disabled={checkingGithub}
@@ -858,7 +858,7 @@ export default function DeploymentPage() {
                     : (
                       <div className="relative">
                         <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}
-                          className="w-full appearance-none bg-neutral-50 border border-black/12 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-black/30 pr-8">
+                          className="w-full appearance-none bg-surface-hover border border-black/12 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-black/30 pr-8">
                           {branches.map((b) => <option key={b} value={b}>{b}</option>)}
                         </select>
                         <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-black/40 pointer-events-none" />
@@ -866,14 +866,14 @@ export default function DeploymentPage() {
                     )}
                   <div className="flex gap-2">
                     <button onClick={() => setStep("github-repo")} className="flex-1 rounded-lg border border-black/12 py-2 text-xs font-semibold text-black/60 hover:bg-black/5">Back</button>
-                    <button onClick={() => setStep("github-confirm")} disabled={!selectedBranch} className="flex-1 rounded-lg bg-black text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50">Continue</button>
+                    <button onClick={() => setStep("github-confirm")} disabled={!selectedBranch} className="flex-1 rounded-lg bg-ink-solid text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50">Continue</button>
                   </div>
                 </div>
               )}
 
               {step === "github-confirm" && selectedRepo && targetVM && (
                 <div className="px-4 pb-4 space-y-3">
-                  <div className="rounded-xl border border-black/10 bg-neutral-50 p-4 space-y-3 text-sm">
+                  <div className="rounded-xl border border-black/10 bg-surface-hover p-4 space-y-3 text-sm">
                     <div className="flex justify-between"><span className="text-black/50">Repository</span><span className="font-medium text-black font-mono text-xs">{selectedRepo.full_name}</span></div>
                     <div className="flex justify-between"><span className="text-black/50">Branch</span><span className="font-medium text-black font-mono text-xs">{selectedBranch}</span></div>
                     <div className="flex justify-between"><span className="text-black/50">Deploy to</span><span className="font-medium text-black text-xs">{targetVM.name}</span></div>
@@ -881,7 +881,7 @@ export default function DeploymentPage() {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-black/60">Root directory <span className="font-normal text-black/35">(optional — for monorepos)</span></label>
                     <input value={newRootDir} onChange={(e) => setNewRootDir(e.target.value)} placeholder="e.g. apps/web — leave blank for repo root"
-                      className="w-full bg-neutral-50 border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30" />
+                      className="w-full bg-surface-hover border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30" />
                     <p className="text-[11px] text-black/40">Only pushes that touch this folder will redeploy this service. A free port is assigned automatically.</p>
                   </div>
                   {(() => {
@@ -904,7 +904,7 @@ export default function DeploymentPage() {
                   })()}
                   <div className="flex gap-2">
                     <button onClick={() => setStep("github-branch")} className="flex-1 rounded-lg border border-black/12 py-2 text-xs font-semibold text-black/60 hover:bg-black/5">Back</button>
-                    <button onClick={handleConfirmGithub} disabled={saving} className="flex-1 rounded-lg bg-black text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    <button onClick={handleConfirmGithub} disabled={saving} className="flex-1 rounded-lg bg-ink-solid text-white py-2 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1.5">
                       {saving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : <><CheckCircle2 size={12} /> Connect</>}
                     </button>
                   </div>
@@ -995,7 +995,7 @@ function ServiceDetailPanel({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white border border-black/12 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-2xl bg-surface-card border border-black/12 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-black/8">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -1034,7 +1034,7 @@ function ServiceDetailPanel({
         </div>
 
         {/* Danger zone — delete service */}
-        <div className="border-t border-black/8 px-5 py-3 bg-neutral-50/60">
+        <div className="border-t border-black/8 px-5 py-3 bg-surface-hover/60">
           {delErr && <p className="mb-2 flex items-center gap-1.5 text-xs text-red-600"><AlertCircle size={12} /> {delErr}</p>}
           {!confirmDel ? (
             <button onClick={() => setConfirmDel(true)}
@@ -1110,7 +1110,7 @@ function DeploymentsTab({ service, token, onDeploy }: { service: DeploymentServi
         <div className="flex items-center gap-1.5">
           <button onClick={load} disabled={loading} className="p-1.5 rounded-md text-black/40 hover:bg-black/5 disabled:opacity-50"><RefreshCw size={13} className={cn(loading && "animate-spin")} /></button>
           <button onClick={() => onDeploy(service)}
-            className="inline-flex items-center gap-1 rounded-lg bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800">
+            className="inline-flex items-center gap-1 rounded-lg bg-ink-solid text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800">
             <Rocket size={12} /> Deploy
           </button>
         </div>
@@ -1172,7 +1172,7 @@ function ConnectTab({ service }: { service: DeploymentService }) {
   const row = (label: string, value: string) => (
     <div className="flex items-center gap-2">
       <span className="w-24 shrink-0 text-[11px] font-semibold text-black/45">{label}</span>
-      <code className="flex-1 truncate text-xs font-mono text-black bg-neutral-50 border border-black/10 rounded-lg px-2.5 py-1.5">{value || "—"}</code>
+      <code className="flex-1 truncate text-xs font-mono text-black bg-surface-hover border border-black/10 rounded-lg px-2.5 py-1.5">{value || "—"}</code>
       {value && (
         <button onClick={() => copy(value, label)} className="shrink-0 p-1.5 rounded-md text-black/30 hover:text-black/70 hover:bg-black/5">
           {copied === label ? <CheckCircle2 size={13} className="text-emerald-600" /> : <Copy size={13} />}
@@ -1194,7 +1194,7 @@ function ConnectTab({ service }: { service: DeploymentService }) {
       {row("User", user)}
       <div className="flex items-center gap-2">
         <span className="w-24 shrink-0 text-[11px] font-semibold text-black/45">Password</span>
-        <code className="flex-1 truncate text-xs font-mono text-black bg-neutral-50 border border-black/10 rounded-lg px-2.5 py-1.5">{reveal ? pass : "••••••••••"}</code>
+        <code className="flex-1 truncate text-xs font-mono text-black bg-surface-hover border border-black/10 rounded-lg px-2.5 py-1.5">{reveal ? pass : "••••••••••"}</code>
         <button onClick={() => setReveal((v) => !v)} className="shrink-0 p-1.5 rounded-md text-black/30 hover:text-black/70 hover:bg-black/5">{reveal ? <EyeOff size={13} /> : <Eye size={13} />}</button>
         <button onClick={() => copy(pass, "Password")} className="shrink-0 p-1.5 rounded-md text-black/30 hover:text-black/70 hover:bg-black/5">{copied === "Password" ? <CheckCircle2 size={13} className="text-emerald-600" /> : <Copy size={13} />}</button>
       </div>
@@ -1300,7 +1300,7 @@ function SettingsTab({ service, token, onSaved }: { service: DeploymentService; 
     <div className="space-y-1">
       <label className="text-xs font-semibold text-black/60">{label}</label>
       <input value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-        className={cn("w-full bg-neutral-50 border border-black/12 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-black/30", mono && "font-mono")} />
+        className={cn("w-full bg-surface-hover border border-black/12 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-black/30", mono && "font-mono")} />
     </div>
   );
 
@@ -1318,7 +1318,7 @@ function SettingsTab({ service, token, onSaved }: { service: DeploymentService; 
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] text-black/40">Runs on the VM under systemd. Env vars (Variables) are injected at start.</p>
             <button onClick={save} disabled={saving}
-              className="shrink-0 rounded-lg bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
+              className="shrink-0 rounded-lg bg-ink-solid text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
               {saving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : saved ? <><CheckCircle2 size={12} /> Saved</> : "Save"}
             </button>
           </div>
@@ -1347,11 +1347,11 @@ function SettingsTab({ service, token, onSaved }: { service: DeploymentService; 
               </div>
             )}
             {/* Free RachBase domain */}
-            <div className="rounded-lg bg-neutral-50 border border-black/10 p-2.5 space-y-1.5">
+            <div className="rounded-lg bg-surface-hover border border-black/10 p-2.5 space-y-1.5">
               <p className="text-[11px] font-semibold text-black/50">Free RachBase domain</p>
               <div className="flex items-center gap-1">
                 <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="myapp"
-                  className="w-32 bg-white border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
+                  className="w-32 bg-surface-card border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
                 <span className="text-xs text-black/40 font-mono">.rachbase.app</span>
                 <div className="flex-1" />
                 <button onClick={generate} disabled={genBusy || !sub.trim()}
@@ -1365,7 +1365,7 @@ function SettingsTab({ service, token, onSaved }: { service: DeploymentService; 
             <div className="flex items-center gap-2">
               <input value={host} onChange={(e) => setHost(e.target.value)} placeholder="app.example.com (custom domain)"
                 onKeyDown={(e) => e.key === "Enter" && addDomain()}
-                className="flex-1 bg-neutral-50 border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30" />
+                className="flex-1 bg-surface-hover border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30" />
               <button onClick={addDomain} disabled={domBusy || !host.trim()}
                 className="shrink-0 rounded-lg bg-black/5 px-3 py-2 text-xs font-semibold text-black/70 hover:bg-black/10 disabled:opacity-50">
                 {domBusy ? <Loader2 size={12} className="animate-spin" /> : "Add"}
@@ -1495,7 +1495,7 @@ function MonitoringTab({ service, token }: { service: DeploymentService; token: 
           )}
           <button onClick={() => setAdding((v) => !v)} disabled={quotaReached}
             title={quotaReached ? "Endpoint quota reached — buy more slots" : "Add endpoint"}
-            className="inline-flex items-center gap-1 rounded-lg bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50">
+            className="inline-flex items-center gap-1 rounded-lg bg-ink-solid text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50">
             <Plus size={12} /> Add
           </button>
         </div>
@@ -1504,22 +1504,22 @@ function MonitoringTab({ service, token }: { service: DeploymentService; token: 
       {err && <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertCircle size={12} /> {err}</p>}
 
       {adding && (
-        <div className="rounded-lg border border-black/10 bg-neutral-50 p-3 space-y-2">
+        <div className="rounded-lg border border-black/10 bg-surface-hover p-3 space-y-2">
           <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Name (e.g. API health)"
-            className="w-full bg-white border border-black/12 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-black/30" />
+            className="w-full bg-surface-card border border-black/12 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-black/30" />
           <input value={form.url} onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))} placeholder="https://api.example.com/health"
-            className="w-full bg-white border border-black/12 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
+            className="w-full bg-surface-card border border-black/12 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
           <div className="flex items-center gap-2">
             <label className="text-[11px] text-black/45">Expects</label>
             <input value={form.expected_status} onChange={(e) => setForm((p) => ({ ...p, expected_status: e.target.value }))}
-              className="w-16 bg-white border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
+              className="w-16 bg-surface-card border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
             <label className="text-[11px] text-black/45">every</label>
             <input value={form.interval_seconds} onChange={(e) => setForm((p) => ({ ...p, interval_seconds: e.target.value }))}
-              className="w-16 bg-white border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
+              className="w-16 bg-surface-card border border-black/12 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-black/30" />
             <span className="text-[11px] text-black/45">sec</span>
             <div className="flex-1" />
             <button onClick={create} disabled={busy || !form.name.trim() || !form.url.trim()}
-              className="rounded-lg bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
+              className="rounded-lg bg-ink-solid text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
               {busy ? <><Loader2 size={12} className="animate-spin" /> Adding…</> : "Add endpoint"}
             </button>
           </div>
@@ -1606,7 +1606,7 @@ function VariablesTab({ service, token }: { service: DeploymentService; token: s
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold text-black/60">Environment variables</p>
         <button onClick={save} disabled={saving || loading}
-          className="rounded-lg bg-black text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
+          className="rounded-lg bg-ink-solid text-white px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5">
           {saving ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : saved ? <><CheckCircle2 size={12} /> Saved</> : "Save"}
         </button>
       </div>
@@ -1630,7 +1630,7 @@ function VariablesTab({ service, token }: { service: DeploymentService; token: s
                     value={row.key}
                     onChange={(e) => update(i, { key: e.target.value })}
                     placeholder="KEY"
-                    className="w-40 shrink-0 bg-neutral-50 border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30"
+                    className="w-40 shrink-0 bg-surface-hover border border-black/12 rounded-lg px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-black/30"
                   />
                   <div className="relative flex-1">
                     <input
@@ -1638,7 +1638,7 @@ function VariablesTab({ service, token }: { service: DeploymentService; token: s
                       onChange={(e) => update(i, { value: e.target.value })}
                       type={row.is_secret && !reveal[i] ? "password" : "text"}
                       placeholder="value"
-                      className="w-full bg-neutral-50 border border-black/12 rounded-lg pl-2.5 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-black/30"
+                      className="w-full bg-surface-hover border border-black/12 rounded-lg pl-2.5 pr-8 py-2 text-xs font-mono focus:outline-none focus:border-black/30"
                     />
                     {row.is_secret && (
                       <button type="button" onClick={() => setReveal((r) => ({ ...r, [i]: !r[i] }))}

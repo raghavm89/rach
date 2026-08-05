@@ -80,22 +80,22 @@ export default function MyVMsPage() {
       <div className="max-w-5xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-8 w-28 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-            <div className="h-3.5 w-32 animate-pulse rounded bg-neutral-100" />
+            <div className="h-8 w-28 animate-pulse rounded-lg bg-surface-hover mb-2" />
+            <div className="h-3.5 w-32 animate-pulse rounded bg-surface-hover" />
           </div>
-          <div className="h-9 w-24 animate-pulse rounded-lg bg-neutral-100" />
+          <div className="h-9 w-24 animate-pulse rounded-lg bg-surface-hover" />
         </div>
         <div className="grid grid-cols-3 gap-4">
           {[0,1,2].map((i) => (
-            <div key={i} className="rounded-xl border border-neutral-border bg-white p-5">
-              <div className="h-8 w-12 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-              <div className="h-3.5 w-20 animate-pulse rounded bg-neutral-100" />
+            <div key={i} className="rounded-xl border border-neutral-border bg-surface-card p-5">
+              <div className="h-8 w-12 animate-pulse rounded-lg bg-surface-hover mb-2" />
+              <div className="h-3.5 w-20 animate-pulse rounded bg-surface-hover" />
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+        <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
           <div className="border-b border-neutral-border px-6 py-4">
-            <div className="h-4 w-40 animate-pulse rounded bg-neutral-100" />
+            <div className="h-4 w-40 animate-pulse rounded bg-surface-hover" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -110,24 +110,24 @@ export default function MyVMsPage() {
                 {[...Array(5)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4">
-                      <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-3 w-16 animate-pulse rounded bg-neutral-100" />
+                      <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-neutral-100" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-surface-hover" /></td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-8 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-neutral-100" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-8 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-surface-hover" />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-neutral-100" /></td>
+                    <td className="px-6 py-4">
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
+                    </td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-surface-hover" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -179,7 +179,7 @@ export default function MyVMsPage() {
         <button
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
         >
           <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
           Refresh
@@ -193,7 +193,7 @@ export default function MyVMsPage() {
           { label: 'Running',      value: vms.filter((v) => v.status === 'running').length },
           { label: 'Stopped',      value: vms.filter((v) => v.status !== 'running').length },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-neutral-border bg-white p-5">
+          <div key={s.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
             <p className="text-2xl font-bold font-mono text-text-primary">{s.value}</p>
             <p className="mt-0.5 text-xs text-text-muted">{s.label}</p>
           </div>
@@ -201,7 +201,7 @@ export default function MyVMsPage() {
       </div>
 
       {/* VM Table */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-3">
           <h3 className="text-sm font-semibold text-text-primary">Your Virtual Machines</h3>
           {obsVmIds.size === 0 && (
@@ -256,7 +256,7 @@ export default function MyVMsPage() {
                   <td className="px-6 py-4">
                     <span className={cn(
                       'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                      vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-text-muted',
+                      vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-hover text-text-muted',
                     )}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', vm.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400')} />
                       {vm.status}

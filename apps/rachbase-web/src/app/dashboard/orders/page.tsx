@@ -17,7 +17,7 @@ import { cn } from '@rach/ui/lib/utils';
 const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
   pending            : { label: 'Active',               cls: 'bg-amber-50 text-amber-700 border border-amber-200',       icon: <Clock size={11} /> },
   fulfilled          : { label: 'Fulfilled',             cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200', icon: <CheckCircle2 size={11} /> },
-  cancelled          : { label: 'Cancelled',             cls: 'bg-neutral-100 text-text-muted border border-neutral-200', icon: <XCircle size={11} /> },
+  cancelled          : { label: 'Cancelled',             cls: 'bg-surface-hover text-text-muted border border-neutral-border', icon: <XCircle size={11} /> },
   cancel_at_period_end: { label: 'Cancels at cycle end', cls: 'bg-orange-50 text-orange-700 border border-orange-200',   icon: <Ban size={11} /> },
 };
 
@@ -41,7 +41,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
   const STATUS_STYLE: Record<string, { dot: string; badge: string; label: string }> = {
     pending  : { dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200',       label: 'Pending' },
     fulfilled: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Fulfilled' },
-    cancelled: { dot: 'bg-neutral-400', badge: 'bg-neutral-100 text-text-muted border-neutral-200', label: 'Cancelled' },
+    cancelled: { dot: 'bg-neutral-400', badge: 'bg-surface-hover text-text-muted border-neutral-border', label: 'Cancelled' },
   };
   const s = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
 
@@ -59,7 +59,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-lg rounded-2xl bg-surface-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-neutral-border">
           <div>
@@ -211,7 +211,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
           <p className="text-xs text-text-muted">Need help? Contact support.</p>
           <button
             onClick={onClose}
-            className="rounded-lg border border-neutral-border bg-white px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
+            className="rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
           >
             Close
           </button>
@@ -327,7 +327,7 @@ export default function OrdersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-neutral-border bg-white px-3 py-2 text-sm text-text-secondary focus:border-primary-blue focus:outline-none"
+              className="rounded-lg border border-neutral-border bg-surface-card px-3 py-2 text-sm text-text-secondary focus:border-primary-blue focus:outline-none"
             >
               <option value="">All statuses</option>
               <option value="pending">Pending</option>
@@ -338,7 +338,7 @@ export default function OrdersPage() {
           <button
             onClick={() => fetchOrders(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
             Refresh
@@ -370,9 +370,9 @@ export default function OrdersPage() {
           { label: 'Active',       value: pending },
           { label: 'Fulfilled',    value: fulfilled },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-neutral-border bg-white p-5">
+          <div key={s.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
             {loading
-              ? <div className="h-8 w-12 animate-pulse rounded-lg bg-neutral-100 mb-2" />
+              ? <div className="h-8 w-12 animate-pulse rounded-lg bg-surface-hover mb-2" />
               : <p className="text-2xl font-bold font-mono text-text-primary">{s.value}</p>
             }
             <p className="mt-0.5 text-xs text-text-muted">{s.label}</p>
@@ -381,7 +381,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
           <ShoppingBag size={16} className="text-text-muted" />
           <h3 className="text-sm font-semibold text-text-primary">Order History</h3>
@@ -402,16 +402,16 @@ export default function OrdersPage() {
                 {[...Array(5)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4">
-                      <div className="h-3.5 w-36 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-3 w-10 animate-pulse rounded bg-neutral-100" />
+                      <div className="h-3.5 w-36 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-3 w-10 animate-pulse rounded bg-surface-hover" />
                     </td>
                     {isAdmin && (
-                      <td className="px-6 py-4"><div className="h-5 w-28 animate-pulse rounded-full bg-neutral-100" /></td>
+                      <td className="px-6 py-4"><div className="h-5 w-28 animate-pulse rounded-full bg-surface-hover" /></td>
                     )}
-                    <td className="px-6 py-4"><div className="h-4 w-16 animate-pulse rounded bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-5 w-20 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-3.5 w-24 animate-pulse rounded bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-3.5 w-20 animate-pulse rounded bg-neutral-100" /></td>
+                    <td className="px-6 py-4"><div className="h-4 w-16 animate-pulse rounded bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-20 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-24 animate-pulse rounded bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-20 animate-pulse rounded bg-surface-hover" /></td>
                   </tr>
                 ))}
               </tbody>

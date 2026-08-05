@@ -1449,3 +1449,62 @@ export const scribe = {
       method: 'POST',
     }, token),
 };
+
+// ─── Support tickets ──────────────────────────────────────────────────────────
+
+export type TicketStatus = 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type TicketCategory = 'billing' | 'deployment' | 'vm' | 'account' | 'other';
+
+export interface Ticket {
+  id: number;
+  tenant_id: number | null;
+  user_id: number;
+  subject: string;
+  body: string | null;
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: TicketCategory;
+  source: 'human' | 'bot';
+  assigned_to: number | null;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  user_name?: string;
+  user_email?: string;
+  message_count?: number;
+}
+
+export interface TicketMessage {
+  id: number;
+  author_type: 'customer' | 'support' | 'bot';
+  author_id: number | null;
+  author_name?: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface ChatOption { label: string; intent?: string; action?: string }
+
+export const support = {
+  /** Rule-based support bot (no LLM): send a message or a quick-reply intent. */
+  ask: (token: string, payload: { message?: string; intent?: string }) =>
+    apiFetch<{ reply: string; options: ChatOption[] }>('/api/support/chat', { method: 'POST', body: JSON.stringify(payload) }, token),
+
+  list: (token: string, opts: { status?: TicketStatus; page?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.page)   q.set('page', String(opts.page));
+    return apiFetch<{ tickets: Ticket[]; total: number; page: number; limit: number }>(
+      `/api/support/tickets${q.toString() ? `?${q}` : ''}`, {}, token,
+    );
+  },
+  get: (token: string, id: number) =>
+    apiFetch<{ ticket: Ticket; messages: TicketMessage[] }>(`/api/support/tickets/${id}`, {}, token),
+  create: (token: string, payload: { subject: string; body?: string; category?: TicketCategory; priority?: TicketPriority; source?: 'human' | 'bot' }) =>
+    apiFetch<{ ticket: Ticket }>('/api/support/tickets', { method: 'POST', body: JSON.stringify(payload) }, token),
+  reply: (token: string, id: number, body: string) =>
+    apiFetch<{ message: TicketMessage; status: TicketStatus }>(`/api/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }, token),
+  update: (token: string, id: number, patch: { status?: TicketStatus; priority?: TicketPriority; assigned_to?: number | null }) =>
+    apiFetch<{ ticket: Ticket }>(`/api/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+};

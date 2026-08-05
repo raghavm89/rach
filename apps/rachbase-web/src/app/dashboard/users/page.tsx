@@ -18,7 +18,7 @@ const ALL_ROLES: UserRole[] = ['admin', 'tenant_admin', 'tenant_user', 'develope
 const ROLE_META: Record<UserRole, { label: string; textCls: string; bgCls: string; icon: React.ReactNode }> = {
   admin:        { label: 'Admin',        textCls: 'text-white',          bgCls: 'bg-gradient-to-r from-primary-blue to-primary-purple', icon: <Shield size={11} /> },
   tenant_admin: { label: 'Tenant Admin', textCls: 'text-primary-blue',   bgCls: 'bg-blue-50',     icon: <UserCog size={11} /> },
-  tenant_user:  { label: 'Tenant User',  textCls: 'text-text-secondary', bgCls: 'bg-neutral-100', icon: <Users size={11} /> },
+  tenant_user:  { label: 'Tenant User',  textCls: 'text-text-secondary', bgCls: 'bg-surface-hover', icon: <Users size={11} /> },
   developer:    { label: 'Developer',    textCls: 'text-amber-700',      bgCls: 'bg-amber-50',    icon: <Code2 size={11} /> },
 };
 
@@ -36,7 +36,7 @@ function RoleBadge({ role }: { role: UserRole }) {
   const m = ROLE_META[role];
   if (!m) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold text-text-muted">
+      <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-semibold text-text-muted">
         {role ?? 'unknown'}
       </span>
     );
@@ -103,7 +103,7 @@ function RoleSelector({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl border border-neutral-border bg-white py-1 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-44 rounded-xl border border-neutral-border bg-surface-card py-1 shadow-lg">
           {ALL_ROLES.map((r) => (
             <button
               key={r}
@@ -175,7 +175,7 @@ function TenantSelector({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-52 max-h-56 overflow-y-auto rounded-xl border border-neutral-border bg-white py-1 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-52 max-h-56 overflow-y-auto rounded-xl border border-neutral-border bg-surface-card py-1 shadow-lg">
           <button
             type="button"
             onClick={() => select(null)}
@@ -240,11 +240,11 @@ function CreateUserModal({
     }
   };
 
-  const inputCls = 'w-full rounded-lg border border-neutral-border bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors placeholder:text-text-muted';
+  const inputCls = 'w-full rounded-lg border border-neutral-border bg-surface-card px-3 py-2.5 text-sm outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors placeholder:text-text-muted';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-white shadow-xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-surface-card shadow-xl flex flex-col max-h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4 shrink-0">
@@ -374,7 +374,7 @@ function DeleteConfirm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-border bg-white shadow-xl p-6">
+      <div className="w-full max-w-sm rounded-2xl border border-neutral-border bg-surface-card shadow-xl p-6">
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
           <Trash2 size={22} className="text-red-500" />
         </div>
@@ -482,7 +482,7 @@ export default function UsersPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" onClick={fetchAll}
-            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors">
+            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors">
             <RefreshCw size={14} /> <span className="hidden sm:inline">Refresh</span>
           </button>
           <button type="button" onClick={() => setShowCreate(true)}
@@ -497,10 +497,10 @@ export default function UsersPage() {
           <button key={r} type="button" onClick={() => setRoleTab(r)}
             className={cn(
               'rounded-xl border p-4 text-left transition-all',
-              roleTab === r ? 'border-primary-blue bg-blue-50 shadow-sm' : 'border-neutral-border bg-white hover:bg-bg-secondary',
+              roleTab === r ? 'border-primary-blue bg-blue-50 shadow-sm' : 'border-neutral-border bg-surface-card hover:bg-bg-secondary',
             )}>
             {loading
-              ? <div className="h-8 w-10 animate-pulse rounded-lg bg-neutral-100 mb-2" />
+              ? <div className="h-8 w-10 animate-pulse rounded-lg bg-surface-hover mb-2" />
               : <p className="text-2xl font-bold text-text-primary mb-1.5">{counts[r] ?? 0}</p>
             }
             <RoleBadge role={r} />
@@ -509,7 +509,7 @@ export default function UsersPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex flex-wrap rounded-xl border border-neutral-border bg-white p-1 gap-0.5">
+        <div className="flex flex-wrap rounded-xl border border-neutral-border bg-surface-card p-1 gap-0.5">
           {ROLE_TABS.filter((t) => isAdmin || t.key !== 'admin').map((t) => (
             <button key={t.key} type="button" onClick={() => setRoleTab(t.key)}
               className={cn(
@@ -521,7 +521,7 @@ export default function UsersPage() {
               {t.label}
               {t.key !== 'all' && (
                 <span className={cn('ml-1.5 rounded-full px-1.5 text-[10px]',
-                  roleTab === t.key ? 'bg-white/25' : 'bg-neutral-100 text-text-muted')}>
+                  roleTab === t.key ? 'bg-white/25' : 'bg-surface-hover text-text-muted')}>
                   {counts[t.key] ?? 0}
                 </span>
               )}
@@ -532,7 +532,7 @@ export default function UsersPage() {
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, email or tenant..."
-            className="w-full rounded-lg border border-neutral-border bg-white py-2 pl-9 pr-4 text-sm placeholder:text-text-muted outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors" />
+            className="w-full rounded-lg border border-neutral-border bg-surface-card py-2 pl-9 pr-4 text-sm placeholder:text-text-muted outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors" />
           {search && (
             <button type="button" onClick={() => setSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary">
@@ -542,7 +542,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-3.5">
           <h3 className="text-sm font-semibold text-text-primary">
             {roleTab === 'all' ? 'All Users' : (ROLE_META[roleTab as UserRole]?.label ?? '') + 's'}
@@ -565,17 +565,17 @@ export default function UsersPage() {
                   <tr key={i}>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 animate-pulse rounded-full bg-neutral-100 shrink-0" />
+                        <div className="h-9 w-9 animate-pulse rounded-full bg-surface-hover shrink-0" />
                         <div>
-                          <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                          <div className="h-3 w-36 animate-pulse rounded bg-neutral-100" />
+                          <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover mb-1.5" />
+                          <div className="h-3 w-36 animate-pulse rounded bg-surface-hover" />
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5"><div className="h-5 w-24 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-5 py-3.5"><div className="h-7 w-28 animate-pulse rounded-lg bg-neutral-100" /></td>
-                    <td className="px-5 py-3.5"><div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100" /></td>
-                    <td className="px-5 py-3.5"><div className="h-7 w-16 animate-pulse rounded-lg bg-neutral-100" /></td>
+                    <td className="px-5 py-3.5"><div className="h-5 w-24 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-5 py-3.5"><div className="h-7 w-28 animate-pulse rounded-lg bg-surface-hover" /></td>
+                    <td className="px-5 py-3.5"><div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover" /></td>
+                    <td className="px-5 py-3.5"><div className="h-7 w-16 animate-pulse rounded-lg bg-surface-hover" /></td>
                   </tr>
                 ))}
               </tbody>

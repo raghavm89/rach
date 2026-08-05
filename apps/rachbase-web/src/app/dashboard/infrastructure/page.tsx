@@ -164,7 +164,7 @@ export default function InfrastructurePage() {
       )}
 
       {/* ── Pending keys (activate) ── */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
           <KeyRound size={15} className="text-amber-500" />
           <h3 className="text-sm font-semibold text-text-primary">Pending Keys</h3>
@@ -209,7 +209,7 @@ export default function InfrastructurePage() {
       </div>
 
       {/* ── Active VM access ── */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
           <Server size={15} className="text-text-muted" />
           <h3 className="text-sm font-semibold text-text-primary">Active VM Access</h3>
@@ -325,7 +325,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md bg-surface-card rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-border">
           <h3 className="font-semibold text-text-primary">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-bg-secondary transition-colors"><X size={15} className="text-text-muted" /></button>

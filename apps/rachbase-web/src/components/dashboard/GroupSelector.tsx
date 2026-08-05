@@ -63,7 +63,7 @@ export function GroupSelector({
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-2.5 py-1.5 text-sm hover:bg-bg-secondary"
+        className="inline-flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-2.5 py-1.5 text-sm hover:bg-bg-secondary"
       >
         {current ? (
           <>
@@ -79,7 +79,7 @@ export function GroupSelector({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-1 w-60 rounded-lg border border-neutral-border bg-white py-1 shadow-lg">
+          <div className="absolute left-0 top-full z-50 mt-1 w-60 rounded-lg border border-neutral-border bg-surface-card py-1 shadow-lg">
             <button onClick={() => assign(null)} className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text-muted hover:bg-bg-secondary">
               <span className="h-2.5 w-2.5 rounded-full border border-neutral-border" />
               No group

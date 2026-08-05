@@ -53,7 +53,7 @@ export function VariablesPanel({ serviceId, token }: { serviceId: number; token:
     <div className="space-y-3">
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
 
-      <div className="overflow-hidden rounded-xl border border-neutral-border bg-white">
+      <div className="overflow-hidden rounded-xl border border-neutral-border bg-surface-card">
         <div className="grid grid-cols-[1fr_1.4fr_auto_auto] items-center gap-2 border-b border-neutral-border bg-bg-secondary px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
           <span>Key</span><span>Value</span><span>Secret</span><span></span>
         </div>

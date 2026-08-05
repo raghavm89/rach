@@ -23,6 +23,26 @@
   --text-muted: #999999;
   --text-on-dark: #F5F5F5;
 
+  /* Theme-aware channels (space-separated RGB, consumed by tailwind rgb(var()/alpha)).
+     Light values below; .dark overrides them so dashboard surfaces/text/borders flip. */
+  --c-app: 248 250 252;
+  --c-bg: 250 250 249;
+  --c-surface: 255 255 255;
+  --c-surface-hover: 241 245 249;
+  --c-surface-active: 224 231 255;
+  --c-border: 229 231 235;
+  --c-text: 17 17 17;
+  --c-text-2: 85 85 85;
+  --c-text-muted: 153 153 153;
+  --c-heading: 15 23 42;
+  --c-body: 51 65 85;
+  --c-muted2: 100 116 139;
+  --c-disabled: 148 163 184;
+  --c-ink: 0 0 0;
+  --c-ink-solid: 11 13 18;
+  --dot-color: rgba(0, 0, 0, 0.12);
+  --edge-color: rgba(0, 0, 0, 0.3);
+
   /* Gradients */
   --gradient-hero: linear-gradient(135deg, #477EF7 0%, #8260F6 50%, #3BE1EA 100%);
   --gradient-cta: linear-gradient(135deg, #477EF7 0%, #8260F6 100%);
@@ -30,10 +50,35 @@
   --gradient-card-hover: linear-gradient(135deg, rgba(71, 126, 247, 0.05) 0%, rgba(130, 96, 246, 0.05) 100%);
 }
 
+/* Dark theme: overrides the theme-aware channels above. Applied when the
+   <html> element carries the `dark` class (see ThemeProvider). */
+.dark {
+  --c-app: 11 13 18;
+  --c-bg: 11 13 18;
+  --c-surface: 20 23 30;
+  --c-surface-hover: 30 34 43;
+  --c-surface-active: 38 48 73;
+  --c-border: 42 47 57;
+  --c-text: 245 245 245;
+  --c-text-2: 180 184 192;
+  --c-text-muted: 138 143 153;
+  --c-heading: 241 245 249;
+  --c-body: 203 213 225;
+  --c-muted2: 148 163 184;
+  --c-disabled: 100 116 139;
+  --c-ink: 237 237 240;
+  --c-ink-solid: 32 36 46;
+  --dot-color: rgba(255, 255, 255, 0.09);
+  --edge-color: rgba(255, 255, 255, 0.45);
+
+  color-scheme: dark;
+}
+
 body {
-  color: var(--text-primary);
-  background: var(--bg-primary);
+  color: rgb(var(--c-text));
+  background: rgb(var(--c-surface));
   font-family: var(--font-body), system-ui, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Dot grid pattern */
@@ -72,7 +117,7 @@ html {
 
 @layer base {
   * {
-    @apply border-neutral-200;
+    @apply border-neutral-border;
   }
   :root {
     --background: oklch(1 0 0);

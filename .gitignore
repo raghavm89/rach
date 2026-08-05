@@ -6,3 +6,6 @@ dist/
 !.env.example
 *.log
 .DS_Store
+
+# FUSE mount artifacts (orphaned handles from in-place edits)
+.fuse_hidden*

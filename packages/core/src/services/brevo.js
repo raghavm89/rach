@@ -855,6 +855,18 @@ function escapeHtml(s) {
   ));
 }
 
+/** Generic support-ticket notification to one or more recipients. */
+async function sendSupportEmail({ to, subject, html }) {
+  const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean).map((email) => ({ email }));
+  if (!recipients.length) return false;
+  return sendEmail({
+    to: recipients,
+    subject,
+    htmlContent: html,
+    textContent: String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+  });
+}
+
 module.exports = {
   sendVerificationOtp,
   sendAlertEmail,
@@ -865,4 +877,5 @@ module.exports = {
   sendVmKeyProvisioningEmail,
   sendTenantTeardownEmail,
   sendTaxInvoiceEmail,
+  sendSupportEmail,
 };

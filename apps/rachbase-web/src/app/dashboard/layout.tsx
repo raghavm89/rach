@@ -18,7 +18,10 @@ import {
   X,
   Network,
   Coins,
+  LifeBuoy,
   ShoppingCart,
+  Sun,
+  Moon,
   // FolderGit2,  // unused while Projects nav item is hidden
 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
@@ -26,6 +29,7 @@ import { CartProvider, useCart } from '@rach/ui/contexts/CartContext';
 import { cn } from '@rach/ui/lib/utils';
 import { TerminalProvider, useTerminal } from '@/contexts/TerminalContext';
 import { ChatProvider, useChat } from '@/contexts/ChatContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { Terminal } from '@/components/dashboard/Terminal';
 import { BrandLogo } from '@/components/BrandLogo';
 
@@ -51,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Infrastructure',  href: '/dashboard/infrastructure',  icon: <Network size={18} />, roles: ['admin'] },
   { label: 'Billing',      href: '/dashboard/billing',       icon: <CreditCard size={18} />, roles: ['tenant_admin', 'tenant_user'] },
   { label: 'Credit Usage', href: '/dashboard/credit-usage',  icon: <Coins size={18} />,      roles: ['tenant_admin'] },
+  { label: 'Support',    href: '/dashboard/support',     icon: <LifeBuoy size={18} /> },
   { label: 'Profile',    href: '/dashboard/profile',     icon: <User size={18} /> },
 ];
 
@@ -163,7 +168,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* ── Sidebar (desktop: sticky, mobile: slide-in drawer) ───── */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-neutral-border bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:flex-shrink-0 lg:translate-x-0 overflow-y-auto',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-neutral-border bg-surface-card transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:flex-shrink-0 lg:translate-x-0 overflow-y-auto',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -173,7 +178,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* ── Main content ─────────────────────────────────────────── */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Top bar */}
-        <header className="flex h-16 items-center gap-3 border-b border-neutral-border bg-white px-4 lg:px-8">
+        <header className="flex h-16 items-center gap-3 border-b border-neutral-border bg-surface-card px-4 lg:px-8">
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -184,6 +189,9 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           <h1 className="text-sm font-medium text-text-muted flex-1">{currentLabel}</h1>
+
+          {/* Light / dark theme toggle */}
+          <ThemeToggle />
 
           {/* Cart — visible to roles that can purchase */}
           {(user.role === 'tenant_admin' || user.role === 'tenant_user') && <CartButton />}
@@ -248,6 +256,23 @@ function PersistentTerminal() {
   );
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
+  return (
+    <button
+      onClick={toggleTheme}
+      role="switch"
+      aria-checked={isDark}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-bg-secondary transition-colors"
+    >
+      {isDark ? <Sun size={19} /> : <Moon size={19} />}
+    </button>
+  );
+}
+
 function CartButton() {
   const { count } = useCart();
   return (
@@ -272,12 +297,14 @@ export default function DashboardLayoutWithTerminal({
   children: React.ReactNode;
 }) {
   return (
-    <TerminalProvider>
-      <ChatProvider>
-        <CartProvider>
-          <DashboardLayout>{children}</DashboardLayout>
-        </CartProvider>
-      </ChatProvider>
-    </TerminalProvider>
+    <ThemeProvider>
+      <TerminalProvider>
+        <ChatProvider>
+          <CartProvider>
+            <DashboardLayout>{children}</DashboardLayout>
+          </CartProvider>
+        </ChatProvider>
+      </TerminalProvider>
+    </ThemeProvider>
   );
 }

@@ -52,7 +52,7 @@ const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; i
   db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
   obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
   mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
-  logs: { Icon: FileText,  iconBg: 'bg-slate-50',   iconColor: 'text-slate-500' },
+  logs: { Icon: FileText,  iconBg: 'bg-surface-hover',   iconColor: 'text-slate-500' },
   analytics: { Icon: LineChart, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
 };
 
@@ -265,7 +265,7 @@ function PhoneField({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 h-full rounded-l-lg border border-r-0 border-neutral-border bg-bg-secondary px-3 py-3 text-sm text-text-primary hover:bg-neutral-100 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 h-full rounded-l-lg border border-r-0 border-neutral-border bg-bg-secondary px-3 py-3 text-sm text-text-primary hover:bg-surface-hover transition-colors whitespace-nowrap"
         >
           <span className="text-base leading-none">{selected.flag}</span>
           <span className="font-mono text-xs text-text-secondary">{selected.code}</span>
@@ -273,7 +273,7 @@ function PhoneField({
         </button>
 
         {open && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-60 max-h-56 overflow-y-auto rounded-xl border border-neutral-border bg-white shadow-lg py-1">
+          <div className="absolute left-0 top-full z-50 mt-1 w-60 max-h-56 overflow-y-auto rounded-xl border border-neutral-border bg-surface-card shadow-lg py-1">
             {DIAL_CODES.map((d, i) => (
               <button
                 key={i}
@@ -573,7 +573,7 @@ function CheckoutInner() {
   if (step === 'success') {
     return (
       <div className="max-w-lg mx-auto py-16">
-        <div className="rounded-2xl border border-neutral-border bg-white p-10 text-center shadow-sm">
+        <div className="rounded-2xl border border-neutral-border bg-surface-card p-10 text-center shadow-sm">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
             <CheckCircle2 size={32} className="text-emerald-500" />
           </div>
@@ -634,7 +634,7 @@ function CheckoutInner() {
   }
 
   // ── Billing info step ────────────────────────────────────────────────────────
-  const inputCls = 'w-full rounded-lg border border-neutral-border bg-white px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors';
+  const inputCls = 'w-full rounded-lg border border-neutral-border bg-surface-card px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-primary-blue focus:ring-2 focus:ring-blue-500/20 transition-colors';
   const labelCls = 'block text-xs font-medium text-text-secondary mb-1';
 
   if (step === 'billing') {
@@ -665,7 +665,7 @@ function CheckoutInner() {
         <form onSubmit={handleContinue} className="space-y-5">
 
           {/* Contact details */}
-          <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
             <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
               <Phone size={14} className="text-primary-blue" />
               <h3 className="text-sm font-semibold text-text-primary">Contact Details</h3>
@@ -702,7 +702,7 @@ function CheckoutInner() {
           </div>
 
           {/* Billing address */}
-          <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
             <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
               <MapPin size={14} className="text-primary-blue" />
               <h3 className="text-sm font-semibold text-text-primary">Billing Address</h3>
@@ -813,7 +813,7 @@ function CheckoutInner() {
         <div className="space-y-4">
 
           {/* Billing address summary */}
-          <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
             <div className="border-b border-neutral-border px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-primary-blue" />
@@ -863,7 +863,7 @@ function CheckoutInner() {
           </div>
 
           {/* Line items */}
-          <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
             <div className="border-b border-neutral-border px-6 py-4">
               <h3 className="text-sm font-semibold text-text-primary">Order Details</h3>
             </div>
@@ -909,7 +909,7 @@ function CheckoutInner() {
           </div>
 
           {/* How billing works */}
-          <div className="rounded-2xl border border-neutral-border bg-white p-5 space-y-3">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-text-primary mb-1">How billing works</h3>
             {[
               { icon: <RefreshCw size={14} />, text: 'Razorpay auto-debits your saved payment method at 12:00 AM IST on the same date each month.' },
@@ -1005,7 +1005,7 @@ function CheckoutInner() {
             );
           })()}
 
-          <div className="rounded-xl border border-neutral-border bg-white p-4 text-xs text-text-muted space-y-1">
+          <div className="rounded-xl border border-neutral-border bg-surface-card p-4 text-xs text-text-muted space-y-1">
             <p className="font-medium text-text-secondary">What happens next</p>
             <ol className="list-decimal list-inside space-y-1 ml-1">
               <li>Razorpay confirms your payment.</li>

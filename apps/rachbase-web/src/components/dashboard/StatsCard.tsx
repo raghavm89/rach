@@ -13,7 +13,7 @@ export function StatsCard({ label, value, trend, icon: Icon, className }: StatsC
   const isPositive = trend && trend.value >= 0;
 
   return (
-    <div className={cn("bg-white rounded-lg border border-neutral-border p-6", className)}>
+    <div className={cn("bg-surface-card rounded-lg border border-neutral-border p-6", className)}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-dash-muted">{label}</p>

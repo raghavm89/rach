@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -14,13 +15,20 @@ const config: Config = {
         "primary-purple": "#8260F6",
         "accent-cyan": "#3BE1EA",
         "accent-sky": "#A8D5EB",
-        "neutral-border": "#E5E7EB",
-        "bg-primary": "#FFFFFF",
-        "bg-secondary": "#FAFAF9",
+        // Theme-aware neutrals (flip in .dark — see globals.css)
+        "neutral-border": "rgb(var(--c-border) / <alpha-value>)",
+        "bg-primary": "rgb(var(--c-surface) / <alpha-value>)",
+        "bg-secondary": "rgb(var(--c-bg) / <alpha-value>)",
         "bg-dark": "#0A0A0F",
-        "text-primary": "#111111",
-        "text-secondary": "#555555",
-        "text-muted": "#999999",
+        // Theme-aware "ink": black in light, near-white in dark. Flips the
+        // black/opacity design language (text-black, border-black, bg-black/5…).
+        black: "rgb(var(--c-ink) / <alpha-value>)",
+        // Fixed dark surface for solid primary buttons/bubbles (never inverts;
+        // keeps its paired text-white readable in both themes).
+        "ink-solid": "rgb(var(--c-ink-solid) / <alpha-value>)",
+        "text-primary": "rgb(var(--c-text) / <alpha-value>)",
+        "text-secondary": "rgb(var(--c-text-2) / <alpha-value>)",
+        "text-muted": "rgb(var(--c-text-muted) / <alpha-value>)",
         "text-on-dark": "#F5F5F5",
 
         // Homepage rebrand palette (warm + single blue)
@@ -44,19 +52,19 @@ const config: Config = {
         "wait-bg": "#FBF1DE",
         "wait-line": "#F1DFB8",
 
-        // Dashboard surfaces
-        "surface-app": "#F8FAFC",
-        "surface-card": "#FFFFFF",
-        "surface-hover": "#F1F5F9",
-        "surface-active": "#E0E7FF",
+        // Dashboard surfaces (theme-aware)
+        "surface-app": "rgb(var(--c-app) / <alpha-value>)",
+        "surface-card": "rgb(var(--c-surface) / <alpha-value>)",
+        "surface-hover": "rgb(var(--c-surface-hover) / <alpha-value>)",
+        "surface-active": "rgb(var(--c-surface-active) / <alpha-value>)",
         "surface-sidebar": "#0F172A",
         "surface-sidebar-hover": "#1E293B",
 
-        // Dashboard text
-        "dash-heading": "#0F172A",
-        "dash-body": "#334155",
-        "dash-muted": "#64748B",
-        "dash-disabled": "#94A3B8",
+        // Dashboard text (theme-aware)
+        "dash-heading": "rgb(var(--c-heading) / <alpha-value>)",
+        "dash-body": "rgb(var(--c-body) / <alpha-value>)",
+        "dash-muted": "rgb(var(--c-muted2) / <alpha-value>)",
+        "dash-disabled": "rgb(var(--c-disabled) / <alpha-value>)",
         "dash-sidebar": "#CBD5E1",
         "dash-sidebar-active": "#FFFFFF",
 

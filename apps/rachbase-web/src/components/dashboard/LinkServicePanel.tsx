@@ -37,7 +37,7 @@ export function LinkServicePanel({ serviceId, token }: { serviceId: number; toke
   }
 
   return (
-    <div className="rounded-xl border border-neutral-border bg-white p-5">
+    <div className="rounded-xl border border-neutral-border bg-surface-card p-5">
       <p className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-text-primary">
         <Link2 size={14} /> Link a service (auto-CORS)
       </p>
@@ -48,7 +48,7 @@ export function LinkServicePanel({ serviceId, token }: { serviceId: number; toke
         <select
           value={fromId}
           onChange={(e) => setFromId(e.target.value)}
-          className="flex-1 rounded-lg border border-neutral-border bg-white px-3 py-2 text-sm outline-none focus:border-primary-blue"
+          className="flex-1 rounded-lg border border-neutral-border bg-surface-card px-3 py-2 text-sm outline-none focus:border-primary-blue"
         >
           <option value="">Select a service…</option>
           {services.map((s) => <option key={s.id} value={s.id}>{label(s)}</option>)}

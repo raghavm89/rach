@@ -34,7 +34,7 @@ export default function ContainersPage() {
       </div>
 
       {/* Plan card */}
-      <div className="rounded-xl border border-neutral-border bg-white p-6">
+      <div className="rounded-xl border border-neutral-border bg-surface-card p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-primary-blue">
@@ -65,7 +65,7 @@ export default function ContainersPage() {
       </div>
 
       {/* Empty state */}
-      <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-border bg-white/50 px-6 py-14 text-center">
+      <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-border bg-surface-card/50 px-6 py-14 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-secondary text-text-muted">
           <Box size={24} />
         </div>
@@ -85,7 +85,7 @@ export default function ContainersPage() {
       {/* Create modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-display text-lg font-bold text-text-primary">New Container</h3>
               <button onClick={() => setShowCreate(false)} className="text-text-muted hover:text-text-primary">

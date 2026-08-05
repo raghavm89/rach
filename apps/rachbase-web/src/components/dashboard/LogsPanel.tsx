@@ -70,7 +70,7 @@ export function LogsPanel({ serviceId, token }: { serviceId: number; token: stri
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="inline-flex rounded-lg border border-neutral-border bg-white p-0.5 text-xs">
+        <div className="inline-flex rounded-lg border border-neutral-border bg-surface-card p-0.5 text-xs">
           {(["runtime", "deploys"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)}
               className={cn("rounded-md px-3 py-1 font-medium capitalize transition-colors",
@@ -102,7 +102,7 @@ export function LogsPanel({ serviceId, token }: { serviceId: number; token: stri
           {loading && !runtime ? "Loading…" : runtime || "No runtime logs yet."}
         </pre>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-neutral-border bg-white">
+        <div className="overflow-hidden rounded-xl border border-neutral-border bg-surface-card">
           {loading && deploys.length === 0 ? (
             <div className="flex justify-center py-6 text-text-muted"><Loader2 className="animate-spin" size={16} /></div>
           ) : deploys.length === 0 ? (

@@ -58,7 +58,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-white rounded-xl shadow-2xl border border-neutral-border overflow-hidden">
+      <div className="relative w-full max-w-lg mx-4 bg-surface-card rounded-xl shadow-2xl border border-neutral-border overflow-hidden">
         {/* Top bar: progress + skip/close */}
         <div className="px-6 pt-5 pb-0">
           <div className="flex items-center justify-between mb-4">
@@ -128,7 +128,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    projectType === "fresh" ? "bg-primary-blue/10" : "bg-gray-100"
+                    projectType === "fresh" ? "bg-primary-blue/10" : "bg-surface-hover"
                   }`}>
                     <Rocket className={`w-5 h-5 ${projectType === "fresh" ? "text-primary-blue" : "text-dash-muted"}`} />
                   </div>
@@ -147,7 +147,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    projectType === "migrate" ? "bg-primary-blue/10" : "bg-gray-100"
+                    projectType === "migrate" ? "bg-primary-blue/10" : "bg-surface-hover"
                   }`}>
                     <Server className={`w-5 h-5 ${projectType === "migrate" ? "text-primary-blue" : "text-dash-muted"}`} />
                   </div>
@@ -176,7 +176,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    region === "us-east" ? "bg-primary-blue/10" : "bg-gray-100"
+                    region === "us-east" ? "bg-primary-blue/10" : "bg-surface-hover"
                   }`}>
                     <Globe className={`w-5 h-5 ${region === "us-east" ? "text-primary-blue" : "text-dash-muted"}`} />
                   </div>
@@ -198,7 +198,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    region === "in-mumbai" ? "bg-primary-blue/10" : "bg-gray-100"
+                    region === "in-mumbai" ? "bg-primary-blue/10" : "bg-surface-hover"
                   }`}>
                     <Globe className={`w-5 h-5 ${region === "in-mumbai" ? "text-primary-blue" : "text-dash-muted"}`} />
                   </div>
@@ -230,7 +230,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     placeholder="my-awesome-project"
-                    className="w-full px-3 py-2 text-sm border border-neutral-border rounded-md bg-white text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue"
+                    className="w-full px-3 py-2 text-sm border border-neutral-border rounded-md bg-surface-card text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue"
                   />
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export function OnboardingWizard({ isOpen, onClose }: OnboardingWizardProps) {
                     onChange={(e) => setProjectDescription(e.target.value)}
                     placeholder="A brief description of your project"
                     rows={3}
-                    className="w-full px-3 py-2 text-sm border border-neutral-border rounded-md bg-white text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue resize-none"
+                    className="w-full px-3 py-2 text-sm border border-neutral-border rounded-md bg-surface-card text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue resize-none"
                   />
                 </div>
               </div>

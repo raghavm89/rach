@@ -23,7 +23,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 const ROLE_STYLE: Record<UserRole, string> = {
   admin        : 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
   tenant_admin : 'bg-accent-sky/30 text-primary-blue',
-  tenant_user  : 'bg-neutral-100 text-text-secondary',
+  tenant_user  : 'bg-surface-hover text-text-secondary',
   developer    : 'bg-amber-100 text-amber-700',
 };
 
@@ -252,7 +252,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar + identity card */}
-      <div className="rounded-2xl border border-neutral-border bg-white p-6 flex items-center gap-5">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card p-6 flex items-center gap-5">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-blue to-primary-purple text-white text-xl font-bold select-none">
           {initials}
         </div>
@@ -264,7 +264,7 @@ export default function ProfilePage() {
               <Shield size={10} /> {ROLE_LABELS[role] ?? role}
             </span>
             {user.tenant_name && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
                 <Building2 size={10} /> {user.tenant_name}
               </span>
             )}
@@ -278,7 +278,7 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Personal Information ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
         <SectionHeader title="Personal Information" subtitle="Update your name and phone number." />
         <form onSubmit={handleProfileSave} className="p-6 space-y-4">
           {profileNotice && <Notice {...profileNotice} />}
@@ -295,7 +295,7 @@ export default function ProfilePage() {
             <div className="relative">
               <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input type="email" value={user.email} readOnly
-                className="w-full rounded-lg border border-neutral-border bg-neutral-50 pl-9 pr-4 py-2.5 text-sm text-text-muted cursor-not-allowed" />
+                className="w-full rounded-lg border border-neutral-border bg-surface-hover pl-9 pr-4 py-2.5 text-sm text-text-muted cursor-not-allowed" />
             </div>
           </Field>
 
@@ -317,7 +317,7 @@ export default function ProfilePage() {
       {isTenantAdmin && <>
 
       {/* ── Business Information ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
         <SectionHeader
           title="Business Information"
           subtitle="Tell us whether you're signing up as an individual or a business. This helps us tailor invoices and support."
@@ -406,7 +406,7 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Billing Address ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
         <SectionHeader
           title="Billing Address"
           subtitle="Saved here and automatically prefilled when you check out."
@@ -474,14 +474,14 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Payment Methods ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
         <SectionHeader
           title="Payment Methods"
           subtitle="Saved cards and UPI handles used for subscription billing."
         />
         <div className="p-6">
           <div className="rounded-xl border border-dashed border-neutral-border bg-bg-secondary/40 px-6 py-8 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-hover">
               <CreditCard size={20} className="text-text-muted" />
             </div>
             <p className="text-sm font-medium text-text-secondary">No saved payment methods</p>
@@ -490,10 +490,10 @@ export default function ProfilePage() {
               It will appear here after your first successful subscription payment.
             </p>
             <div className="mt-4 flex items-center justify-center gap-3">
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1 text-xs text-text-muted">
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-3 py-1 text-xs text-text-muted">
                 <Lock size={10} /> Secured by Razorpay
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1 text-xs text-text-muted">
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-3 py-1 text-xs text-text-muted">
                 PCI DSS compliant
               </span>
             </div>
@@ -510,7 +510,7 @@ export default function ProfilePage() {
       </>}
 
       {/* ── Change Password ──────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
         <SectionHeader title="Change Password" subtitle="Use a strong password of at least 8 characters." />
         <form onSubmit={handlePasswordSave} className="p-6 space-y-4">
           {pwdNotice && <Notice {...pwdNotice} />}
