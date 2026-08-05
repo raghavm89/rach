@@ -54,7 +54,7 @@ export function DbConsole({ serviceId, token }: { serviceId: number; token: stri
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
       {/* Tables list */}
-      <div className="rounded-xl border border-neutral-border bg-white">
+      <div className="rounded-xl border border-neutral-border bg-surface-card">
         <div className="flex items-center justify-between border-b border-neutral-border px-3 py-2">
           <span className="flex items-center gap-1.5 text-xs font-semibold text-text-primary">
             <Database size={13} /> Tables
@@ -89,7 +89,7 @@ export function DbConsole({ serviceId, token }: { serviceId: number; token: stri
 
       {/* Query editor + results */}
       <div className="space-y-3">
-        <div className="rounded-xl border border-neutral-border bg-white">
+        <div className="rounded-xl border border-neutral-border bg-surface-card">
           <textarea
             value={sql}
             onChange={(e) => setSql(e.target.value)}
@@ -144,7 +144,7 @@ export function DbConsole({ serviceId, token }: { serviceId: number; token: stri
         )}
 
         {result && (
-          <div className="overflow-hidden rounded-xl border border-neutral-border bg-white">
+          <div className="overflow-hidden rounded-xl border border-neutral-border bg-surface-card">
             <div className="flex items-center justify-between border-b border-neutral-border px-3 py-2 text-xs text-text-muted">
               <span>{result.rowCount} row{result.rowCount === 1 ? "" : "s"}{result.truncated && " · showing first 1000"}</span>
             </div>

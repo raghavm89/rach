@@ -66,7 +66,7 @@ export function CommandPalette() {
     <div className="fixed inset-0 z-50">
       <div className="fixed inset-0 bg-black/50" onClick={() => setOpen(false)} />
       <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg">
-        <Command className="bg-white rounded-xl shadow-2xl border border-neutral-border overflow-hidden">
+        <Command className="bg-surface-card rounded-xl shadow-2xl border border-neutral-border overflow-hidden">
           <Command.Input
             placeholder="Search pages, actions..."
             className="w-full px-4 py-3 text-sm border-b border-neutral-border bg-transparent outline-none text-dash-heading placeholder:text-dash-disabled"

@@ -56,13 +56,13 @@ export function DataTable<TData>({
             placeholder={searchPlaceholder}
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-border rounded-md bg-white text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-border rounded-md bg-surface-card text-dash-body placeholder:text-dash-disabled focus:outline-none focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue"
           />
         </div>
       )}
 
       {/* Table */}
-      <div className="border border-neutral-border rounded-lg overflow-hidden bg-white">
+      <div className="border border-neutral-border rounded-lg overflow-hidden bg-surface-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

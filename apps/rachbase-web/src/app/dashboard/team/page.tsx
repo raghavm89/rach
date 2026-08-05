@@ -60,7 +60,7 @@ function CreateUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-surface-card shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4">
           <h3 className="font-semibold text-text-primary">Add Team Member</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary"><X size={18} /></button>
@@ -165,7 +165,7 @@ function AssignVMsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-white shadow-xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-surface-card shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4 shrink-0">
           <div>
             <h3 className="font-semibold text-text-primary">Assign VMs</h3>
@@ -207,7 +207,7 @@ function AssignVMsModal({
                       className="h-4 w-4 rounded accent-primary-blue"
                     />
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', vm.status === 'running' ? 'bg-emerald-50' : 'bg-neutral-100')}>
+                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', vm.status === 'running' ? 'bg-emerald-50' : 'bg-surface-hover')}>
                         <Server size={14} className={vm.status === 'running' ? 'text-emerald-600' : 'text-text-muted'} />
                       </div>
                       <div className="min-w-0">
@@ -215,7 +215,7 @@ function AssignVMsModal({
                         <p className="text-xs text-text-muted font-mono">{vm.id}</p>
                       </div>
                     </div>
-                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold shrink-0', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-text-muted')}>
+                    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold shrink-0', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-hover text-text-muted')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', vm.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400')} />
                       {vm.status}
                     </span>
@@ -295,7 +295,7 @@ export default function TeamPage() {
 
   const ROLE_BADGE: Record<string, string> = {
     tenant_admin : 'bg-accent-sky/30 text-primary-blue',
-    tenant_user  : 'bg-neutral-100 text-text-secondary',
+    tenant_user  : 'bg-surface-hover text-text-secondary',
   };
 
   return (
@@ -307,7 +307,7 @@ export default function TeamPage() {
           <p className="mt-0.5 text-sm text-text-muted">Manage team members and their VM access</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={fetchMembers} className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors">
+          <button onClick={fetchMembers} className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors">
             <RefreshCw size={14} /> Refresh
           </button>
           <button
@@ -326,7 +326,7 @@ export default function TeamPage() {
           { label: 'Admins',        value: members.filter((m) => m.role === 'tenant_admin').length },
           { label: 'With VMs',      value: Object.values(vmCounts).filter((c) => c > 0).length },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-neutral-border bg-white p-5">
+          <div key={s.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
             <p className="text-2xl font-bold font-mono text-text-primary">{s.value}</p>
             <p className="mt-0.5 text-xs text-text-muted">{s.label}</p>
           </div>
@@ -334,7 +334,7 @@ export default function TeamPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">Team Members</h3>
           <span className="text-xs text-text-muted">{members.length} members</span>
@@ -383,7 +383,7 @@ export default function TeamPage() {
                       </td>
                       <td className="px-6 py-4 text-text-secondary">{m.email}</td>
                       <td className="px-6 py-4">
-                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', ROLE_BADGE[m.role] ?? 'bg-neutral-100 text-text-muted')}>
+                        <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', ROLE_BADGE[m.role] ?? 'bg-surface-hover text-text-muted')}>
                           {m.role === 'tenant_admin' ? 'Admin' : 'User'}
                         </span>
                       </td>

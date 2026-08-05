@@ -8,7 +8,7 @@ import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { projects as projectsApi, type Project } from '@rach/ui/lib/api';
 
 const DOT_GRID: React.CSSProperties = {
-  backgroundImage: 'radial-gradient(circle, var(--line, #E5E7EB) 1px, transparent 1px)',
+  backgroundImage: 'radial-gradient(circle, var(--dot-color) 1px, transparent 1px)',
   backgroundSize: '18px 18px',
 };
 
@@ -90,7 +90,7 @@ export default function ProjectsPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20 text-text-muted"><Loader2 className="animate-spin" /></div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-border bg-white/50 px-6 py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-border bg-surface-card/50 px-6 py-16 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-secondary text-text-muted"><FolderGit2 size={24} /></div>
           <p className="mt-4 font-semibold text-text-primary">No projects yet</p>
           <p className="mt-1 max-w-sm text-sm text-text-muted">Create a project to group your services — each runs your app from a GitHub repo or a managed Postgres.</p>
@@ -108,7 +108,7 @@ export default function ProjectsPage() {
               <Link
                 key={p.id}
                 href={`/dashboard/projects/${p.id}`}
-                className="group overflow-hidden rounded-2xl border border-neutral-border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                className="group overflow-hidden rounded-2xl border border-neutral-border bg-surface-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="px-5 pt-4"><p className="font-semibold text-text-primary">{p.name}</p></div>
                 <div className="relative mx-3 mt-3 h-40 overflow-hidden rounded-xl border border-neutral-border bg-bg-secondary" style={DOT_GRID}>
@@ -117,7 +117,7 @@ export default function ProjectsPage() {
                       <span className="text-xs text-text-muted">No services</span>
                     ) : (
                       Array.from({ length: nodes }).map((_, i) => (
-                        <div key={i} className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-border bg-white text-text-secondary shadow-sm">
+                        <div key={i} className="flex h-11 w-11 items-center justify-center rounded-xl border border-neutral-border bg-surface-card text-text-secondary shadow-sm">
                           <Box size={18} />
                         </div>
                       ))
@@ -139,7 +139,7 @@ export default function ProjectsPage() {
       {/* Create project modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-2xl bg-surface-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-display text-lg font-bold text-text-primary">New Project</h3>
               <button onClick={() => setShowCreate(false)} className="text-text-muted hover:text-text-primary"><X size={18} /></button>

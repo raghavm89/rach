@@ -93,26 +93,26 @@ export default function VMMonitorPage() {
       <div className="max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-8 w-36 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-            <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100" />
+            <div className="h-8 w-36 animate-pulse rounded-lg bg-surface-hover mb-2" />
+            <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover" />
           </div>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-neutral-100" />
-            <div className="h-9 w-36 animate-pulse rounded-lg bg-neutral-100" />
+            <div className="h-9 w-24 animate-pulse rounded-lg bg-surface-hover" />
+            <div className="h-9 w-36 animate-pulse rounded-lg bg-surface-hover" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[0,1,2,3].map((i) => (
-            <div key={i} className="rounded-xl border border-neutral-border bg-white p-5">
-              <div className="mb-3 h-8 w-8 animate-pulse rounded-lg bg-neutral-100" />
-              <div className="h-8 w-14 animate-pulse rounded-lg bg-neutral-100 mb-2" />
-              <div className="h-3.5 w-24 animate-pulse rounded bg-neutral-100" />
+            <div key={i} className="rounded-xl border border-neutral-border bg-surface-card p-5">
+              <div className="mb-3 h-8 w-8 animate-pulse rounded-lg bg-surface-hover" />
+              <div className="h-8 w-14 animate-pulse rounded-lg bg-surface-hover mb-2" />
+              <div className="h-3.5 w-24 animate-pulse rounded bg-surface-hover" />
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+        <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
           <div className="border-b border-neutral-border px-6 py-4">
-            <div className="h-4 w-32 animate-pulse rounded bg-neutral-100" />
+            <div className="h-4 w-32 animate-pulse rounded bg-surface-hover" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -127,24 +127,24 @@ export default function VMMonitorPage() {
                 {[...Array(6)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4">
-                      <div className="h-3.5 w-28 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-3 w-16 animate-pulse rounded bg-neutral-100" />
+                      <div className="h-3.5 w-28 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-3 w-16 animate-pulse rounded bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-neutral-100" /></td>
-                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-neutral-100" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-10 animate-pulse rounded-full bg-surface-hover" /></td>
+                    <td className="px-6 py-4"><div className="h-5 w-16 animate-pulse rounded-full bg-surface-hover" /></td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-8 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-neutral-100" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-8 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-24 animate-pulse rounded-full bg-surface-hover" />
                     </td>
                     <td className="px-6 py-4">
-                      <div className="h-3 w-20 animate-pulse rounded bg-neutral-100 mb-1.5" />
-                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-neutral-100" />
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
                     </td>
-                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-neutral-100" /></td>
+                    <td className="px-6 py-4">
+                      <div className="h-3 w-20 animate-pulse rounded bg-surface-hover mb-1.5" />
+                      <div className="h-1.5 w-28 animate-pulse rounded-full bg-surface-hover" />
+                    </td>
+                    <td className="px-6 py-4"><div className="h-3.5 w-12 animate-pulse rounded bg-surface-hover" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -227,7 +227,7 @@ export default function VMMonitorPage() {
           <button
             onClick={() => fetchData(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} />
             Refresh
@@ -251,7 +251,7 @@ export default function VMMonitorPage() {
             { label: 'Containers Running', value: summary.lxc.running, icon: <Server size={16} />, accent: false },
             { label: 'Total Guests', value: summary.vms.total + summary.lxc.total, icon: <Server size={16} />, accent: false },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-neutral-border bg-white p-5">
+            <div key={stat.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
               <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-lg', stat.accent ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted')}>
                 {stat.icon}
               </div>
@@ -263,7 +263,7 @@ export default function VMMonitorPage() {
       )}
 
       {/* VM Table */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-3">
           <h3 className="text-sm font-semibold text-text-primary">Tenant VM Pool</h3>
           {summary?.poolName && (
@@ -325,7 +325,7 @@ export default function VMMonitorPage() {
                     <span className="rounded-full bg-bg-secondary px-2.5 py-0.5 text-xs font-medium text-text-secondary uppercase">{vm.type}</span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-text-muted')}>
+                    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-hover text-text-muted')}>
                       <span className={cn('h-1.5 w-1.5 rounded-full', vm.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400')} />
                       {vm.status}
                     </span>

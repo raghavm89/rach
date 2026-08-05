@@ -51,7 +51,7 @@ export default function DashboardPage() {
             key={card.href}
             href={card.href}
             className={cn(
-              'group relative flex flex-col gap-3 rounded-xl border border-neutral-border bg-white p-6 transition-all duration-200',
+              'group relative flex flex-col gap-3 rounded-xl border border-neutral-border bg-surface-card p-6 transition-all duration-200',
               'hover:-translate-y-1 hover:shadow-md',
             )}
           >

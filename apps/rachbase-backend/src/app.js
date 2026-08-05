@@ -34,6 +34,7 @@ const cartRoutes       = require('./routes/cart');       // per-user persistent 
 const vmKeyRoutes      = require('./routes/vmKeys');     // per-VM SSH keypair admin
 const agentRoutes      = require('./routes/agent');      // agent credits + usage (billing half)
 const endpointRoutes   = require('./routes/endpoints');  // Application Workload Monitoring (HTTP checks)
+const supportRoutes    = require('./routes/support');    // support tickets
 
 const app = express();
 
@@ -130,6 +131,7 @@ app.use('/api/agent',      agentRoutes);
 app.use('/api/plans',      planRoutes);
 app.use('/api/projects',   projectRoutes);
 app.use('/api/endpoints',  endpointRoutes);
+app.use('/api/support',    supportRoutes);
 
 // Internal service API (protected by service token, not user auth)
 app.use('/internal', internalRoutes);

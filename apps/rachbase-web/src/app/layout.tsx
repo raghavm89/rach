@@ -51,6 +51,15 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        {/* Pre-hydration: apply saved/system dark theme on dashboard routes
+            before first paint to avoid a light→dark flash. Mirrors ThemeProvider. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(location.pathname.indexOf('/dashboard')!==0)return;var s=localStorage.getItem('rachbase-theme');var d=s?s==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${bricolageGrotesque.variable} ${hankenGrotesk.variable} ${jetbrainsMono.variable} font-body antialiased`}
       >

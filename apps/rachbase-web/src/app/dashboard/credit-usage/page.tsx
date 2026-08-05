@@ -78,7 +78,7 @@ export default function CreditUsagePage() {
                 { label: 'Total Used',       value: `${summary.total_used} cr`,        icon: <Activity size={16} />,   accent: false },
                 { label: 'Total Tokens',     value: summary.total_tokens.toLocaleString(), icon: <Bot size={16} />,    accent: false },
               ].map((stat) => (
-                <div key={stat.label} className="rounded-xl border border-neutral-border bg-white p-5">
+                <div key={stat.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
                   <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-lg',
                     stat.accent ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted'
                   )}>
@@ -93,7 +93,7 @@ export default function CreditUsagePage() {
 
           {/* Session usage */}
           {sessions.length > 0 && (
-            <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+            <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
               <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
                 <Bot size={15} className="text-text-muted" />
                 <h3 className="text-sm font-semibold text-text-primary">Agent Session Usage</h3>
@@ -131,7 +131,7 @@ export default function CreditUsagePage() {
 
           {/* Credit history */}
           {history.length > 0 && (
-            <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+            <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
               <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
                 <Receipt size={15} className="text-text-muted" />
                 <h3 className="text-sm font-semibold text-text-primary">Credit History</h3>

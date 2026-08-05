@@ -105,6 +105,18 @@ const deployLimiter = rateLimit({
   handler: jsonError('Too many deploys. Please wait a few minutes.'),
 });
 
+// Support chat: 30 / min / user — the rule-based bot runs several DB queries per
+// call, so bound how fast a single authenticated user can hammer it. Keyed by
+// user (must run after authenticate); falls back to IP.
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.user?.id ? `u:${req.user.id}` : ipKey(req.ip)),
+  handler: jsonError('You are sending messages too quickly. Please slow down.'),
+});
+
 module.exports = {
   loginLimiter,
   registerLimiter,
@@ -115,4 +127,5 @@ module.exports = {
   resetPasswordLimiter,
   oauthLimiter,
   deployLimiter,
+  chatLimiter,
 };

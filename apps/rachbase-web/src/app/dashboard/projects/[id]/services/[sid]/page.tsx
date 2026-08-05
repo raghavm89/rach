@@ -187,7 +187,7 @@ export default function ServiceDetailPage() {
             {service.repo_full_name && <Row label="Repository" value={service.repo_full_name} />}
             <Row label="Branch" value={service.branch} />
           </Panel>
-          <div className="flex items-center justify-between rounded-xl border border-neutral-border bg-white p-4">
+          <div className="flex items-center justify-between rounded-xl border border-neutral-border bg-surface-card p-4">
             <div>
               <p className="text-sm font-semibold text-text-primary">Trigger a deployment</p>
               <p className="text-xs text-text-muted">Builds the latest commit and rolls it out with zero downtime.</p>
@@ -343,7 +343,7 @@ export default function ServiceDetailPage() {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-border bg-white p-5">
+    <div className="rounded-xl border border-neutral-border bg-surface-card p-5">
       <p className="mb-3 text-sm font-semibold text-text-primary">{title}</p>
       {children}
     </div>

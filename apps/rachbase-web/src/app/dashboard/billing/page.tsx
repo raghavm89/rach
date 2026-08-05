@@ -56,7 +56,7 @@ const SERVICE_ICONS: Record<string, { Icon: React.ElementType; iconBg: string; i
   db:   { Icon: Database,  iconBg: 'bg-violet-50',  iconColor: 'text-violet-600' },
   obs:  { Icon: BarChart2, iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
   mon:  { Icon: Activity,  iconBg: 'bg-amber-50',   iconColor: 'text-amber-600' },
-  logs: { Icon: FileText,  iconBg: 'bg-slate-50',   iconColor: 'text-slate-500' },
+  logs: { Icon: FileText,  iconBg: 'bg-surface-hover',   iconColor: 'text-slate-500' },
   analytics: { Icon: LineChart, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
 };
 
@@ -142,7 +142,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
   const STATUS_STYLE: Record<string, { dot: string; badge: string; label: string }> = {
     pending  : { dot: 'bg-amber-400',   badge: 'bg-amber-50 text-amber-700 border-amber-200',       label: 'Pending' },
     fulfilled: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Fulfilled' },
-    cancelled: { dot: 'bg-neutral-400', badge: 'bg-neutral-100 text-text-muted border-neutral-200', label: 'Cancelled' },
+    cancelled: { dot: 'bg-neutral-400', badge: 'bg-surface-hover text-text-muted border-neutral-border', label: 'Cancelled' },
   };
   const s = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
 
@@ -167,7 +167,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-2xl bg-surface-card shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -314,7 +314,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
           <p className="text-xs text-text-muted">Need help? Contact support.</p>
           <button
             onClick={onClose}
-            className="rounded-lg border border-neutral-border bg-white px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
+            className="rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-xs font-semibold text-text-primary hover:bg-bg-secondary transition-colors"
           >
             Close
           </button>
@@ -343,14 +343,14 @@ function OrderHistory({ token }: { token: string }) {
   const STATUS_BADGE: Record<string, string> = {
     pending  : 'bg-amber-50 text-amber-700',
     fulfilled: 'bg-emerald-50 text-emerald-700',
-    cancelled: 'bg-neutral-100 text-text-muted',
+    cancelled: 'bg-surface-hover text-text-muted',
   };
 
   return (
     <>
       {selected && <OrderDetailModal request={selected} onClose={() => setSelected(null)} />}
 
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
           <History size={16} className="text-text-muted" />
           <h3 className="text-sm font-semibold text-text-primary">Order History</h3>
@@ -652,7 +652,7 @@ export default function BillingPage() {
             className={cn(
               'flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition-all duration-200',
               tab === t.id
-                ? 'bg-white text-text-primary shadow-sm'
+                ? 'bg-surface-card text-text-primary shadow-sm'
                 : 'text-text-muted hover:text-text-secondary',
             )}
           >
@@ -675,7 +675,7 @@ export default function BillingPage() {
                     'rounded-2xl border-2 p-5 text-center',
                     bundle.highlight
                       ? 'border-primary-purple/40 bg-gradient-to-br from-primary-blue/5 to-primary-purple/5'
-                      : 'border-neutral-border bg-white',
+                      : 'border-neutral-border bg-surface-card',
                   )}
                 >
                   {bundle.badge && (
@@ -709,7 +709,7 @@ export default function BillingPage() {
             })}
           </div>
 
-          <div className="rounded-2xl border border-neutral-border bg-white overflow-hidden">
+          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
             <div className="px-6 py-4 border-b border-neutral-border">
               <h3 className="font-semibold text-text-primary">What&apos;s included</h3>
               <p className="text-xs text-text-muted mt-0.5">Exact specs and pricing per service, per bundle.</p>
@@ -728,7 +728,7 @@ export default function BillingPage() {
                 </thead>
                 <tbody>
                   {SERVICES.map((svc, i) => (
-                    <tr key={svc.id} className={cn('border-b border-neutral-border last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-bg-secondary/50')}>
+                    <tr key={svc.id} className={cn('border-b border-neutral-border last:border-0', i % 2 === 0 ? 'bg-surface-card' : 'bg-bg-secondary/50')}>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
                           <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg shrink-0', svc.iconBg)}>
@@ -841,7 +841,7 @@ export default function BillingPage() {
                   <p className="text-xs text-text-muted mt-0.5">Get started with a single VM — perfect for small projects and testing.</p>
                 </div>
                 <div className={cn(
-                  'flex items-center gap-4 rounded-2xl border-2 bg-white px-6 py-5 transition-all duration-200',
+                  'flex items-center gap-4 rounded-2xl border-2 bg-surface-card px-6 py-5 transition-all duration-200',
                   starterQty > 0 ? 'border-primary-blue shadow-sm' : 'border-neutral-border',
                 )}>
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 shrink-0">
@@ -896,8 +896,8 @@ export default function BillingPage() {
                         isSelected
                           ? 'border-primary-blue bg-gradient-to-br from-primary-blue/5 to-primary-purple/5 shadow-md'
                           : bundle.highlight
-                          ? 'border-primary-purple/30 hover:border-primary-purple bg-white'
-                          : 'border-neutral-border hover:border-primary-blue/40 bg-white',
+                          ? 'border-primary-purple/30 hover:border-primary-purple bg-surface-card'
+                          : 'border-neutral-border hover:border-primary-blue/40 bg-surface-card',
                       )}
                     >
                       {bundle.badge && (
@@ -975,7 +975,7 @@ export default function BillingPage() {
                     <div
                       key={svc.id}
                       className={cn(
-                        'flex items-center gap-4 rounded-2xl border-2 bg-white px-6 py-5 transition-all duration-200',
+                        'flex items-center gap-4 rounded-2xl border-2 bg-surface-card px-6 py-5 transition-all duration-200',
                         qty > 0 ? 'border-primary-blue shadow-sm' : 'border-neutral-border hover:border-primary-blue/30',
                       )}
                     >
@@ -1025,7 +1025,7 @@ export default function BillingPage() {
               'rounded-2xl border-2 p-6 transition-all duration-300',
               hasSelection
                 ? 'border-primary-blue/20 bg-gradient-to-br from-primary-blue/5 to-primary-purple/5'
-                : 'border-neutral-border bg-white',
+                : 'border-neutral-border bg-surface-card',
             )}>
               <h3 className="font-semibold text-text-primary mb-4">Order Summary</h3>
 
@@ -1081,7 +1081,7 @@ export default function BillingPage() {
             </div>
 
             {tab === 'bundles' && (
-              <div className="rounded-xl border border-neutral-border bg-white p-5 space-y-3">
+              <div className="rounded-xl border border-neutral-border bg-surface-card p-5 space-y-3">
                 <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">What you get</p>
                 {SERVICES.map((svc) => (
                   <div key={svc.id} className="flex items-center gap-3">
@@ -1147,7 +1147,7 @@ export default function BillingPage() {
                       'relative text-left rounded-2xl border-2 p-5 transition-all duration-200',
                       isSelected
                         ? 'border-primary-blue bg-primary-blue/5 shadow-md'
-                        : 'border-neutral-border hover:border-primary-blue/40 bg-white'
+                        : 'border-neutral-border hover:border-primary-blue/40 bg-surface-card'
                     )}
                   >
                     <div className="flex items-start justify-between mb-3">
@@ -1183,7 +1183,7 @@ export default function BillingPage() {
             {/* Order Summary */}
             <div className={cn(
               'rounded-2xl border-2 p-6 transition-all duration-300',
-              selectedPack ? 'border-primary-blue/20 bg-primary-blue/5' : 'border-neutral-border bg-white'
+              selectedPack ? 'border-primary-blue/20 bg-primary-blue/5' : 'border-neutral-border bg-surface-card'
             )}>
               <h3 className="font-semibold text-text-primary mb-4">Order Summary</h3>
               {!selectedPack ? (
@@ -1219,7 +1219,7 @@ export default function BillingPage() {
                         </div>
 
                         {/* Billing info from profile */}
-                        <div className="rounded-xl border border-neutral-border bg-white p-4 mb-4 space-y-2">
+                        <div className="rounded-xl border border-neutral-border bg-surface-card p-4 mb-4 space-y-2">
                           <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">Billing Info</p>
                           <div className="flex justify-between text-sm">
                             <span className="text-text-muted">Name</span>
@@ -1267,7 +1267,7 @@ export default function BillingPage() {
             </div>
 
             {/* Credits bundle info */}
-            <div className="rounded-xl border border-neutral-border bg-white p-5 space-y-3">
+            <div className="rounded-xl border border-neutral-border bg-surface-card p-5 space-y-3">
               <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">About Agent Credits</p>
               {[
                 { label: 'Model',          value: 'Claude Haiku 4.5' },
@@ -1305,7 +1305,7 @@ export default function BillingPage() {
                     { label: 'Total Used',       value: `${usageSummary.total_used} cr`, icon: <Activity size={16} />, accent: false },
                     { label: 'Total Tokens',     value: usageSummary.total_tokens.toLocaleString(), icon: <Bot size={16} />, accent: false },
                   ].map((stat) => (
-                    <div key={stat.label} className="rounded-xl border border-neutral-border bg-white p-5">
+                    <div key={stat.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
                       <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-lg',
                         stat.accent ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted'
                       )}>
@@ -1320,7 +1320,7 @@ export default function BillingPage() {
 
               {/* Per-session usage */}
               {sessionUsage.length > 0 && (
-                <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+                <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
                   <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
                     <Bot size={15} className="text-text-muted" />
                     <h3 className="text-sm font-semibold text-text-primary">Agent Session Usage</h3>
@@ -1358,7 +1358,7 @@ export default function BillingPage() {
 
               {/* Credit transaction history */}
               {creditHistory.length > 0 && (
-                <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+                <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
                   <div className="border-b border-neutral-border px-6 py-4 flex items-center gap-2">
                     <Receipt size={15} className="text-text-muted" />
                     <h3 className="text-sm font-semibold text-text-primary">Credit History</h3>

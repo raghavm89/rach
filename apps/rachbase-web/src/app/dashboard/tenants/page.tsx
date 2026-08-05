@@ -43,7 +43,7 @@ function CreateTenantModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-surface-card shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4">
           <h3 className="font-semibold text-text-primary">New Tenant</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text-primary">
@@ -161,7 +161,7 @@ function AssignVMsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-white shadow-xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-lg rounded-2xl border border-neutral-border bg-surface-card shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4 shrink-0">
           <div>
             <h3 className="font-semibold text-text-primary">Assign VM Pool</h3>
@@ -205,7 +205,7 @@ function AssignVMsModal({
                       className="h-4 w-4 rounded accent-primary-blue"
                     />
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', vm.status === 'running' ? 'bg-emerald-50' : 'bg-neutral-100')}>
+                      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg shrink-0', vm.status === 'running' ? 'bg-emerald-50' : 'bg-surface-hover')}>
                         <Server size={14} className={vm.status === 'running' ? 'text-emerald-600' : 'text-text-muted'} />
                       </div>
                       <div className="min-w-0">
@@ -214,7 +214,7 @@ function AssignVMsModal({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-text-muted')}>
+                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', vm.status === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-hover text-text-muted')}>
                         <span className={cn('h-1.5 w-1.5 rounded-full', vm.status === 'running' ? 'bg-emerald-500' : 'bg-neutral-400')} />
                         {vm.status}
                       </span>
@@ -296,7 +296,7 @@ function CreateAdminModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-surface-card shadow-xl">
         <div className="flex items-center justify-between border-b border-neutral-border px-6 py-4">
           <div>
             <h3 className="font-semibold text-text-primary">Add User to Tenant</h3>
@@ -410,7 +410,7 @@ export default function TenantsPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={fetchTenants}
-            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-white px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors"
           >
             <RefreshCw size={14} />
             Refresh
@@ -432,12 +432,12 @@ export default function TenantsPage() {
           { label: 'Total Users',   value: tenantList.reduce((s, t) => s + (t.user_count ?? 0), 0), icon: <Users size={16} />, accent: false },
           { label: 'Total VMs',     value: tenantList.reduce((s, t) => s + (t.vm_count  ?? 0), 0), icon: <Server size={16} />, accent: false },
         ].map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-neutral-border bg-white p-5">
+          <div key={stat.label} className="rounded-xl border border-neutral-border bg-surface-card p-5">
             <div className={cn('mb-3 flex h-8 w-8 items-center justify-center rounded-lg', stat.accent ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted')}>
               {stat.icon}
             </div>
             {loading
-              ? <div className="h-8 w-12 animate-pulse rounded-lg bg-neutral-100 mb-2" />
+              ? <div className="h-8 w-12 animate-pulse rounded-lg bg-surface-hover mb-2" />
               : <p className="text-2xl font-bold font-mono text-text-primary">{stat.value}</p>
             }
             <p className="mt-0.5 text-xs text-text-muted">{stat.label}</p>
@@ -446,7 +446,7 @@ export default function TenantsPage() {
       </div>
 
       {/* Tenant list */}
-      <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+      <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
         <div className="border-b border-neutral-border px-6 py-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">Organisations</h3>
           <span className="text-xs text-text-muted">{tenantList.length} tenants</span>
@@ -456,16 +456,16 @@ export default function TenantsPage() {
           <div className="divide-y divide-neutral-border">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-6 py-4">
-                <div className="h-5 w-5 animate-pulse rounded bg-neutral-100 shrink-0" />
-                <div className="h-9 w-9 animate-pulse rounded-xl bg-neutral-100 shrink-0" />
+                <div className="h-5 w-5 animate-pulse rounded bg-surface-hover shrink-0" />
+                <div className="h-9 w-9 animate-pulse rounded-xl bg-surface-hover shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="h-4 w-40 animate-pulse rounded bg-neutral-100 mb-2" />
-                  <div className="h-3 w-52 animate-pulse rounded bg-neutral-100" />
+                  <div className="h-4 w-40 animate-pulse rounded bg-surface-hover mb-2" />
+                  <div className="h-3 w-52 animate-pulse rounded bg-surface-hover" />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="h-7 w-20 animate-pulse rounded-lg bg-neutral-100" />
-                  <div className="h-7 w-20 animate-pulse rounded-lg bg-neutral-100" />
-                  <div className="h-7 w-8 animate-pulse rounded-lg bg-neutral-100" />
+                  <div className="h-7 w-20 animate-pulse rounded-lg bg-surface-hover" />
+                  <div className="h-7 w-20 animate-pulse rounded-lg bg-surface-hover" />
+                  <div className="h-7 w-8 animate-pulse rounded-lg bg-surface-hover" />
                 </div>
               </div>
             ))}
@@ -640,7 +640,7 @@ function ExpansionRequestsPanel({ token }: { token: string }) {
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="rounded-xl border border-neutral-border bg-white overflow-hidden">
+    <div className="rounded-xl border border-neutral-border bg-surface-card overflow-hidden">
       <div className="border-b border-neutral-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <PackageCheck size={16} className="text-primary-blue" />
@@ -668,16 +668,16 @@ function ExpansionRequestsPanel({ token }: { token: string }) {
             <tbody className="divide-y divide-neutral-border">
               {[...Array(3)].map((_, i) => (
                 <tr key={i}>
-                  <td className="px-5 py-4"><div className="h-4 w-28 animate-pulse rounded bg-neutral-100" /></td>
-                  <td className="px-5 py-4"><div className="h-4 w-32 animate-pulse rounded bg-neutral-100" /></td>
-                  <td className="px-5 py-4"><div className="h-5 w-12 animate-pulse rounded-full bg-neutral-100" /></td>
-                  <td className="px-5 py-4"><div className="h-4 w-24 animate-pulse rounded bg-neutral-100" /></td>
-                  <td className="px-5 py-4"><div className="h-4 w-20 animate-pulse rounded bg-neutral-100" /></td>
-                  <td className="px-5 py-4"><div className="h-4 w-16 animate-pulse rounded bg-neutral-100" /></td>
+                  <td className="px-5 py-4"><div className="h-4 w-28 animate-pulse rounded bg-surface-hover" /></td>
+                  <td className="px-5 py-4"><div className="h-4 w-32 animate-pulse rounded bg-surface-hover" /></td>
+                  <td className="px-5 py-4"><div className="h-5 w-12 animate-pulse rounded-full bg-surface-hover" /></td>
+                  <td className="px-5 py-4"><div className="h-4 w-24 animate-pulse rounded bg-surface-hover" /></td>
+                  <td className="px-5 py-4"><div className="h-4 w-20 animate-pulse rounded bg-surface-hover" /></td>
+                  <td className="px-5 py-4"><div className="h-4 w-16 animate-pulse rounded bg-surface-hover" /></td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
-                      <div className="h-7 w-16 animate-pulse rounded-lg bg-neutral-100" />
-                      <div className="h-7 w-16 animate-pulse rounded-lg bg-neutral-100" />
+                      <div className="h-7 w-16 animate-pulse rounded-lg bg-surface-hover" />
+                      <div className="h-7 w-16 animate-pulse rounded-lg bg-surface-hover" />
                     </div>
                   </td>
                 </tr>
@@ -790,7 +790,7 @@ function TenantDetail({ tenantId, token }: { tenantId: number; token: string }) 
 
   const ROLE_BADGE: Record<string, string> = {
     tenant_admin : 'bg-accent-sky/30 text-primary-blue',
-    tenant_user  : 'bg-neutral-100 text-text-secondary',
+    tenant_user  : 'bg-surface-hover text-text-secondary',
   };
 
   return (
@@ -804,7 +804,7 @@ function TenantDetail({ tenantId, token }: { tenantId: number; token: string }) 
             <p className="text-sm font-medium text-text-primary">{u.name}</p>
             <p className="text-xs text-text-muted">{u.email}</p>
           </div>
-          <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', ROLE_BADGE[u.role] ?? 'bg-neutral-100 text-text-muted')}>
+          <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', ROLE_BADGE[u.role] ?? 'bg-surface-hover text-text-muted')}>
             {u.role === 'tenant_admin' ? 'Admin' : 'User'}
           </span>
         </div>

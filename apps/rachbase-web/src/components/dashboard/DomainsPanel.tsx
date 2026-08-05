@@ -78,7 +78,7 @@ export function DomainsPanel({ serviceId, token }: { serviceId: number; token: s
       {/* Free RachBase subdomain */}
       <Panel title="Free RachBase subdomain">
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center rounded-lg border border-neutral-border bg-white px-2">
+          <div className="flex flex-1 items-center rounded-lg border border-neutral-border bg-surface-card px-2">
             <input value={sub} onChange={(e) => setSub(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addAuto()}
               placeholder="myapp" className="flex-1 py-2 text-sm outline-none" />
             <span className="text-sm text-text-muted">.rachbase.app</span>
@@ -96,7 +96,7 @@ export function DomainsPanel({ serviceId, token }: { serviceId: number; token: s
         <div className="flex items-center gap-2">
           <input value={host} onChange={(e) => setHost(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCustom()}
             placeholder="app.example.com or example.com"
-            className="flex-1 rounded-lg border border-neutral-border bg-white px-3 py-2 text-sm outline-none" />
+            className="flex-1 rounded-lg border border-neutral-border bg-surface-card px-3 py-2 text-sm outline-none" />
           <button onClick={addCustom} disabled={busy || !host.trim()}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary-blue px-3.5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
             <Plus size={14} /> Add
@@ -134,7 +134,7 @@ function DomainRow({ domain, targetIp, serviceId, token, onRemove }:
   const statusColor = domain.status === "live" ? "bg-emerald-500" : domain.status === "failed" ? "bg-red-500" : "bg-amber-500";
 
   return (
-    <div className="rounded-xl border border-neutral-border bg-white p-4">
+    <div className="rounded-xl border border-neutral-border bg-surface-card p-4">
       <div className="flex items-center gap-2">
         <Globe size={15} className="text-text-muted" />
         <span className="text-sm font-medium text-text-primary">{domain.hostname}</span>
@@ -180,7 +180,7 @@ function DomainRow({ domain, targetIp, serviceId, token, onRemove }:
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-border bg-white p-4">
+    <div className="rounded-xl border border-neutral-border bg-surface-card p-4">
       <p className="mb-2 text-sm font-semibold text-text-primary">{title}</p>
       {children}
     </div>
