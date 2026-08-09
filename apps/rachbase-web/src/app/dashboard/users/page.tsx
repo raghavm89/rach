@@ -15,11 +15,21 @@ import { cn } from '@rach/ui/lib/utils';
 
 const ALL_ROLES: UserRole[] = ['admin', 'tenant_admin', 'tenant_user', 'developer'];
 
-const ROLE_META: Record<UserRole, { label: string; textCls: string; bgCls: string; icon: React.ReactNode }> = {
-  admin:        { label: 'Admin',        textCls: 'text-white',          bgCls: 'bg-gradient-to-r from-primary-blue to-primary-purple', icon: <Shield size={11} /> },
-  tenant_admin: { label: 'Tenant Admin', textCls: 'text-primary-blue',   bgCls: 'bg-blue-50',     icon: <UserCog size={11} /> },
-  tenant_user:  { label: 'Tenant User',  textCls: 'text-text-secondary', bgCls: 'bg-surface-hover', icon: <Users size={11} /> },
-  developer:    { label: 'Developer',    textCls: 'text-amber-700',      bgCls: 'bg-amber-50',    icon: <Code2 size={11} /> },
+// Partial so adding a role to the shared UserRole type (e.g. from RachDev) never
+// breaks this build — the RoleBadge and selector below fall back for any role
+// not listed here.
+const ROLE_META: Partial<Record<UserRole, { label: string; textCls: string; bgCls: string; icon: React.ReactNode }>> = {
+  admin:           { label: 'Admin',        textCls: 'text-white',          bgCls: 'bg-gradient-to-r from-primary-blue to-primary-purple', icon: <Shield size={11} /> },
+  tenant_admin:    { label: 'Tenant Admin', textCls: 'text-primary-blue',   bgCls: 'bg-blue-50',      icon: <UserCog size={11} /> },
+  tenant_user:     { label: 'Tenant User',  textCls: 'text-text-secondary', bgCls: 'bg-surface-hover', icon: <Users size={11} /> },
+  developer:       { label: 'Developer',    textCls: 'text-amber-700',      bgCls: 'bg-amber-50',     icon: <Code2 size={11} /> },
+  // Workspace roles (shared UserRole covers both apps)
+  doctor:          { label: 'Doctor',          textCls: 'text-emerald-700', bgCls: 'bg-emerald-50', icon: <Users size={11} /> },
+  reception:       { label: 'Reception',       textCls: 'text-sky-700',     bgCls: 'bg-sky-50',     icon: <Users size={11} /> },
+  store_manager:   { label: 'Store Manager',   textCls: 'text-orange-700',  bgCls: 'bg-orange-50',  icon: <Building2 size={11} /> },
+  hr_executive:    { label: 'HR Executive',    textCls: 'text-violet-700',  bgCls: 'bg-violet-50',  icon: <UserCog size={11} /> },
+  hr_director:     { label: 'HR Director',      textCls: 'text-purple-700',  bgCls: 'bg-purple-50',  icon: <Shield size={11} /> },
+  project_manager: { label: 'Project Manager', textCls: 'text-teal-700',    bgCls: 'bg-teal-50',    icon: <Building2 size={11} /> },
 };
 
 const ROLE_TABS: { key: UserRole | 'all'; label: string }[] = [
@@ -308,7 +318,7 @@ function CreateUserModal({
               <select value={form.role} onChange={(e) => set('role', e.target.value)}
                 className={cn(inputCls, 'cursor-pointer')}>
                 {ALL_ROLES.filter((r) => currentUserRole === 'admin' || r !== 'admin').map((r) => (
-                  <option key={r} value={r}>{ROLE_META[r].label}</option>
+                  <option key={r} value={r}>{ROLE_META[r]?.label ?? r}</option>
                 ))}
               </select>
             </div>

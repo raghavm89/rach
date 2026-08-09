@@ -13,18 +13,34 @@ import type { UserRole, BillingAddress } from '@rach/ui/lib/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  admin        : 'RachBase Admin',
-  tenant_admin : 'Tenant Admin',
-  tenant_user  : 'User',
-  developer    : 'Developer',
+// Partial so adding a role to the shared UserRole type (e.g. from RachDev) never
+// breaks this build — unlisted roles fall back to the raw role string / a
+// neutral style at the render site below.
+const ROLE_LABELS: Partial<Record<UserRole, string>> = {
+  admin          : 'RachBase Admin',
+  tenant_admin   : 'Tenant Admin',
+  tenant_user    : 'User',
+  developer      : 'Developer',
+  // Workspace roles (shared UserRole covers both apps)
+  doctor         : 'Doctor',
+  reception      : 'Reception',
+  store_manager  : 'Store Manager',
+  hr_executive   : 'HR Executive',
+  hr_director    : 'HR Director',
+  project_manager: 'Project Manager',
 };
 
-const ROLE_STYLE: Record<UserRole, string> = {
-  admin        : 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
-  tenant_admin : 'bg-accent-sky/30 text-primary-blue',
-  tenant_user  : 'bg-surface-hover text-text-secondary',
-  developer    : 'bg-amber-100 text-amber-700',
+const ROLE_STYLE: Partial<Record<UserRole, string>> = {
+  admin          : 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
+  tenant_admin   : 'bg-accent-sky/30 text-primary-blue',
+  tenant_user    : 'bg-surface-hover text-text-secondary',
+  developer      : 'bg-amber-100 text-amber-700',
+  doctor         : 'bg-emerald-100 text-emerald-700',
+  reception      : 'bg-sky-100 text-sky-700',
+  store_manager  : 'bg-orange-100 text-orange-700',
+  hr_executive   : 'bg-violet-100 text-violet-700',
+  hr_director    : 'bg-purple-100 text-purple-700',
+  project_manager: 'bg-teal-100 text-teal-700',
 };
 
 const INDUSTRIES = [
@@ -260,7 +276,7 @@ export default function ProfilePage() {
           <p className="text-lg font-semibold text-text-primary truncate">{user.name}</p>
           <p className="text-sm text-text-muted truncate">{user.email}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold', ROLE_STYLE[role])}>
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold', ROLE_STYLE[role] ?? 'bg-surface-hover text-text-secondary')}>
               <Shield size={10} /> {ROLE_LABELS[role] ?? role}
             </span>
             {user.tenant_name && (
