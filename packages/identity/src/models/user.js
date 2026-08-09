@@ -2,8 +2,12 @@ const pool = require('@rach/core').pool;
 
 const ROLES = [
   'admin', 'tenant_admin', 'tenant_user', 'developer',
-  // Healthcare workspace roles (migration 043)
+  // Healthcare workspace roles (migration 047)
   'doctor', 'reception', 'store_manager',
+  // HR workspace roles (migration 052)
+  'hr_executive', 'hr_director', 'project_manager',
+  // HR self-service portal role (migration 081)
+  'employee',
 ];
 
 const SAFE_FIELDS = `

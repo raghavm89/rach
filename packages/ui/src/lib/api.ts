@@ -11,7 +11,12 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'tenant_admin' | 'tenant_user' | 'developer';
+export type UserRole =
+  | 'admin' | 'tenant_admin' | 'tenant_user' | 'developer'
+  // Healthcare workspace roles (migration 047)
+  | 'doctor' | 'reception' | 'store_manager'
+  // HR workspace roles (migration 052)
+  | 'hr_executive' | 'hr_director' | 'project_manager';
 
 export interface BillingAddress {
   line1:   string;
@@ -330,6 +335,9 @@ export const users = {
       method: 'POST',
       body: JSON.stringify(payload),
     }, token),
+
+  remove: (token: string, userId: number) =>
+    apiFetch<{ message: string }>(`/api/users/${userId}`, { method: 'DELETE' }, token),
 
   getVMs: (token: string, userId: number) =>
     apiFetch<{ userId: number; vms: { vm_id: string; assigned_at: string }[] }>(
@@ -1366,6 +1374,8 @@ export interface WorkspaceTenant {
   id: number;
   name: string | null;
   industry: string | null;
+  /** Healthcare sub-category: true = military (AFMS) hospital. */
+  military?: boolean;
 }
 
 export const workspace = {
@@ -1377,6 +1387,12 @@ export const workspace = {
     apiFetch<{ tenant: WorkspaceTenant | null }>('/api/tenant/industry', {
       method: 'PATCH',
       body: JSON.stringify({ industry }),
+    }, token),
+  /** Set the healthcare sub-category (military = AFMS hospital). */
+  setHealthcare: (token: string, military: boolean) =>
+    apiFetch<{ tenant: { id: number; military: boolean } }>('/api/tenant/healthcare', {
+      method: 'PATCH',
+      body: JSON.stringify({ military }),
     }, token),
 };
 
@@ -1395,10 +1411,29 @@ export interface CodeSuggestion {
   description: string;
 }
 
+export interface Medication {
+  drug: string;
+  strength?: string;
+  dose?: string;
+  frequency?: string;
+  route?: string;
+  duration?: string;
+  quantity?: string;
+  instructions?: string;
+}
+
+export interface DrugInteraction {
+  severity: 'major' | 'moderate' | 'minor';
+  drugs: string[];
+  description: string;
+}
+
 export interface ClinicalNote {
   id: number;
   patient_ref: string | null;
+  visit_id?: number | null;
   transcript: string;
+  medications?: Medication[];
   source: string;      // 'text' | 'dictation' | 'asr'
   soap: SoapNote;
   codes: CodeSuggestion[];
@@ -1417,6 +1452,7 @@ export interface ClinicalNoteSummary {
   source: string;
   status: 'draft' | 'signed';
   model: string | null;
+  preview: string | null;
   signed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -1427,19 +1463,22 @@ export const scribe = {
     apiFetch<{ notes: ClinicalNoteSummary[] }>('/api/scribe/notes', {}, token),
   get: (token: string, id: number) =>
     apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}`, {}, token),
-  /** Generate a SOAP draft from a transcript and persist it. */
-  create: (token: string, body: { transcript: string; patient_ref?: string; source?: string }) =>
+  /** Generate a SOAP draft. Pass note_id to continue an OPEN draft in place; visit_id links it to an OPD visit. */
+  create: (token: string, body: { transcript: string; patient_ref?: string; source?: string; note_id?: number; visit_id?: number }) =>
     apiFetch<{ note: ClinicalNote }>('/api/scribe/notes', {
       method: 'POST',
       body: JSON.stringify(body),
     }, token),
-  /** Clinician edits to a draft before signing. */
+  /** Delete a draft (signed notes cannot be deleted). */
+  remove: (token: string, id: number) =>
+    apiFetch<{ ok: boolean }>(`/api/scribe/notes/${id}`, { method: 'DELETE' }, token),
+  /** Clinician edits to a draft before signing. Returns refreshed interaction warnings. */
   update: (
     token: string,
     id: number,
-    patch: { soap?: SoapNote; codes?: CodeSuggestion[]; follow_ups?: string[]; patient_ref?: string },
+    patch: { soap?: SoapNote; codes?: CodeSuggestion[]; follow_ups?: string[]; patient_ref?: string; medications?: Medication[] },
   ) =>
-    apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}`, {
+    apiFetch<{ note: ClinicalNote; interactions: DrugInteraction[] }>(`/api/scribe/notes/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     }, token),
@@ -1448,7 +1487,682 @@ export const scribe = {
     apiFetch<{ note: ClinicalNote }>(`/api/scribe/notes/${id}/sign`, {
       method: 'POST',
     }, token),
+  /** Draft a structured e-prescription from the note's transcript/plan. */
+  prescribe: (token: string, id: number) =>
+    apiFetch<{ note: ClinicalNote; interactions: DrugInteraction[] }>(`/api/scribe/notes/${id}/prescribe`, { method: 'POST' }, token),
+  /** Stateless drug-interaction screen for a medication list. */
+  checkInteractions: (token: string, medications: Medication[]) =>
+    apiFetch<{ interactions: DrugInteraction[] }>('/api/scribe/interactions', { method: 'POST', body: JSON.stringify({ medications }) }, token),
 };
+
+// ─── Public: sales leads (marketing contact / "talk to us") ───────────────────
+export const leads = {
+  submit: (payload: {
+    name: string; email: string; company?: string;
+    goal?: string; source?: string; meta?: Record<string, unknown>;
+  }) =>
+    apiFetch<{ ok: boolean; id: number }>('/api/leads', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
+// ─── RachDev platform admin (role: 'admin') ───────────────────────────────────
+
+export interface Org {
+  id: number;
+  name: string;
+  industry: string | null;
+  created_at: string;
+  user_count: number;
+  llm_model?: string | null;
+  military?: boolean;
+}
+
+export interface AgentTemplate {
+  id: number;
+  tenant_id: number | null;
+  key: string;
+  name: string;
+  role: string;
+  industry: string | null;
+  provider: string;
+  model: string | null;
+  prompt: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorProfile {
+  user_id: number;
+  tenant_id: number;
+  department: string | null;
+  specialty: string | null;
+}
+
+export const admin = {
+  orgs: (token: string) =>
+    apiFetch<{ orgs: Org[] }>('/api/admin/orgs', {}, token),
+  createOrg: (token: string, payload: { name: string; industry?: string | null }) =>
+    apiFetch<{ org: Org }>('/api/admin/orgs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, token),
+  setOrgIndustry: (token: string, id: number, industry: string | null) =>
+    apiFetch<{ org: Org }>(`/api/admin/orgs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ industry }),
+    }, token),
+  setOrgModel: (token: string, id: number, model: string | null) =>
+    apiFetch<{ org: { id: number; llm_model: string | null } }>(`/api/admin/orgs/${id}/model`, {
+      method: 'PATCH',
+      body: JSON.stringify({ model }),
+    }, token),
+  /** Set an org's healthcare sub-category (military = AFMS hospital). */
+  setOrgHealthcare: (token: string, id: number, military: boolean) =>
+    apiFetch<{ org: { id: number; military: boolean } }>(`/api/admin/orgs/${id}/healthcare`, {
+      method: 'PATCH',
+      body: JSON.stringify({ military }),
+    }, token),
+  deleteOrg: (token: string, id: number) =>
+    apiFetch<{ ok: boolean }>(`/api/admin/orgs/${id}`, { method: 'DELETE' }, token),
+
+  /** Doctor department profiles (RachDev healthcare vertical). */
+  doctorProfiles: (token: string) =>
+    apiFetch<{ profiles: DoctorProfile[] }>('/api/admin/doctors', {}, token),
+  /** Set/clear a doctor's department (and optional specialty). */
+  setDoctorProfile: (token: string, userId: number, department: string | null, specialty?: string | null) =>
+    apiFetch<{ profile: DoctorProfile }>(`/api/admin/doctors/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ department, specialty: specialty ?? null }),
+    }, token),
+
+  templates: (token: string) =>
+    apiFetch<{ templates: AgentTemplate[] }>('/api/admin/agent-templates', {}, token),
+  createTemplate: (
+    token: string,
+    body: { key: string; name: string; role?: string; industry?: string | null; provider?: string; model?: string; prompt?: string },
+  ) =>
+    apiFetch<{ template: AgentTemplate }>('/api/admin/agent-templates', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }, token),
+  updateTemplate: (
+    token: string,
+    id: number,
+    patch: { name?: string; role?: string; provider?: string; model?: string; prompt?: string; enabled?: boolean },
+  ) =>
+    apiFetch<{ template: AgentTemplate }>(`/api/admin/agent-templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    }, token),
+};
+
+// ─── Agent Monitor (org admin) — RachDev's analogue of VM Monitor ─────────────
+
+export interface AgentMonitorAgent {
+  key: string;
+  name: string;
+  role: string;
+  enabled: boolean;
+  status: 'active' | 'idle' | 'disabled';
+  runs_today: number;
+  runs_total: number;
+  signed: number;
+  success_rate: number | null;
+  last_run: string | null;
+  model: string;
+}
+
+export interface AgentMonitorActivity {
+  agent: string;
+  kind: string;
+  ref: string | null;
+  status: string;
+  model: string | null;
+  source: string;
+  author: string | null;
+  at: string;
+}
+
+export interface AgentMonitorOverview {
+  summary: {
+    active_agents: number;
+    runs_today: number;
+    notes_draft: number;
+    notes_signed: number;
+    tokens_used: number;
+    credits_used: number;
+    last_run: string | null;
+  } | null;
+  agents: AgentMonitorAgent[];
+  recent: AgentMonitorActivity[];
+  health: { models: string[]; drafts_pending: number; shortage_alerts?: number; disabled: string[] };
+}
+
+export const agentMonitor = {
+  overview: (token: string) =>
+    apiFetch<AgentMonitorOverview>('/api/agent-monitor', {}, token),
+};
+
+// ── Audit trail (governance) ──────────────────────────────────────────────────
+export type AuditDecision =
+  | 'created' | 'confirmed' | 'signed' | 'assigned' | 'completed' | 'cancelled' | 'flagged' | 'overridden' | 'modified';
+
+export interface AuditEntry {
+  id: number;
+  agent: string | null;
+  action: string;
+  decision: AuditDecision | null;
+  entity_type: string | null;
+  entity_id: number | null;
+  patient_ref: string | null;
+  source: string | null;
+  model: string | null;
+  summary: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface AuditSummary {
+  total: number;
+  today: number;
+  last_at: string | null;
+  decisions: Partial<Record<AuditDecision, number>>;
+  agents: Record<string, number>;
+}
+
+// ── Vihaan · Triage & Safety ──────────────────────────────────────────────────
+export type Acuity = 'critical' | 'urgent' | 'semi-urgent' | 'routine';
+export type TriageRoute = 'ER' | 'ICU' | 'OPD' | 'specialist';
+
+export interface TriageAssessment {
+  id: number;
+  patient_ref: string | null;
+  visit_id?: number | null;
+  presentation?: string;
+  vitals?: string | null;
+  acuity: Acuity | null;
+  acuity_score: number | null;
+  red_flags: string[];
+  recommended_route: TriageRoute | null;
+  page_on_call: boolean;
+  rationale?: string | null;
+  disposition?: string | null;
+  status: 'draft' | 'acknowledged';
+  model: string | null;
+  created_at: string;
+  acknowledged_at?: string | null;
+}
+
+export const triage = {
+  list: (token: string) =>
+    apiFetch<{ assessments: TriageAssessment[] }>('/api/triage', {}, token),
+  get: (token: string, id: number) =>
+    apiFetch<{ assessment: TriageAssessment }>(`/api/triage/${id}`, {}, token),
+  create: (token: string, body: { presentation: string; vitals?: string; patient_ref?: string; visit_id?: number }) =>
+    apiFetch<{ assessment: TriageAssessment }>('/api/triage', { method: 'POST', body: JSON.stringify(body) }, token),
+  acknowledge: (token: string, id: number, recommended_route?: string) =>
+    apiFetch<{ assessment: TriageAssessment }>(`/api/triage/${id}/acknowledge`, { method: 'POST', body: JSON.stringify(recommended_route ? { recommended_route } : {}) }, token),
+};
+
+// ── Ira · Knowledge ───────────────────────────────────────────────────────────
+export interface KnowledgeDoc {
+  id: number;
+  title: string;
+  body: string;
+  citation: string | null;
+  author?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeAnswer {
+  answer: string;
+  citations: { title: string; ref: string }[];
+  can_answer: boolean;
+  used?: { id: number; title: string; citation: string | null }[];
+  model: string | null;
+  web_available?: boolean;
+}
+
+export interface WebReference { title: string; url: string; snippet: string }
+export interface WebReferences {
+  enabled: boolean;
+  source: 'web' | 'web-demo' | 'off';
+  references: WebReference[];
+  note?: string;
+}
+
+export const knowledge = {
+  docs: (token: string) =>
+    apiFetch<{ docs: KnowledgeDoc[] }>('/api/knowledge/docs', {}, token),
+  addDoc: (token: string, body: { title: string; body: string; citation?: string }) =>
+    apiFetch<{ doc: KnowledgeDoc }>('/api/knowledge/docs', { method: 'POST', body: JSON.stringify(body) }, token),
+  deleteDoc: (token: string, id: number) =>
+    apiFetch<{ ok: boolean }>(`/api/knowledge/docs/${id}`, { method: 'DELETE' }, token),
+  ask: (token: string, question: string) =>
+    apiFetch<KnowledgeAnswer>('/api/knowledge/ask', { method: 'POST', body: JSON.stringify({ question }) }, token),
+  /** Controlled external web-reference lookup (no PHI; gated + logged). */
+  web: (token: string, question: string) =>
+    apiFetch<WebReferences>('/api/knowledge/web', { method: 'POST', body: JSON.stringify({ question }) }, token),
+};
+
+// ── Umeed · ICU Sentinel ──────────────────────────────────────────────────────
+export type IcuSeverity = 'watch' | 'urgent' | 'critical';
+export type IcuCondition = 'sepsis' | 'aki' | 'mi' | 'arrhythmia' | 'deterioration';
+
+export interface IcuVitals {
+  hr?: number | string; rr?: number | string; sbp?: number | string; dbp?: number | string;
+  spo2?: number | string; temp?: number | string; gcs?: number | string;
+  creatinine?: number | string; lactate?: number | string; troponin?: number | string;
+  wbc?: number | string; urine_output?: number | string; ecg_note?: string;
+}
+
+export interface IcuBoardPatient {
+  patient_id: number;
+  patient_name: string;
+  uhid: string | null;
+  hr: number | null; rr: number | null; sbp: number | null; dbp: number | null;
+  spo2: number | null; temp: number | null; gcs: number | null;
+  creatinine: number | null; lactate: number | null; troponin: number | null; urine_output: number | null;
+  ecg_note: string | null;
+  news2: number | null;
+  created_at: string;
+  open_alerts: number;
+  worst: IcuSeverity | null;
+}
+
+export interface IcuAlert {
+  id: number;
+  patient_id: number;
+  patient_name?: string;
+  uhid?: string | null;
+  condition: IcuCondition | string;
+  severity: IcuSeverity;
+  score: number | null;
+  evidence: string[];
+  message: string | null;
+  status: 'open' | 'acknowledged' | 'resolved';
+  model: string | null;
+  created_at: string;
+}
+
+export const icu = {
+  board: (token: string) =>
+    apiFetch<{ patients: IcuBoardPatient[] }>('/api/icu', {}, token),
+  alerts: (token: string, status: 'open' | 'all' = 'open') =>
+    apiFetch<{ alerts: IcuAlert[] }>(`/api/icu/alerts?status=${status}`, {}, token),
+  record: (token: string, patientId: number, vitals: IcuVitals & { visit_id?: number }) =>
+    apiFetch<{ observation: unknown; news2: number; alerts: IcuAlert[] }>('/api/icu/observations', {
+      method: 'POST', body: JSON.stringify({ patient_id: patientId, ...vitals }),
+    }, token),
+  acknowledge: (token: string, id: number) =>
+    apiFetch<{ alert: IcuAlert }>(`/api/icu/alerts/${id}/ack`, { method: 'POST' }, token),
+  resolve: (token: string, id: number) =>
+    apiFetch<{ alert: IcuAlert }>(`/api/icu/alerts/${id}/resolve`, { method: 'POST' }, token),
+};
+
+// ── Rhea · Coding & Revenue ───────────────────────────────────────────────────
+export type DenialRisk = 'low' | 'medium' | 'high';
+export type ClaimStatus = 'draft' | 'submitted' | 'paid' | 'denied';
+export type Payer = 'ECHS' | 'CGHS' | 'ex-serviceman' | 'self' | 'TPA';
+
+export interface ClaimCode { system: string; code: string; description: string }
+export interface ClaimCharge { code: string; description: string; amount: number }
+
+export interface Claim {
+  id: number;
+  note_id?: number | null;
+  visit_id?: number | null;
+  patient_ref: string | null;
+  payer: Payer | string;
+  codes: ClaimCode[];
+  charges: ClaimCharge[];
+  total_amount: number;
+  currency: string;
+  denial_risk: DenialRisk;
+  denial_reasons: string[];
+  notes: string | null;
+  status: ClaimStatus;
+  edited?: boolean;
+  model: string | null;
+  submitted_at?: string | null;
+  created_at: string;
+}
+
+export interface ClaimSummary {
+  id: number;
+  patient_ref: string | null;
+  payer: string;
+  total_amount: number;
+  currency: string;
+  denial_risk: DenialRisk;
+  status: ClaimStatus;
+  created_at: string;
+  submitted_at: string | null;
+}
+
+export const claims = {
+  list: (token: string, status?: ClaimStatus) =>
+    apiFetch<{ claims: ClaimSummary[] }>(`/api/claims${status ? `?status=${status}` : ''}`, {}, token),
+  get: (token: string, id: number) =>
+    apiFetch<{ claim: Claim }>(`/api/claims/${id}`, {}, token),
+  generate: (token: string, noteId: number, payer?: string) =>
+    apiFetch<{ claim: Claim }>('/api/claims', { method: 'POST', body: JSON.stringify({ note_id: noteId, payer }) }, token),
+  update: (token: string, id: number, patch: { codes?: ClaimCode[]; charges?: ClaimCharge[]; payer?: string; denial_risk?: string; notes?: string }) =>
+    apiFetch<{ claim: Claim }>(`/api/claims/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+  submit: (token: string, id: number) =>
+    apiFetch<{ claim: Claim }>(`/api/claims/${id}/submit`, { method: 'POST' }, token),
+};
+
+// ── Kabir · Coordination ──────────────────────────────────────────────────────
+export type BedKind = 'general' | 'ICU' | 'OT';
+export type BedStatus = 'available' | 'occupied' | 'reserved' | 'maintenance';
+
+export interface Bed {
+  id: number;
+  ward: string;
+  bed_number: string;
+  kind: BedKind | string;
+  status: BedStatus | string;
+  patient_id: number | null;
+  patient_name?: string | null;
+  uhid?: string | null;
+  visit_id: number | null;
+  note: string | null;
+}
+
+export interface Referral {
+  id: number;
+  patient_id: number | null;
+  patient_name?: string | null;
+  uhid?: string | null;
+  patient_ref: string | null;
+  from_dept: string | null;
+  to_dept: string | null;
+  to_hospital: string | null;
+  reason: string | null;
+  priority: 'routine' | 'urgent';
+  status: 'open' | 'accepted' | 'completed' | 'cancelled';
+  created_at: string;
+}
+
+export interface DischargeSummaryBody {
+  diagnosis: string;
+  hospital_course: string;
+  medications: string[];
+  follow_up: string;
+  advice: string;
+}
+
+export interface DischargeSummary {
+  id: number;
+  visit_id: number | null;
+  patient_ref: string | null;
+  summary: DischargeSummaryBody;
+  status: 'draft' | 'signed';
+  edited?: boolean;
+  model: string | null;
+  signed_at?: string | null;
+  created_at: string;
+}
+
+export const coordination = {
+  beds: (token: string) =>
+    apiFetch<{ beds: Bed[] }>('/api/coordination/beds', {}, token),
+  addBed: (token: string, body: { ward: string; bed_number: string; kind?: string }) =>
+    apiFetch<{ bed: Bed }>('/api/coordination/beds', { method: 'POST', body: JSON.stringify(body) }, token),
+  updateBed: (token: string, id: number, patch: { status?: string; patient_id?: number | null; visit_id?: number | null; note?: string }) =>
+    apiFetch<{ bed: Bed }>(`/api/coordination/beds/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+  referrals: (token: string) =>
+    apiFetch<{ referrals: Referral[] }>('/api/coordination/referrals', {}, token),
+  createReferral: (token: string, body: { patient_id?: number; patient_ref?: string; from_dept?: string; to_dept?: string; to_hospital?: string; reason?: string; priority?: string }) =>
+    apiFetch<{ referral: Referral }>('/api/coordination/referrals', { method: 'POST', body: JSON.stringify(body) }, token),
+  updateReferral: (token: string, id: number, status: string) =>
+    apiFetch<{ referral: Referral }>(`/api/coordination/referrals/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }, token),
+  generateDischarge: (token: string, visitId: number) =>
+    apiFetch<{ discharge: DischargeSummary }>('/api/coordination/discharge', { method: 'POST', body: JSON.stringify({ visit_id: visitId }) }, token),
+  getDischarge: (token: string, id: number) =>
+    apiFetch<{ discharge: DischargeSummary }>(`/api/coordination/discharge/${id}`, {}, token),
+  updateDischarge: (token: string, id: number, summary: DischargeSummaryBody) =>
+    apiFetch<{ discharge: DischargeSummary }>(`/api/coordination/discharge/${id}`, { method: 'PATCH', body: JSON.stringify({ summary }) }, token),
+  signDischarge: (token: string, id: number) =>
+    apiFetch<{ discharge: DischargeSummary }>(`/api/coordination/discharge/${id}/sign`, { method: 'POST' }, token),
+  scheduleFollowUp: (token: string, body: { patient_id: number; appointment_at: string; department?: string; reason?: string }) =>
+    apiFetch<{ visit: Visit }>('/api/coordination/follow-up', { method: 'POST', body: JSON.stringify(body) }, token),
+};
+
+// ── Patient journey (step-in → step-out) ──────────────────────────────────────
+export interface JourneyStep {
+  agent: string | null;
+  action: string;
+  decision: string | null;
+  source: string | null;
+  summary: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface PatientJourney {
+  patient: { id: number; name: string; uhid: string | null; age: string | null; sex: string | null; phone: string | null; military?: MilitaryInfo | null };
+  timeline: JourneyStep[];
+  next: {
+    follow_up: { id: number; appointment_at: string; department: string | null; reason: string | null } | null;
+    discharge: { summary: DischargeSummaryBody; status: string; created_at: string } | null;
+    medications: Medication[];
+  };
+}
+
+export const journey = {
+  get: (token: string, patientId: number) =>
+    apiFetch<PatientJourney>(`/api/journey/${patientId}`, {}, token),
+};
+
+export const audit = {
+  list: (token: string, opts: { agent?: string; decision?: string; q?: string; limit?: number; offset?: number } = {}) => {
+    const p = new URLSearchParams();
+    if (opts.agent) p.set('agent', opts.agent);
+    if (opts.decision) p.set('decision', opts.decision);
+    if (opts.q) p.set('q', opts.q);
+    if (opts.limit != null) p.set('limit', String(opts.limit));
+    if (opts.offset != null) p.set('offset', String(opts.offset));
+    const qs = p.toString();
+    return apiFetch<{ entries: AuditEntry[]; total: number; limit: number; offset: number }>(
+      `/api/audit${qs ? `?${qs}` : ''}`, {}, token);
+  },
+  summary: (token: string) =>
+    apiFetch<AuditSummary>('/api/audit/summary', {}, token),
+};
+
+// ─── Agent Builder (AgentSpec build → publish → deploy) ───────────────────────
+// Contract: docs/RACHDEV_AGENTSPEC_CONTRACT.md + RACHDEV_RUNTIME_CONTRACT.md.
+
+export type ModelClass = 'fast' | 'balanced' | 'reasoning';
+export type AgentStatus = 'draft' | 'published' | 'deployed' | 'disabled';
+
+export interface AgentSpec {
+  id: number;
+  key: string;
+  name: string;
+  role: string;
+  industry: string | null;
+  status: AgentStatus;
+  version: number;
+  model_policy: { class: ModelClass; pin?: string };
+  runtime_target: { type: 'rachbase' | 'onprem' | 'byoc'; ref?: string };
+  tools: unknown[];
+  guardrails: Record<string, unknown>;
+}
+
+export interface AgentSpecInput {
+  key?: string;
+  name?: string;
+  role?: string;
+  industry?: string | null;
+  prompt?: string;
+  model_policy?: { class: ModelClass; pin?: string };
+  tools?: unknown[];
+  guardrails?: Record<string, unknown>;
+  runtime_target?: { type: 'rachbase' | 'onprem' | 'byoc'; ref?: string };
+}
+
+export interface AgentDeployment {
+  id: number;
+  agent_key: string;
+  version: number;
+  runtime_target: { type: string };
+  status: 'pending' | 'running' | 'stopped' | 'failed';
+  last_error?: string | null;
+  last_status_at?: string | null;
+}
+
+export const agentBuilder = {
+  list: (token: string) =>
+    apiFetch<{ definitions: AgentSpec[] }>('/api/agent/definitions', {}, token),
+
+  create: (body: AgentSpecInput, token: string) =>
+    apiFetch<{ definition: AgentSpec }>('/api/agent/definitions',
+      { method: 'POST', body: JSON.stringify(body) }, token),
+
+  update: (id: number, body: AgentSpecInput, token: string) =>
+    apiFetch<{ definition: AgentSpec }>(`/api/agent/definitions/${id}`,
+      { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  publish: (id: number, token: string) =>
+    apiFetch<{ version: number; definition: AgentSpec }>(`/api/agent/definitions/${id}/publish`,
+      { method: 'POST' }, token),
+
+  versions: (id: number, token: string) =>
+    apiFetch<{ versions: { version: number; published_at: string }[] }>(
+      `/api/agent/definitions/${id}/versions`, {}, token),
+
+  deploy: (id: number, token: string) =>
+    apiFetch<{ deployment: AgentDeployment }>(`/api/agent/definitions/${id}/deploy`,
+      { method: 'POST' }, token),
+
+  deployments: (token: string) =>
+    apiFetch<{ deployments: AgentDeployment[] }>('/api/agent/deployments', {}, token),
+
+  stop: (deploymentId: number, token: string) =>
+    apiFetch<{ deployment: AgentDeployment }>(`/api/agent/deployments/${deploymentId}/stop`,
+      { method: 'POST' }, token),
+};
+
+// ─── HR vertical (tenant-scoped data; returns domain objects as stored) ───────
+export type HrEntity =
+  | 'requisitions' | 'applications' | 'candidates'
+  | 'approvals' | 'interviews' | 'offers' | 'audit'
+  // Layers 2–4 — Onboard · Operate · Discover
+  | 'employees' | 'onboarding' | 'probation' | 'leave' | 'leave_balances'
+  | 'payslips' | 'letters' | 'tickets' | 'review_cycles' | 'review_evals'
+  | 'partnerships' | 'holidays' | 'announcements';
+
+export const hr = {
+  /** One entity's rows for the caller's tenant. */
+  list: <T = unknown>(entity: HrEntity, token: string) =>
+    apiFetch<Record<string, T[]>>(`/api/hr/${entity}`, {}, token).then((r) => r[entity] ?? []),
+
+  /** Create one record for an entity. Returns the stored object. */
+  create: <T = unknown>(entity: HrEntity, body: Record<string, unknown>, token: string) =>
+    apiFetch<{ item: T }>(`/api/hr/${entity}`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+
+  /** Delete one record (gated to HR Director / admin). */
+  remove: (entity: HrEntity, id: string, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/hr/${entity}/${encodeURIComponent(id)}`, { method: 'DELETE' }, token),
+
+  /** Act on an approval's current step. */
+  actApproval: <T = unknown>(id: string, action: 'approve' | 'request_changes', token: string, comment?: string) =>
+    apiFetch<{ approval: T }>(`/api/hr/approvals/${encodeURIComponent(id)}/act`,
+      { method: 'POST', body: JSON.stringify({ action, comment }) }, token).then((r) => r.approval),
+
+  summary: (token: string) =>
+    apiFetch<{ counts: Record<HrEntity, number> }>('/api/hr/summary', {}, token),
+
+  /** Run the JD-writer agent for a requisition; routes a jd_approval into the chain. */
+  draftJd: (requisition: Record<string, unknown>, token: string) =>
+    apiFetch<{ jd: string; approval: unknown; model: string }>('/api/hr/jd/draft',
+      { method: 'POST', body: JSON.stringify({ requisition }) }, token),
+
+  getConfig: (token: string) =>
+    apiFetch<{ config: HrConfig }>('/api/hr/config', {}, token).then((r) => r.config),
+  saveConfig: (patch: Partial<HrConfig>, token: string) =>
+    apiFetch<{ config: HrConfig }>('/api/hr/config', { method: 'PUT', body: JSON.stringify(patch) }, token).then((r) => r.config),
+
+  // ── Layers 2–4 module actions ───────────────────────────────────────────────
+  post: <T = unknown>(pathSuffix: string, body: Record<string, unknown>, token: string) =>
+    apiFetch<T>(`/api/hr/${pathSuffix}`, { method: 'POST', body: JSON.stringify(body) }, token),
+
+  onboarding: {
+    toggleChecklist: (id: string, itemId: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/onboarding/${encodeURIComponent(id)}/checklist`, { method: 'POST', body: JSON.stringify({ itemId }) }, token).then((r) => r.item),
+    sendInvites: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/onboarding/${encodeURIComponent(id)}/invites`, { method: 'POST' }, token).then((r) => r.item),
+    generateKit: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/onboarding/${encodeURIComponent(id)}/induction-kit`, { method: 'POST' }, token).then((r) => r.item),
+    approveKit: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/onboarding/${encodeURIComponent(id)}/induction-kit/approve`, { method: 'POST' }, token).then((r) => r.item),
+    completeModule: (id: string, moduleKey: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/onboarding/${encodeURIComponent(id)}/module`, { method: 'POST', body: JSON.stringify({ moduleKey }) }, token).then((r) => r.item),
+  },
+
+  probation: {
+    checkIn: (id: string, notes: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/probation/${encodeURIComponent(id)}/checkin`, { method: 'POST', body: JSON.stringify({ notes }) }, token).then((r) => r.item),
+    submitEvaluation: (taskId: string, body: { rating: number; strengths: string; growthAreas: string }, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/probation/evaluations/${encodeURIComponent(taskId)}/submit`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+    approveSummary: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/probation/${encodeURIComponent(id)}/approve-summary`, { method: 'POST' }, token).then((r) => r.item),
+    confirm: (employeeId: string, token: string) =>
+      apiFetch<{ ok: boolean; letterId: string }>(`/api/hr/probation/employees/${encodeURIComponent(employeeId)}/confirm`, { method: 'POST' }, token),
+    extend: (employeeId: string, body: { reason: string; newEndDate: string }, token: string) =>
+      apiFetch<{ ok: boolean }>(`/api/hr/probation/employees/${encodeURIComponent(employeeId)}/extend`, { method: 'POST', body: JSON.stringify(body) }, token),
+    terminate: (employeeId: string, body: { reason: string; counselAck: boolean }, token: string) =>
+      apiFetch<{ ok: boolean }>(`/api/hr/probation/employees/${encodeURIComponent(employeeId)}/terminate`, { method: 'POST', body: JSON.stringify(body) }, token),
+  },
+
+  applyLeave: (body: { type: string; from: string; to: string; reason?: string }, token: string) =>
+    apiFetch<{ ok: boolean; requestId: string; workingDays: number }>('/api/hr/leave/apply', { method: 'POST', body: JSON.stringify(body) }, token),
+  requestLetter: (body: { kind: string; note?: string }, token: string) =>
+    apiFetch<{ ok: boolean; letterId: string }>('/api/hr/letters/request', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  askHr: (question: string, token: string) =>
+    apiFetch<{ escalated: boolean; answer: string; matchedFaq?: string; ticketId?: string }>('/api/hr/helpdesk/ask', { method: 'POST', body: JSON.stringify({ question }) }, token),
+  ticket: {
+    draftReply: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/tickets/${encodeURIComponent(id)}/draft-reply`, { method: 'POST' }, token).then((r) => r.item),
+    reply: (id: string, body: { body: string; resolve: boolean }, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/tickets/${encodeURIComponent(id)}/reply`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+  },
+
+  review: {
+    record: (id: string, body: { rating: number; strengths: string; growthAreas: string }, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/reviews/${encodeURIComponent(id)}/record`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+    approveSummary: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/reviews/${encodeURIComponent(id)}/approve-summary`, { method: 'POST' }, token).then((r) => r.item),
+  },
+
+  partnership: {
+    decide: (id: string, body: { decision: 'accept' | 'decline' | 'archive'; reason?: string }, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/partnerships/${encodeURIComponent(id)}/decide`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+    draftBrief: (id: string, token: string) =>
+      apiFetch<{ item: unknown }>(`/api/hr/partnerships/${encodeURIComponent(id)}/brief`, { method: 'POST' }, token).then((r) => r.item),
+  },
+
+  createAnnouncement: (body: { title: string; body: string }, token: string) =>
+    apiFetch<{ item: unknown }>('/api/hr/announcements', { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.item),
+
+  /** The employee's own record + their leave/letters/payslips/tickets/balance. */
+  mySpace: (token: string) =>
+    apiFetch<{ employee: unknown; leave?: unknown[]; letters?: unknown[]; payslips?: unknown[]; tickets?: unknown[]; balance?: unknown }>('/api/hr/me', {}, token),
+};
+
+export interface HrConfig {
+  aiFeatures: Record<string, boolean>;
+  policyGates: Record<string, boolean>;
+  integrations: Record<string, 'connected' | 'available'>;
+}
 
 // ─── Support tickets ──────────────────────────────────────────────────────────
 
@@ -1507,4 +2221,262 @@ export const support = {
     apiFetch<{ message: TicketMessage; status: TicketStatus }>(`/api/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }, token),
   update: (token: string, id: number, patch: { status?: TicketStatus; priority?: TicketPriority; assigned_to?: number | null }) =>
     apiFetch<{ ticket: Ticket }>(`/api/support/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
+};
+
+// ─── Reception (Ava) — patient intake → structured encounter → confirm ────────
+
+export interface IntakeData {
+  patient: { name: string; age: string; sex: string };
+  reason: string;
+  history: string;
+  medications: string[];
+  allergies: string[];
+  vitals: string;
+  triage_summary: string;
+}
+
+export interface Encounter {
+  id: number;
+  patient_ref: string | null;
+  patient_name: string | null;
+  reason: string | null;
+  intake: IntakeData;
+  transcript: string;
+  source: string;
+  status: 'open' | 'confirmed';
+  model: string | null;
+  confirmed_by: number | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EncounterSummary {
+  id: number;
+  patient_ref: string | null;
+  patient_name: string | null;
+  reason: string | null;
+  source: string;
+  status: 'open' | 'confirmed';
+  model: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const reception = {
+  list: (token: string) =>
+    apiFetch<{ encounters: EncounterSummary[] }>('/api/reception/encounters', {}, token),
+  get: (token: string, id: number) =>
+    apiFetch<{ encounter: Encounter }>(`/api/reception/encounters/${id}`, {}, token),
+  /** Structure an intake from a transcript and persist a draft (optionally continue one). */
+  create: (token: string, body: { transcript: string; patient_ref?: string; source?: string; encounter_id?: number }) =>
+    apiFetch<{ encounter: Encounter }>('/api/reception/encounters', {
+      method: 'POST', body: JSON.stringify(body),
+    }, token),
+  update: (token: string, id: number, patch: { intake?: IntakeData; patient_ref?: string }) =>
+    apiFetch<{ encounter: Encounter }>(`/api/reception/encounters/${id}`, {
+      method: 'PATCH', body: JSON.stringify(patch),
+    }, token),
+  /** Reception/clinician confirms the intake (human-in-the-loop). */
+  confirm: (token: string, id: number) =>
+    apiFetch<{ encounter: Encounter }>(`/api/reception/encounters/${id}/confirm`, { method: 'POST' }, token),
+};
+
+// ─── Inventory (Kiran) — drug stock, dispense, shortage alerts ────────────────
+
+export interface StockItem {
+  id: number;
+  drug: string;
+  unit: string;
+  quantity: number;
+  reorder_threshold: number;
+  low: boolean;
+  updated_at: string;
+}
+
+export interface ReorderAlert {
+  id: number;
+  drug: string;
+  quantity: number;
+  qty_suggested: number;
+  message: string | null;
+  status: 'open' | 'ordered' | 'dismissed';
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export const inventory = {
+  stock: (token: string) =>
+    apiFetch<{ stock: StockItem[] }>('/api/inventory/stock', {}, token),
+  upsertStock: (token: string, body: { drug: string; unit?: string; quantity: number; reorder_threshold: number }) =>
+    apiFetch<{ item: StockItem }>('/api/inventory/stock', { method: 'POST', body: JSON.stringify(body) }, token),
+  /** An approved prescription consumes stock; returns the item + any shortage alert raised. */
+  dispense: (token: string, body: { drug?: string; qty?: number; prescription?: string }) =>
+    apiFetch<{ item: StockItem; alert: ReorderAlert | null }>('/api/inventory/dispense', { method: 'POST', body: JSON.stringify(body) }, token),
+  restock: (token: string, body: { drug: string; qty: number }) =>
+    apiFetch<{ item: StockItem }>('/api/inventory/restock', { method: 'POST', body: JSON.stringify(body) }, token),
+  alerts: (token: string) =>
+    apiFetch<{ alerts: ReorderAlert[] }>('/api/inventory/alerts', {}, token),
+  resolveAlert: (token: string, id: number, status: 'ordered' | 'dismissed') =>
+    apiFetch<{ alert: ReorderAlert }>(`/api/inventory/alerts/${id}/resolve`, { method: 'POST', body: JSON.stringify({ status }) }, token),
+};
+
+// ─── OPD Reception (Dhanvantri-style): patients, visits, queue ────────────────
+
+export interface MilitaryInfo {
+  service_number?: string;
+  rank?: string;
+  relation?: string;       // SELF / dependent
+  category?: string;       // e.g. Army(ECHS)
+  arms_corps?: string;
+  unit?: string;
+  formation?: string;
+  trade?: string;
+  record_office?: string;
+  echs_number?: string;
+  validity_from?: string;
+  validity_to?: string;
+}
+
+export interface Patient {
+  id: number;
+  uhid: string | null;
+  external_id: string | null;
+  source_system: string;
+  name: string;
+  dob: string | null;
+  age: string | null;
+  sex: string | null;
+  phone: string | null;
+  address: string | null;
+  military?: MilitaryInfo | null;
+  abha_number?: string | null;
+  abha_address?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EligibilityCheck {
+  id: number;
+  patient_id: number | null;
+  claim_id?: number | null;
+  payer: string;
+  kind: 'eligibility' | 'preauth';
+  eligible: boolean | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  category: string | null;
+  cashless: boolean | null;
+  reference_id: string | null;
+  amount: number | null;
+  status: string | null;
+  remarks: string | null;
+  source: string;
+  created_at: string;
+}
+
+export const echs = {
+  verifyEligibility: (token: string, patientId: number) =>
+    apiFetch<{ check: EligibilityCheck; live: boolean }>('/api/echs/eligibility', { method: 'POST', body: JSON.stringify({ patient_id: patientId }) }, token),
+  latestEligibility: (token: string, patientId: number) =>
+    apiFetch<{ check: EligibilityCheck | null; live: boolean }>(`/api/echs/eligibility/${patientId}`, {}, token),
+  preAuth: (token: string, claimId: number) =>
+    apiFetch<{ check: EligibilityCheck; live: boolean }>('/api/echs/preauth', { method: 'POST', body: JSON.stringify({ claim_id: claimId }) }, token),
+};
+
+export const abdm = {
+  linkAbha: (token: string, patientId: number, opts?: { abha_address?: string; abha_number?: string }) =>
+    apiFetch<{ patient: { id: number; name: string; uhid: string | null; abha_number: string | null; abha_address: string | null }; live: boolean }>(
+      `/api/abdm/patients/${patientId}/abha`, { method: 'POST', body: JSON.stringify(opts || {}) }, token),
+};
+
+export type VisitStatus = 'scheduled' | 'waiting' | 'in_consultation' | 'completed' | 'cancelled';
+
+export interface Visit {
+  id: number;
+  patient_id: number;
+  patient_name?: string;
+  uhid?: string | null;
+  phone?: string | null;
+  hospital_name?: string | null;   // for the token slip
+  department: string | null;
+  doctor_id: number | null;
+  doctor_name: string | null;
+  token_no: number | null;
+  appointment_at: string | null;
+  status: VisitStatus;
+  reason: string | null;
+  patient_type?: string;           // routine | urgent | schedule
+  visit_type?: string;             // OPD | AME | PME
+  referral_hospital?: string | null;
+  referred_by?: string | null;
+  source_system: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Doctor {
+  id: number;
+  name: string;
+  department?: string | null;
+  active_load?: number;
+}
+
+export interface VisitNote {
+  id: number;
+  patient_ref: string | null;
+  soap: SoapNote;
+  status: 'draft' | 'signed';
+  signed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VisitDetail extends Visit {
+  age?: string | null;
+  sex?: string | null;
+  address?: string | null;
+  military?: MilitaryInfo | null;
+}
+
+export type ConsentPurpose = 'treatment' | 'data_processing' | 'echs_claim' | 'research';
+export type ConsentMethod = 'verbal' | 'written' | 'digital';
+
+export interface Consent {
+  purpose: ConsentPurpose | string;
+  granted: boolean;
+  method: ConsentMethod | string;
+  notes?: string | null;
+  created_at: string;
+}
+
+export const opd = {
+  searchPatients: (token: string, q = '') =>
+    apiFetch<{ patients: Patient[]; dhanvantri: boolean }>(`/api/reception/patients${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, token),
+  upsertPatient: (token: string, body: Partial<Patient> & { name: string; military?: MilitaryInfo }) =>
+    apiFetch<{ patient: Patient }>('/api/reception/patients', { method: 'POST', body: JSON.stringify(body) }, token),
+  doctors: (token: string) =>
+    apiFetch<{ doctors: Doctor[] }>('/api/reception/doctors', {}, token),
+  visits: (token: string, scope: 'today' | 'all' = 'today', mine = false) =>
+    apiFetch<{ visits: Visit[] }>(`/api/reception/visits?scope=${scope}${mine ? '&mine=1' : ''}`, {}, token),
+  getVisit: (token: string, id: number) =>
+    apiFetch<{ visit: VisitDetail; notes: VisitNote[]; consent: Consent[] }>(`/api/reception/visits/${id}`, {}, token),
+  getPatient: (token: string, id: number) =>
+    apiFetch<{ patient: Patient; consent: Consent[] }>(`/api/reception/patients/${id}`, {}, token),
+  /** Record a DPDP consent decision for a patient. */
+  recordConsent: (token: string, patientId: number, body: { purpose?: string; granted?: boolean; method?: string; notes?: string }) =>
+    apiFetch<{ consent: Consent }>(`/api/reception/patients/${patientId}/consent`, { method: 'POST', body: JSON.stringify(body) }, token),
+  createVisit: (token: string, body: {
+    patient_id: number; department?: string; doctor_id?: number; appointment_at?: string; reason?: string;
+    patient_type?: string; visit_type?: string; referral_hospital?: string; referred_by?: string;
+  }) =>
+    apiFetch<{ visit: Visit }>('/api/reception/visits', { method: 'POST', body: JSON.stringify(body) }, token),
+  /** Assign a doctor. Omit doctorId to let the AI pick the best available for the department. */
+  assignDoctor: (token: string, id: number, doctorId?: number) =>
+    apiFetch<{ visit: Visit; rationale: string }>(`/api/reception/visits/${id}/assign`, {
+      method: 'POST', body: JSON.stringify(doctorId ? { doctor_id: doctorId } : {}),
+    }, token),
+  updateVisit: (token: string, id: number, patch: { status?: VisitStatus; doctor_id?: number; department?: string }) =>
+    apiFetch<{ visit: Visit }>(`/api/reception/visits/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token),
 };

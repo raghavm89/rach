@@ -7,7 +7,6 @@ const legalNav = [
   { label: "Privacy Policy", href: "/legal/privacy" },
   { label: "Terms of Service", href: "/legal/terms" },
   { label: "Cookie Policy", href: "/legal/cookies" },
-  { label: "Service Level Agreement", href: "/legal/sla" },
   { label: "Data Processing Agreement", href: "/legal/dpa" },
 ];
 

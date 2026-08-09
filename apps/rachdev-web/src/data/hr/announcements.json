@@ -1,0 +1,24 @@
+[
+  {
+    "id": "ANN-03",
+    "title": "Independence Day — office closed Sat 15 Aug",
+    "body": "The Bellandur office is closed on Saturday 15 August for Independence Day. On-call rotations continue as scheduled; swap requests go to your manager by Thursday.",
+    "authorName": "Ananya Iyer",
+    "at": "2026-08-04T10:00:00+05:30",
+    "pinned": true
+  },
+  {
+    "id": "ANN-02",
+    "title": "Health insurance mid-year enrollment window open",
+    "body": "Additions of dependents (spouse, children, parents) are open until 20 August. Submit nominee and dependent details from My Space → Profile. E-cards arrive within 10 working days of the window closing.",
+    "authorName": "Rajesh Menon",
+    "at": "2026-07-28T09:30:00+05:30"
+  },
+  {
+    "id": "ANN-01",
+    "title": "Q2 all-hands recording and deck",
+    "body": "The recording and slides from the Q2 all-hands are on the intranet under Company → All-hands. Highlights: two enterprise logos closed, platform uptime at 99.97%, and the hiring plan for H2.",
+    "authorName": "Rajesh Menon",
+    "at": "2026-07-15T17:00:00+05:30"
+  }
+]

@@ -206,7 +206,7 @@ export function Navbar({
               >
                 Sign in
               </Link>
-              <HomeButton variant="primary" href="/signup" arrow>
+              <HomeButton variant="primary" href="/login" arrow>
                 Get started
               </HomeButton>
             </>
@@ -263,7 +263,7 @@ export function Navbar({
                   >
                     Sign in
                   </Link>
-                  <HomeButton variant="primary" href="/signup" arrow className="w-full justify-center">
+                  <HomeButton variant="primary" href="/login" arrow className="w-full justify-center">
                     Get started
                   </HomeButton>
                 </>

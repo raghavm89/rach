@@ -24,6 +24,21 @@ const { authRoutes, oauthRoutes, userRoutes } = require('@rach/identity');
 const agentRoutes = require('./routes/agent');
 const tenantRoutes = require('./routes/tenant');
 const scribeRoutes = require('./routes/scribe');
+const receptionRoutes = require('./routes/reception');
+const inventoryRoutes = require('./routes/inventory');
+const adminRoutes = require('./routes/admin');
+const supportRoutes = require('./routes/support');
+const agentMonitorRoutes = require('./routes/agentMonitor');
+const auditRoutes = require('./routes/audit');
+const triageRoutes = require('./routes/triage');
+const knowledgeRoutes = require('./routes/knowledge');
+const icuRoutes = require('./routes/icu');
+const claimsRoutes = require('./routes/claims');
+const echsRoutes = require('./routes/echs');
+const abdmRoutes = require('./routes/abdm');
+const coordinationRoutes = require('./routes/coordination');
+const journeyRoutes = require('./routes/journey');
+const hrRoutes = require('./routes/hr');
 
 const app = express();
 
@@ -57,6 +72,9 @@ app.get('/ready', async (req, res) => {
   catch (err) { res.status(503).json({ status: 'unavailable', error: err.message }); }
 });
 
+// Public marketing lead capture (no auth)
+app.use('/api/leads', require('./routes/leads'));
+
 // Shared identity (RachBase is the provider; mounted here for a self-contained dev app)
 app.use('/api/auth',  authRoutes);
 app.use('/api/auth',  oauthRoutes);
@@ -66,6 +84,21 @@ app.use('/api/users', userRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/scribe', scribeRoutes);
+app.use('/api/reception', receptionRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/agent-monitor', agentMonitorRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/triage', triageRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/icu', icuRoutes);
+app.use('/api/claims', claimsRoutes);
+app.use('/api/echs', echsRoutes);
+app.use('/api/abdm', abdmRoutes);
+app.use('/api/coordination', coordinationRoutes);
+app.use('/api/journey', journeyRoutes);
+app.use('/api/hr', hrRoutes);
 
 // 404 + error handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

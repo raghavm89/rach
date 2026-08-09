@@ -1,0 +1,2450 @@
+[
+  {
+    "id": "APP-3001",
+    "candidateId": "CAND-2001",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-01T09:12:00+05:30",
+    "stageChangedAt": "2026-08-01T09:12:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer with 6 years across fintech and e-commerce; owns payment reconciliation services at Flipkart.",
+      "yearsExperience": 6.2,
+      "currentTitle": "SDE II",
+      "currentCompany": "Flipkart",
+      "skills": [
+        "Java",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Redis",
+        "Spring Boot"
+      ],
+      "employment": [
+        {
+          "company": "Flipkart",
+          "title": "SDE II",
+          "from": "2022-03",
+          "to": "present"
+        },
+        {
+          "company": "Paytm",
+          "title": "Software Engineer",
+          "from": "2020-01",
+          "to": "2022-02"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. Computer Science",
+          "institution": "RV College of Engineering",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3400000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.2 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 78,
+      "rationale": "Strong overlap with the stack: Java services on PostgreSQL and Kafka at Flipkart scale map directly to the role's core work. Six years of experience clears the bar, with payment-domain ownership suggesting comfort with correctness-critical systems. The 60-day notice period is the main friction against the role's 30-day joining need.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-01T09:14:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3002",
+    "candidateId": "CAND-2002",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-01T11:03:00+05:30",
+    "stageChangedAt": "2026-08-01T11:03:00+05:30",
+    "resumeParsed": {
+      "summary": "Product-minded backend engineer at Zeta building card-issuing APIs; strong Postgres tuning background.",
+      "yearsExperience": 5.4,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Zeta",
+      "skills": [
+        "Go",
+        "PostgreSQL",
+        "gRPC",
+        "AWS",
+        "Docker"
+      ],
+      "employment": [
+        {
+          "company": "Zeta",
+          "title": "Senior Software Engineer",
+          "from": "2023-01",
+          "to": "present"
+        },
+        {
+          "company": "Mindtree",
+          "title": "Software Engineer",
+          "from": "2021-02",
+          "to": "2022-12"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech IT",
+          "institution": "VIT Vellore",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3200000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.4 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 72,
+      "rationale": "Solid Postgres depth and Go experience fit the platform stack, though Kafka exposure is not evident from the resume. Five-plus years at product companies with API ownership indicates the right seniority. A 30-day notice period matches the role's joining need exactly.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-01T11:05:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3003",
+    "candidateId": "CAND-2003",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-02T08:40:00+05:30",
+    "stageChangedAt": "2026-08-02T08:40:00+05:30",
+    "resumeParsed": {
+      "summary": "Seven years in SaaS backend; leads a two-engineer pod at Freshworks owning billing microservices.",
+      "yearsExperience": 7.1,
+      "currentTitle": "Lead Software Engineer",
+      "currentCompany": "Freshworks",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "Kubernetes",
+        "Terraform"
+      ],
+      "employment": [
+        {
+          "company": "Freshworks",
+          "title": "Lead Software Engineer",
+          "from": "2021-06",
+          "to": "present"
+        },
+        {
+          "company": "Cognizant",
+          "title": "Associate",
+          "from": "2019-01",
+          "to": "2021-05"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. ECE",
+          "institution": "Anna University",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 45,
+      "expectedCtcINR": 3800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "7.1 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 81,
+      "rationale": "Direct match on all five must-haves, including production Kafka and AWS at SaaS scale. Pod-lead experience at Freshworks aligns with the mentoring expectation in the JD. Expected compensation at ₹38 LPA sits inside the band, with a 45-day notice as the only scheduling concern.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-02T08:42:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3004",
+    "candidateId": "CAND-2004",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-02T10:25:00+05:30",
+    "stageChangedAt": "2026-08-02T10:25:00+05:30",
+    "resumeParsed": {
+      "summary": "Payments-infrastructure engineer at Razorpay; built settlement pipelines processing ₹900 Cr monthly.",
+      "yearsExperience": 5.5,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Razorpay",
+      "skills": [
+        "Java",
+        "Kafka",
+        "MySQL",
+        "PostgreSQL",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Razorpay",
+          "title": "Senior Software Engineer",
+          "from": "2022-07",
+          "to": "present"
+        },
+        {
+          "company": "Infosys",
+          "title": "Systems Engineer",
+          "from": "2021-01",
+          "to": "2022-06"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "NIT Durgapur",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3500000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 76,
+      "rationale": "Settlement-pipeline work at Razorpay is a close analogue to the ledger infrastructure this role owns. Kafka and AWS experience are demonstrated in production, and the compensation expectation fits the band. Notice period of 60 days will need negotiation against the 30-day requirement.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-02T10:27:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3005",
+    "candidateId": "CAND-2005",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-03T09:55:00+05:30",
+    "stageChangedAt": "2026-08-03T09:55:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer on Swiggy's order-management platform; deep queueing and failure-recovery experience.",
+      "yearsExperience": 6.0,
+      "currentTitle": "SDE II",
+      "currentCompany": "Swiggy",
+      "skills": [
+        "Java",
+        "Kafka",
+        "Cassandra",
+        "PostgreSQL",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Swiggy",
+          "title": "SDE II",
+          "from": "2022-01",
+          "to": "present"
+        },
+        {
+          "company": "Byju's",
+          "title": "Software Engineer",
+          "from": "2020-06",
+          "to": "2021-12"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. ISE",
+          "institution": "BMS College of Engineering",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3300000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 74,
+      "rationale": "Order-management work at Swiggy demonstrates the high-throughput, failure-tolerant design sense the role needs. Kafka experience is strong, though the primary datastore background is Cassandra rather than PostgreSQL. A 30-day notice and in-band expectation make this a low-friction candidacy.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-03T09:57:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3006",
+    "candidateId": "CAND-2006",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-03T12:20:00+05:30",
+    "stageChangedAt": "2026-08-03T12:20:00+05:30",
+    "resumeParsed": {
+      "summary": "Full-stack developer with startup experience, stronger on the frontend; some Node.js API work.",
+      "yearsExperience": 3.2,
+      "currentTitle": "Software Engineer",
+      "currentCompany": "Slice",
+      "skills": [
+        "Node.js",
+        "React",
+        "MongoDB",
+        "Express"
+      ],
+      "employment": [
+        {
+          "company": "Slice",
+          "title": "Software Engineer",
+          "from": "2023-04",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "SRM University",
+          "year": 2023
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 2400000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": false,
+        "detail": "3.2 years — below the 5-year minimum"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 41,
+      "rationale": "Experience is three years against a five-year minimum, and the background is largely frontend with light API work. None of the core must-haves — PostgreSQL, Kafka, AWS at scale — are evidenced. The profile may suit a mid-level full-stack opening rather than this role.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-03T12:22:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3007",
+    "candidateId": "CAND-2007",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-03T14:12:00+05:30",
+    "stageChangedAt": "2026-08-03T14:12:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend developer at a Pune fintech startup; four years of Django and Postgres experience.",
+      "yearsExperience": 4.0,
+      "currentTitle": "Software Engineer II",
+      "currentCompany": "FinBox",
+      "skills": [
+        "Python",
+        "Django",
+        "PostgreSQL",
+        "Celery",
+        "GCP"
+      ],
+      "employment": [
+        {
+          "company": "FinBox",
+          "title": "Software Engineer II",
+          "from": "2022-08",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. Computer Engineering",
+          "institution": "COEP Pune",
+          "year": 2022
+        }
+      ],
+      "noticePeriodDays": 45,
+      "expectedCtcINR": 2600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": false,
+        "detail": "4.0 years — below the 5-year minimum"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "In Pune; stated willing to relocate"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 47,
+      "rationale": "Postgres experience is real but the profile is a year short of the experience minimum. The stack is Python/GCP against a Java-Go/AWS platform, and Kafka does not appear at all. A promising candidate for a mid-level backend requisition rather than this senior role.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-03T14:14:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3008",
+    "candidateId": "CAND-2008",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T09:05:00+05:30",
+    "stageChangedAt": "2026-08-04T09:05:00+05:30",
+    "resumeParsed": {
+      "summary": "Eight years in enterprise Java; currently at an insurance-tech firm in Pune. Not open to relocation.",
+      "yearsExperience": 8.0,
+      "currentTitle": "Technical Lead",
+      "currentCompany": "Coverfox",
+      "skills": [
+        "Java",
+        "Spring",
+        "Oracle",
+        "PostgreSQL",
+        "Jenkins"
+      ],
+      "employment": [
+        {
+          "company": "Coverfox",
+          "title": "Technical Lead",
+          "from": "2021-04",
+          "to": "present"
+        },
+        {
+          "company": "TCS",
+          "title": "IT Analyst",
+          "from": "2018-06",
+          "to": "2021-03"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. Computer Engineering",
+          "institution": "Pune University",
+          "year": 2018
+        }
+      ],
+      "noticePeriodDays": 90,
+      "expectedCtcINR": 3600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "8.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": false,
+        "detail": "Pune-based; declined relocation in application form"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 52,
+      "rationale": "Seniority is well past the bar, but the candidate declined relocation for a hybrid Bengaluru role, which is disqualifying as configured. The stack is enterprise Java with limited cloud-native and no Kafka evidence. Combined with a 90-day notice, the logistics outweigh the experience.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T09:07:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3009",
+    "candidateId": "CAND-2009",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T07:30:00+05:30",
+    "stageChangedAt": "2026-08-04T07:30:00+05:30",
+    "resumeParsed": {
+      "summary": "Distributed-systems engineer in the Bay Area; strong storage-layer background, exploring a return to India on a US timeline.",
+      "yearsExperience": 6.0,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Databricks",
+      "skills": [
+        "Scala",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "Spark"
+      ],
+      "employment": [
+        {
+          "company": "Databricks",
+          "title": "Senior Software Engineer",
+          "from": "2021-09",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "M.S. Computer Science",
+          "institution": "UC San Diego",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 21,
+      "expectedCtcINR": 6500000,
+      "workAuthIndia": false
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Stated willing to relocate to Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": false,
+        "detail": "Requires employer-of-record arrangement until relocation completes"
+      }
+    ],
+    "aiScore": {
+      "value": 58,
+      "rationale": "Technical depth is excellent — Kafka and AWS at Databricks scale exceed the role's needs. However the candidate cannot join on Indian payroll until relocation completes, and the expected compensation is ₹65 LPA against a ₹40 LPA ceiling. Worth keeping warm for a future senior opening with an international budget.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T07:32:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3010",
+    "candidateId": "CAND-2010",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T10:05:00+05:30",
+    "stageChangedAt": "2026-08-04T10:05:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer on Paytm's wallet platform; five years of Java microservices in payments.",
+      "yearsExperience": 5.1,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Paytm",
+      "skills": [
+        "Java",
+        "Spring Boot",
+        "MySQL",
+        "Kafka",
+        "GCP"
+      ],
+      "employment": [
+        {
+          "company": "Paytm",
+          "title": "Senior Software Engineer",
+          "from": "2023-06",
+          "to": "present"
+        },
+        {
+          "company": "Wipro",
+          "title": "Project Engineer",
+          "from": "2021-07",
+          "to": "2023-05"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "Jamia Millia Islamia",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3000000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.1 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 69,
+      "rationale": "Payments-domain Java experience with Kafka is relevant, though the database background is MySQL over PostgreSQL and cloud exposure is GCP rather than AWS. Experience just clears the five-year bar at the junior end of the range sought. In-band expectations and Bengaluru presence keep this application viable.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T10:07:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3011",
+    "candidateId": "CAND-2011",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T15:40:00+05:30",
+    "stageChangedAt": "2026-08-04T15:40:00+05:30",
+    "resumeParsed": {
+      "summary": "Junior developer with two and a half years at a services firm; Java training-project background.",
+      "yearsExperience": 2.5,
+      "currentTitle": "Software Engineer",
+      "currentCompany": "Accenture",
+      "skills": [
+        "Java",
+        "SQL",
+        "Spring"
+      ],
+      "employment": [
+        {
+          "company": "Accenture",
+          "title": "Software Engineer",
+          "from": "2024-02",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "Visvesvaraya Technological University",
+          "year": 2023
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 1800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": false,
+        "detail": "2.5 years — below the 5-year minimum"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 38,
+      "rationale": "The profile is at half the required experience with services-firm project work rather than product ownership. No must-have technology appears in production context. A respectful early rejection with encouragement to reapply at the five-year mark is appropriate.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T15:42:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3012",
+    "candidateId": "CAND-2012",
+    "requisitionId": "REQ-1024",
+    "stage": "applied",
+    "appliedAt": "2026-08-02T16:44:00+05:30",
+    "stageChangedAt": "2026-08-02T16:44:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer at Ola Electric working on charging-network services; six years overall.",
+      "yearsExperience": 6.0,
+      "currentTitle": "SDE II",
+      "currentCompany": "Ola Electric",
+      "skills": [
+        "Go",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Redis"
+      ],
+      "employment": [
+        {
+          "company": "Ola Electric",
+          "title": "SDE II",
+          "from": "2023-02",
+          "to": "present"
+        },
+        {
+          "company": "Zomato",
+          "title": "Software Engineer",
+          "from": "2020-07",
+          "to": "2023-01"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "IIIT Allahabad",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3400000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 71,
+      "rationale": "Go with PostgreSQL and Kafka on AWS is an exact stack match, with six years of product-company experience. The charging-network domain shows comfort with real-time, failure-prone distributed systems. Scores are held back only by limited evidence of design leadership or mentoring.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-02T16:46:00+05:30"
+    },
+    "policyFlags": [
+      {
+        "key": "reapply_cooldown",
+        "message": "Rejected for REQ-0988 (Backend Engineer) on 4 Apr 2026 — re-apply cooldown until Dec 2026.",
+        "severity": "review"
+      }
+    ]
+  },
+  {
+    "id": "APP-3013",
+    "candidateId": "CAND-2013",
+    "requisitionId": "REQ-1024",
+    "stage": "screening",
+    "appliedAt": "2026-07-30T09:20:00+05:30",
+    "stageChangedAt": "2026-08-02T11:30:00+05:30",
+    "resumeParsed": {
+      "summary": "Platform engineer with seven years, including three at Meridian Technologies (2021–2024) on the ledger team; currently at Navi.",
+      "yearsExperience": 7.0,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Navi",
+      "skills": [
+        "Java",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Kubernetes"
+      ],
+      "employment": [
+        {
+          "company": "Navi",
+          "title": "Senior Software Engineer",
+          "from": "2024-08",
+          "to": "present"
+        },
+        {
+          "company": "Meridian Technologies",
+          "title": "Software Engineer II",
+          "from": "2021-05",
+          "to": "2024-07"
+        },
+        {
+          "company": "Mphasis",
+          "title": "Software Engineer",
+          "from": "2019-06",
+          "to": "2021-04"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "PES University",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3700000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "7.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 82,
+      "rationale": "Three years inside Meridian's own ledger team makes this the shortest possible ramp-up of any applicant. The stack match is complete and current work at Navi extends the same domain. The rehire-cooldown flag requires a Director decision before the candidacy can progress.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-30T09:22:00+05:30"
+    },
+    "policyFlags": [
+      {
+        "key": "rehire_cooldown",
+        "message": "Former employee (Software Engineer II, exited Jul 2024) — rehire cooldown active until Jul 2027 per policy.",
+        "severity": "review"
+      }
+    ]
+  },
+  {
+    "id": "APP-3014",
+    "candidateId": "CAND-2014",
+    "requisitionId": "REQ-1024",
+    "stage": "screening",
+    "appliedAt": "2026-07-30T11:15:00+05:30",
+    "stageChangedAt": "2026-08-02T11:30:00+05:30",
+    "resumeParsed": {
+      "summary": "Six years building mobility backends at Ola; owns the driver-allocation service group.",
+      "yearsExperience": 6.0,
+      "currentTitle": "SDE III",
+      "currentCompany": "Ola",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "Redis",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Ola",
+          "title": "SDE III",
+          "from": "2022-04",
+          "to": "present"
+        },
+        {
+          "company": "Oracle",
+          "title": "Applications Engineer",
+          "from": "2020-06",
+          "to": "2022-03"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "Manipal Institute of Technology",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 45,
+      "expectedCtcINR": 3600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 75,
+      "rationale": "Driver-allocation systems at Ola demonstrate high-concurrency design directly relevant to the platform team. All five must-haves appear in production context. The duplicate-submission conflict must be resolved with the agency before an offer conversation to avoid a fee dispute.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-30T11:17:00+05:30"
+    },
+    "policyFlags": [
+      {
+        "key": "duplicate_submission",
+        "message": "Also submitted by TalentBridge Consulting on 30 Jul (2 hours after direct application). Direct application holds ownership — agency notified.",
+        "severity": "review"
+      }
+    ]
+  },
+  {
+    "id": "APP-3015",
+    "candidateId": "CAND-2015",
+    "requisitionId": "REQ-1024",
+    "stage": "screening",
+    "appliedAt": "2026-07-31T10:00:00+05:30",
+    "stageChangedAt": "2026-08-03T10:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer at Myntra on the order-orchestration team; strong sale-day scaling stories.",
+      "yearsExperience": 6.5,
+      "currentTitle": "SDE II",
+      "currentCompany": "Myntra",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "Elasticsearch"
+      ],
+      "employment": [
+        {
+          "company": "Myntra",
+          "title": "SDE II",
+          "from": "2021-11",
+          "to": "present"
+        },
+        {
+          "company": "HCL",
+          "title": "Software Engineer",
+          "from": "2020-01",
+          "to": "2021-10"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "SJCE Mysuru",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3500000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 79,
+      "rationale": "Order orchestration during Myntra sale events is strong evidence of the traffic-spike resilience this role demands. The stack match covers all must-haves with search infrastructure as a bonus. A 30-day notice period fits the joining need without negotiation.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-31T10:02:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3016",
+    "candidateId": "CAND-2016",
+    "requisitionId": "REQ-1024",
+    "stage": "screening",
+    "appliedAt": "2026-07-31T15:30:00+05:30",
+    "stageChangedAt": "2026-08-03T10:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Five years at Infosys on banking-client backends; recent move toward cloud-native services.",
+      "yearsExperience": 5.0,
+      "currentTitle": "Technology Analyst",
+      "currentCompany": "Infosys",
+      "skills": [
+        "Java",
+        "Spring Boot",
+        "Oracle",
+        "PostgreSQL",
+        "Azure"
+      ],
+      "employment": [
+        {
+          "company": "Infosys",
+          "title": "Technology Analyst",
+          "from": "2021-08",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "KIIT Bhubaneswar",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 90,
+      "expectedCtcINR": 2900000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 66,
+      "rationale": "Banking-domain rigor and recent Postgres work are relevant, but the experience is services-delivery rather than product ownership. Kafka is absent and cloud exposure is Azure against an AWS platform. The 90-day notice is a significant mismatch with the 30-day joining need.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-31T15:32:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3017",
+    "candidateId": "CAND-2017",
+    "requisitionId": "REQ-1024",
+    "stage": "screening",
+    "appliedAt": "2026-08-01T08:50:00+05:30",
+    "stageChangedAt": "2026-08-04T09:15:00+05:30",
+    "resumeParsed": {
+      "summary": "Seven years including four at Amazon on fulfilment services; owns a tier-1 service with strict SLOs.",
+      "yearsExperience": 7.3,
+      "currentTitle": "SDE II",
+      "currentCompany": "Amazon",
+      "skills": [
+        "Java",
+        "DynamoDB",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "CDK"
+      ],
+      "employment": [
+        {
+          "company": "Amazon",
+          "title": "SDE II",
+          "from": "2022-05",
+          "to": "present"
+        },
+        {
+          "company": "Samsung R&D",
+          "title": "Engineer",
+          "from": "2019-06",
+          "to": "2022-04"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "NIT Calicut",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3900000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "7.3 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 84,
+      "rationale": "Tier-1 service ownership at Amazon with strict SLOs is the strongest operational signal in the current pool. AWS depth is exceptional and Kafka appears in production context. Expected compensation at ₹39 LPA is at the top of the band, which the panel should weigh against the two-month notice.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-01T08:52:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3018",
+    "candidateId": "CAND-2018",
+    "requisitionId": "REQ-1024",
+    "stage": "voice_screen",
+    "appliedAt": "2026-07-26T10:18:00+05:30",
+    "stageChangedAt": "2026-08-01T09:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Senior engineer at PhonePe on the payments-switch team; six and a half years in high-volume transaction systems.",
+      "yearsExperience": 6.5,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "PhonePe",
+      "skills": [
+        "Java",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Redis",
+        "gRPC"
+      ],
+      "employment": [
+        {
+          "company": "PhonePe",
+          "title": "Senior Software Engineer",
+          "from": "2021-06",
+          "to": "present"
+        },
+        {
+          "company": "Infosys",
+          "title": "Senior Systems Engineer",
+          "from": "2019-07",
+          "to": "2021-05"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "College of Engineering Trivandrum",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 90,
+      "expectedCtcINR": 3800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 88,
+      "rationale": "Payments-switch experience at PhonePe is the closest domain match in the pool — high-volume, correctness-critical transaction processing on exactly this stack. All five must-haves are evidenced in production, with design-review leadership noted at PhonePe. The single material risk is the 90-day notice period against a 30-day joining need, surfaced in the voice screen.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-26T10:20:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3019",
+    "candidateId": "CAND-2019",
+    "requisitionId": "REQ-1024",
+    "stage": "voice_screen",
+    "appliedAt": "2026-07-27T09:35:00+05:30",
+    "stageChangedAt": "2026-08-01T09:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer at CRED on the rewards platform; strong Kafka streaming background.",
+      "yearsExperience": 6.0,
+      "currentTitle": "Backend Engineer II",
+      "currentCompany": "CRED",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "Flink"
+      ],
+      "employment": [
+        {
+          "company": "CRED",
+          "title": "Backend Engineer II",
+          "from": "2022-09",
+          "to": "present"
+        },
+        {
+          "company": "Juspay",
+          "title": "Software Engineer",
+          "from": "2020-06",
+          "to": "2022-08"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "SSN College of Engineering",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3400000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 81,
+      "rationale": "Streaming-first experience with Kafka and Flink at CRED matches the platform's event-driven architecture. Two payments-adjacent employers indicate durable domain interest. A 30-day notice with buyout option removes joining friction entirely.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-27T09:37:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3020",
+    "candidateId": "CAND-2020",
+    "requisitionId": "REQ-1024",
+    "stage": "voice_screen",
+    "appliedAt": "2026-07-27T14:22:00+05:30",
+    "stageChangedAt": "2026-08-02T10:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Payments engineer at Juspay; five years and ten months on UPI routing and retry infrastructure.",
+      "yearsExperience": 5.8,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Juspay",
+      "skills": [
+        "Haskell",
+        "Java",
+        "PostgreSQL",
+        "Kafka",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Juspay",
+          "title": "Senior Software Engineer",
+          "from": "2023-03",
+          "to": "present"
+        },
+        {
+          "company": "Tata Elxsi",
+          "title": "Engineer",
+          "from": "2020-09",
+          "to": "2023-02"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech IT",
+          "institution": "CUSAT Kochi",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 45,
+      "expectedCtcINR": 4000000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.8 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 77,
+      "rationale": "UPI routing and retry infrastructure at Juspay is highly relevant to transaction-platform work. The functional-programming background is a divergence from the team's Java-Go center but shows range. Expected compensation sits exactly at the band ceiling, which limits negotiation room.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-27T14:24:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3021",
+    "candidateId": "CAND-2021",
+    "requisitionId": "REQ-1024",
+    "stage": "voice_screen",
+    "appliedAt": "2026-07-28T11:40:00+05:30",
+    "stageChangedAt": "2026-08-03T09:30:00+05:30",
+    "resumeParsed": {
+      "summary": "Six years in ride-platform backends at Uber India; pricing and surge services.",
+      "yearsExperience": 6.0,
+      "currentTitle": "Software Engineer II",
+      "currentCompany": "Uber",
+      "skills": [
+        "Go",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "Cassandra"
+      ],
+      "employment": [
+        {
+          "company": "Uber",
+          "title": "Software Engineer II",
+          "from": "2022-01",
+          "to": "present"
+        },
+        {
+          "company": "Flipkart",
+          "title": "SDE I",
+          "from": "2020-06",
+          "to": "2021-12"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "DTU Delhi",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3700000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 80,
+      "rationale": "Pricing and surge services at Uber demonstrate latency-sensitive design under real load. Go with Kafka on the required datastores is a direct stack fit. Voice screen scheduled to confirm notice period and compensation expectations.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-28T11:42:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3022",
+    "candidateId": "CAND-2022",
+    "requisitionId": "REQ-1024",
+    "stage": "hr_interview",
+    "appliedAt": "2026-07-24T09:10:00+05:30",
+    "stageChangedAt": "2026-08-04T10:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Seven years, currently at Walmart Global Tech on inventory services; led a four-engineer workstream.",
+      "yearsExperience": 7.0,
+      "currentTitle": "Software Engineer III",
+      "currentCompany": "Walmart Global Tech",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "Azure",
+        "AWS",
+        "Kubernetes"
+      ],
+      "employment": [
+        {
+          "company": "Walmart Global Tech",
+          "title": "Software Engineer III",
+          "from": "2021-10",
+          "to": "present"
+        },
+        {
+          "company": "Dell",
+          "title": "Software Engineer",
+          "from": "2019-07",
+          "to": "2021-09"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. ISE",
+          "institution": "MS Ramaiah Institute of Technology",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 45,
+      "expectedCtcINR": 3800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "7.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 83,
+      "rationale": "Inventory-service scale at Walmart with workstream leadership matches both the technical and mentoring dimensions of the role. Kafka and PostgreSQL appear throughout the recent experience. Cleared the voice screen with consistent answers; notice period of 45 days is workable with a planned start date.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-24T09:12:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3023",
+    "candidateId": "CAND-2023",
+    "requisitionId": "REQ-1024",
+    "stage": "hr_interview",
+    "appliedAt": "2026-07-24T13:28:00+05:30",
+    "stageChangedAt": "2026-08-01T14:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Backend engineer at Meesho on order and returns flows; six years of marketplace systems.",
+      "yearsExperience": 6.0,
+      "currentTitle": "SDE II",
+      "currentCompany": "Meesho",
+      "skills": [
+        "Java",
+        "Kafka",
+        "MySQL",
+        "PostgreSQL",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Meesho",
+          "title": "SDE II",
+          "from": "2022-06",
+          "to": "present"
+        },
+        {
+          "company": "Capgemini",
+          "title": "Senior Analyst",
+          "from": "2020-01",
+          "to": "2022-05"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "Techno India",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3300000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 79,
+      "rationale": "Marketplace order-flow experience covers idempotency and reconciliation patterns central to the platform. The stack aligns on Kafka, PostgreSQL and AWS with production evidence. HR interview completed with a positive scorecard; 30-day notice fits the timeline.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-24T13:30:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3024",
+    "candidateId": "CAND-2024",
+    "requisitionId": "REQ-1024",
+    "stage": "hr_interview",
+    "appliedAt": "2026-07-25T10:02:00+05:30",
+    "stageChangedAt": "2026-08-01T14:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Engineer at Target in Bengaluru on supply-chain services; six years and ten months overall.",
+      "yearsExperience": 6.8,
+      "currentTitle": "Senior Engineer",
+      "currentCompany": "Target",
+      "skills": [
+        "Kotlin",
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "GCP",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "Target",
+          "title": "Senior Engineer",
+          "from": "2021-03",
+          "to": "present"
+        },
+        {
+          "company": "Mindtree",
+          "title": "Software Engineer",
+          "from": "2019-10",
+          "to": "2021-02"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "NIE Mysuru",
+          "year": 2019
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.8 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 82,
+      "rationale": "Supply-chain service work at Target shows sustained ownership of correctness-critical flows on Kafka and PostgreSQL. Kotlin-Java experience transfers cleanly to the platform's JVM services. The missed HR interview on 3 Aug was explained and rescheduled; no pattern of unreliability in the record.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-25T10:04:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3025",
+    "candidateId": "CAND-2025",
+    "requisitionId": "REQ-1024",
+    "stage": "pm_interview",
+    "appliedAt": "2026-07-23T09:45:00+05:30",
+    "stageChangedAt": "2026-08-03T16:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Senior engineer at Navi on lending-platform services; six years with strong design-doc culture.",
+      "yearsExperience": 6.0,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Navi",
+      "skills": [
+        "Java",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Redis"
+      ],
+      "employment": [
+        {
+          "company": "Navi",
+          "title": "Senior Software Engineer",
+          "from": "2022-08",
+          "to": "present"
+        },
+        {
+          "company": "Amazon",
+          "title": "SDE I",
+          "from": "2020-07",
+          "to": "2022-07"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "IIIT Hyderabad",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 3700000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "6.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 85,
+      "rationale": "Lending-platform experience at Navi plus Amazon fundamentals give both rigor and product speed. Every must-have appears with recent production depth, and the HR round confirmed strong communication. A 30-day notice makes the timeline straightforward if the PM round clears.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-23T09:47:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3026",
+    "candidateId": "CAND-2026",
+    "requisitionId": "REQ-1024",
+    "stage": "pm_interview",
+    "appliedAt": "2026-07-23T11:30:00+05:30",
+    "stageChangedAt": "2026-08-03T16:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Eight years including five at Intuit on QuickBooks platform services; staff-adjacent scope.",
+      "yearsExperience": 8.0,
+      "currentTitle": "Senior Software Engineer 2",
+      "currentCompany": "Intuit",
+      "skills": [
+        "Java",
+        "Kafka",
+        "PostgreSQL",
+        "AWS",
+        "GraphQL"
+      ],
+      "employment": [
+        {
+          "company": "Intuit",
+          "title": "Senior Software Engineer 2",
+          "from": "2021-04",
+          "to": "present"
+        },
+        {
+          "company": "SAP Labs",
+          "title": "Developer",
+          "from": "2018-06",
+          "to": "2021-03"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "BIT Mesra",
+          "year": 2018
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 4000000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "8.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 86,
+      "rationale": "Platform-services scope at Intuit for five years signals the seniority ceiling of this band. The must-have coverage is complete and the PM round scorecard rated design depth highly. Compensation expectation at the band maximum and a 60-day notice are the two negotiation points.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-23T11:32:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3027",
+    "candidateId": "CAND-2027",
+    "requisitionId": "REQ-1024",
+    "stage": "offer",
+    "appliedAt": "2026-07-23T08:55:00+05:30",
+    "stageChangedAt": "2026-08-03T11:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Seven and a half years; senior engineer at Atlassian on Jira platform services, ex-ThoughtWorks.",
+      "yearsExperience": 7.5,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "Atlassian",
+      "skills": [
+        "Java",
+        "Kotlin",
+        "PostgreSQL",
+        "Kafka",
+        "AWS",
+        "Terraform"
+      ],
+      "employment": [
+        {
+          "company": "Atlassian",
+          "title": "Senior Software Engineer",
+          "from": "2022-02",
+          "to": "present"
+        },
+        {
+          "company": "ThoughtWorks",
+          "title": "Consultant Developer",
+          "from": "2019-01",
+          "to": "2022-01"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "CEG Anna University",
+          "year": 2018
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 3600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "7.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 90,
+      "rationale": "Platform-services experience at Atlassian with infrastructure-as-code depth is the strongest overall profile in the funnel. Interview scorecards were the highest of the cycle across both rounds. Offer extended at ₹36 LPA, inside band, with a September joining plan agreed in principle.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-23T08:57:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3028",
+    "candidateId": "CAND-2028",
+    "requisitionId": "REQ-1024",
+    "stage": "rejected",
+    "appliedAt": "2026-07-25T09:30:00+05:30",
+    "stageChangedAt": "2026-07-30T17:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Three years in QA automation moving toward backend development; personal projects in Node.js.",
+      "yearsExperience": 3.0,
+      "currentTitle": "QA Engineer",
+      "currentCompany": "Tech Mahindra",
+      "skills": [
+        "Selenium",
+        "Java",
+        "Node.js",
+        "MySQL"
+      ],
+      "employment": [
+        {
+          "company": "Tech Mahindra",
+          "title": "QA Engineer",
+          "from": "2023-07",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. Mechanical",
+          "institution": "Chandigarh University",
+          "year": 2023
+        }
+      ],
+      "noticePeriodDays": 60,
+      "expectedCtcINR": 1600000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": false,
+        "detail": "3.0 years — below the 5-year minimum"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 44,
+      "rationale": "The transition from QA to backend development is at an early stage with project-level rather than production evidence. Experience is well below the minimum for a senior role. A rejection with a pointer to future mid-level openings preserves the relationship.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-25T09:32:00+05:30"
+    },
+    "policyFlags": [],
+    "rejection": {
+      "batchId": "REJ-B-01",
+      "reason": "Below minimum experience for senior role",
+      "emailStatus": "sent",
+      "sendAt": "2026-08-01T17:00:00+05:30",
+      "decidedById": "USR-01",
+      "decidedAt": "2026-07-30T17:00:00+05:30",
+      "emailBody": "Dear Manish,\n\nThank you for the time you invested in applying for the Senior Backend Engineer role at Meridian Technologies. After a careful review, we will not be progressing your application for this position, which asks for at least five years of production backend experience.\n\nYour move from QA automation into backend development shows real initiative, and we would genuinely welcome an application for a mid-level backend opening as your production experience grows.\n\nWishing you the very best in your search.\n\nWarm regards,\nTalent Acquisition, Meridian Technologies"
+    }
+  },
+  {
+    "id": "APP-3029",
+    "candidateId": "CAND-2029",
+    "requisitionId": "REQ-1024",
+    "stage": "rejected",
+    "appliedAt": "2026-07-26T11:45:00+05:30",
+    "stageChangedAt": "2026-07-30T17:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Four and a half years of Rails development at Mumbai startups; remote-only preference stated.",
+      "yearsExperience": 4.5,
+      "currentTitle": "Senior Developer",
+      "currentCompany": "BrowserStack",
+      "skills": [
+        "Ruby",
+        "Rails",
+        "PostgreSQL",
+        "Redis",
+        "AWS"
+      ],
+      "employment": [
+        {
+          "company": "BrowserStack",
+          "title": "Senior Developer",
+          "from": "2023-05",
+          "to": "present"
+        },
+        {
+          "company": "Haptik",
+          "title": "Developer",
+          "from": "2021-02",
+          "to": "2023-04"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. IT",
+          "institution": "Mumbai University",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 2800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": false,
+        "detail": "4.5 years — below the 5-year minimum"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": false,
+        "detail": "Mumbai-based; stated remote-only preference"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 51,
+      "rationale": "Postgres and AWS experience are relevant, but the profile falls short of the experience minimum and the candidate requires a fully remote arrangement this hybrid role cannot offer. The Rails-centric stack would also mean a significant ramp on the JVM platform. Both structural mismatches are outside interview control.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-26T11:47:00+05:30"
+    },
+    "policyFlags": [],
+    "rejection": {
+      "batchId": "REJ-B-01",
+      "reason": "Below experience minimum; remote-only vs hybrid role",
+      "emailStatus": "sent",
+      "sendAt": "2026-08-01T17:00:00+05:30",
+      "decidedById": "USR-01",
+      "decidedAt": "2026-07-30T17:00:00+05:30",
+      "emailBody": "Dear Shruti,\n\nThank you for applying for the Senior Backend Engineer position at Meridian Technologies. After review, we will not be moving forward with your application: the role requires five-plus years of experience and three days a week from our Bengaluru office, which does not match your current preferences.\n\nYour Rails and infrastructure background is solid, and we would be glad to hear from you again if a Bengaluru move or a remote-eligible role at Meridian becomes relevant.\n\nBest wishes in your search.\n\nWarm regards,\nTalent Acquisition, Meridian Technologies"
+    }
+  },
+  {
+    "id": "APP-3030",
+    "candidateId": "CAND-2030",
+    "requisitionId": "REQ-1024",
+    "stage": "rejected",
+    "appliedAt": "2026-07-26T15:10:00+05:30",
+    "stageChangedAt": "2026-07-30T17:00:00+05:30",
+    "resumeParsed": {
+      "summary": "Five years split across support engineering and internal-tools development at a services firm.",
+      "yearsExperience": 5.0,
+      "currentTitle": "Senior Software Engineer",
+      "currentCompany": "LTIMindtree",
+      "skills": [
+        "Java",
+        "SQL Server",
+        "PowerShell",
+        "Azure"
+      ],
+      "employment": [
+        {
+          "company": "LTIMindtree",
+          "title": "Senior Software Engineer",
+          "from": "2021-08",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech CSE",
+          "institution": "Heritage Institute of Technology",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 90,
+      "expectedCtcINR": 2500000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 5 years experience",
+        "pass": true,
+        "detail": "5.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 48,
+      "rationale": "Experience clears the minimum on paper, but the work is support and internal tooling rather than production service ownership. None of the must-have technologies appear in a high-scale context. The score falls below the screening threshold for this senior requisition.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-26T15:12:00+05:30"
+    },
+    "policyFlags": [],
+    "rejection": {
+      "batchId": "REJ-B-01",
+      "reason": "Below screening threshold — no production service ownership",
+      "emailStatus": "sent",
+      "sendAt": "2026-08-01T17:00:00+05:30",
+      "decidedById": "USR-01",
+      "decidedAt": "2026-07-30T17:00:00+05:30",
+      "emailBody": "Dear Deepak,\n\nThank you for your application for the Senior Backend Engineer role at Meridian Technologies. After careful review against the role's requirements, we will not be progressing your application this time — the position calls for sustained ownership of high-scale production services, which your profile does not yet demonstrate.\n\nWe appreciate the time you took to apply and would welcome a future application as your production experience deepens.\n\nWarm regards,\nTalent Acquisition, Meridian Technologies"
+    }
+  },
+  {
+    "id": "APP-3031",
+    "candidateId": "CAND-2031",
+    "requisitionId": "REQ-1025",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T09:20:00+05:30",
+    "stageChangedAt": "2026-08-04T09:20:00+05:30",
+    "resumeParsed": {
+      "summary": "Two years in business development at Urban Company; consistent quota performance in field sales.",
+      "yearsExperience": 2.0,
+      "currentTitle": "Business Development Executive",
+      "currentCompany": "Urban Company",
+      "skills": [
+        "Outbound prospecting",
+        "Cold calling",
+        "Salesforce",
+        "Negotiation"
+      ],
+      "employment": [
+        {
+          "company": "Urban Company",
+          "title": "Business Development Executive",
+          "from": "2024-08",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "BBA",
+          "institution": "Christ University",
+          "year": 2024
+        }
+      ],
+      "noticePeriodDays": 15,
+      "expectedCtcINR": 1000000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 1 year experience",
+        "pass": true,
+        "detail": "2.0 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 64,
+      "rationale": "Field BD experience at Urban Company demonstrates cold-outreach stamina and quota discipline. CRM exposure is Salesforce, transferable to any stack. The step from field sales to a SaaS SDR desk motion is the main unknown to probe at screening.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T09:22:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3032",
+    "candidateId": "CAND-2032",
+    "requisitionId": "REQ-1025",
+    "stage": "applied",
+    "appliedAt": "2026-08-04T12:10:00+05:30",
+    "stageChangedAt": "2026-08-04T12:10:00+05:30",
+    "resumeParsed": {
+      "summary": "Inside-sales representative at a SaaS HR-tech startup; eighteen months of outbound SDR experience.",
+      "yearsExperience": 1.5,
+      "currentTitle": "Inside Sales Representative",
+      "currentCompany": "Keka",
+      "skills": [
+        "Outbound prospecting",
+        "Email sequencing",
+        "HubSpot",
+        "Cold calling",
+        "SaaS"
+      ],
+      "employment": [
+        {
+          "company": "Keka",
+          "title": "Inside Sales Representative",
+          "from": "2025-02",
+          "to": "present"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Com",
+          "institution": "Mount Carmel College",
+          "year": 2024
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 900000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 1 year experience",
+        "pass": true,
+        "detail": "1.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 70,
+      "rationale": "Direct SDR experience at a SaaS HR-tech company is the exact motion this role runs. Sequencing and CRM hygiene are already habits rather than aspirations. Eighteen months is early-career, so coaching investment should be planned for objection handling at enterprise accounts.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-08-04T12:12:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3034",
+    "candidateId": "CAND-2034",
+    "requisitionId": "REQ-0991",
+    "stage": "hired",
+    "appliedAt": "2026-04-20T09:40:00+05:30",
+    "stageChangedAt": "2026-06-12T09:30:00+05:30",
+    "resumeParsed": {
+      "summary": "SRE with four and a half years across cloud infrastructure; ran EKS clusters and Terraform estates at CloudSprint for fintech clients.",
+      "yearsExperience": 4.5,
+      "currentTitle": "Site Reliability Engineer",
+      "currentCompany": "CloudSprint Technologies",
+      "skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Prometheus",
+        "Bash",
+        "GitHub Actions"
+      ],
+      "employment": [
+        {
+          "company": "CloudSprint Technologies",
+          "title": "Site Reliability Engineer",
+          "from": "2023-08",
+          "to": "2026-06"
+        },
+        {
+          "company": "Wipro",
+          "title": "Cloud Engineer",
+          "from": "2021-11",
+          "to": "2023-07"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "Dayananda Sagar College of Engineering",
+          "year": 2021
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 2400000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 4 years experience",
+        "pass": true,
+        "detail": "4.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 84,
+      "rationale": "Production Kubernetes and Terraform ownership at CloudSprint covers every must-have for the infrastructure role. Fintech-client SLAs indicate the reliability discipline the team needs. A 30-day notice and in-band expectation made the timeline clean.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-04-20T09:42:00+05:30"
+    },
+    "policyFlags": []
+  },
+  {
+    "id": "APP-3033",
+    "candidateId": "CAND-2033",
+    "requisitionId": "REQ-1023",
+    "stage": "offer",
+    "appliedAt": "2026-07-08T10:30:00+05:30",
+    "stageChangedAt": "2026-08-03T15:00:00+05:30",
+    "resumeParsed": {
+      "summary": "SRE at InMobi running EKS-based ad-serving infrastructure; five and a half years across SRE and platform work.",
+      "yearsExperience": 5.5,
+      "currentTitle": "Site Reliability Engineer II",
+      "currentCompany": "InMobi",
+      "skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Prometheus",
+        "Go",
+        "GitLab CI"
+      ],
+      "employment": [
+        {
+          "company": "InMobi",
+          "title": "Site Reliability Engineer II",
+          "from": "2022-11",
+          "to": "present"
+        },
+        {
+          "company": "IBM",
+          "title": "DevOps Engineer",
+          "from": "2021-01",
+          "to": "2022-10"
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. CSE",
+          "institution": "UVCE Bengaluru",
+          "year": 2020
+        }
+      ],
+      "noticePeriodDays": 30,
+      "expectedCtcINR": 2800000,
+      "workAuthIndia": true
+    },
+    "knockoutResults": [
+      {
+        "rule": "min_experience",
+        "label": "Minimum 4 years experience",
+        "pass": true,
+        "detail": "5.5 years"
+      },
+      {
+        "rule": "location",
+        "label": "Bengaluru / willing to relocate",
+        "pass": true,
+        "detail": "Based in Bengaluru"
+      },
+      {
+        "rule": "work_auth",
+        "label": "Authorised to work in India",
+        "pass": true,
+        "detail": "Confirmed at application"
+      }
+    ],
+    "aiScore": {
+      "value": 87,
+      "rationale": "EKS, Terraform and observability ownership at InMobi covers every must-have at production depth. Both interview rounds rated incident-response maturity highly. The expected ₹28 LPA exceeds the ₹26 LPA band ceiling, so the offer requires Director-level approval as an out-of-band exception.",
+      "model": "claude-sonnet-4-6",
+      "scoredAt": "2026-07-08T10:32:00+05:30"
+    },
+    "policyFlags": []
+  }
+]

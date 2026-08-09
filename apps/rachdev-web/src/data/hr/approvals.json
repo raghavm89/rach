@@ -1,0 +1,147 @@
+[
+  {
+    "id": "APR-9001",
+    "type": "jd_approval",
+    "subjectId": "JD-401",
+    "title": "JD — Senior Backend Engineer",
+    "summary": "AI-drafted job description for REQ-1024, v2 after one revision cycle.",
+    "state": "approved",
+    "createdById": "USR-03",
+    "createdByName": "Vikram Shah",
+    "createdAt": "2026-07-20T10:16:00+05:30",
+    "resolvedAt": "2026-07-22T14:20:00+05:30",
+    "chain": [
+      {
+        "role": "project_manager",
+        "state": "approved",
+        "actedById": "USR-03",
+        "actedByName": "Vikram Shah",
+        "actedAt": "2026-07-20T10:16:00+05:30",
+        "comment": "Submitted with requisition"
+      },
+      {
+        "role": "hr_executive",
+        "state": "approved",
+        "actedById": "USR-01",
+        "actedByName": "Ananya Iyer",
+        "actedAt": "2026-07-22T10:05:00+05:30",
+        "comment": "v2 resolves both bias flags"
+      },
+      {
+        "role": "hr_director",
+        "state": "approved",
+        "actedById": "USR-02",
+        "actedByName": "Rajesh Menon",
+        "actedAt": "2026-07-22T14:20:00+05:30"
+      }
+    ]
+  },
+  {
+    "id": "APR-9002",
+    "type": "jd_approval",
+    "subjectId": "JD-402",
+    "title": "JD — Sales Development Representative",
+    "summary": "AI-drafted job description for REQ-1025. One bias flag open (\"aggressive\").",
+    "state": "pending",
+    "createdById": "USR-03",
+    "createdByName": "Vikram Shah",
+    "createdAt": "2026-08-03T11:41:00+05:30",
+    "chain": [
+      {
+        "role": "project_manager",
+        "state": "approved",
+        "actedById": "USR-03",
+        "actedByName": "Vikram Shah",
+        "actedAt": "2026-08-03T11:41:00+05:30",
+        "comment": "Submitted with requisition"
+      },
+      {
+        "role": "hr_executive",
+        "state": "pending"
+      },
+      {
+        "role": "hr_director",
+        "state": "pending"
+      }
+    ]
+  },
+  {
+    "id": "APR-9003",
+    "type": "rejection_batch",
+    "subjectId": "REJ-B-01",
+    "title": "Rejection batch — Senior Backend Engineer (3 candidates)",
+    "summary": "Knockout and below-threshold applicants: Manish Tiwari, Shruti Rane, Deepak Bose. AI-drafted emails reviewed.",
+    "state": "approved",
+    "createdById": "USR-01",
+    "createdByName": "Ananya Iyer",
+    "createdAt": "2026-07-30T16:40:00+05:30",
+    "resolvedAt": "2026-07-30T17:00:00+05:30",
+    "chain": [
+      {
+        "role": "hr_executive",
+        "state": "approved",
+        "actedById": "USR-01",
+        "actedByName": "Ananya Iyer",
+        "actedAt": "2026-07-30T17:00:00+05:30",
+        "comment": "All three emails read and approved; scheduled with 48h hold"
+      }
+    ]
+  },
+  {
+    "id": "APR-9012",
+    "type": "leave_request",
+    "subjectId": "LVE-02",
+    "title": "Leave — Tejas Naik (1 day casual, 14 Aug)",
+    "summary": "Casual leave on Fri 14 Aug (long weekend with Independence Day). Balance after approval: 6 of 12.",
+    "state": "pending",
+    "createdByName": "Tejas Naik",
+    "createdAt": "2026-08-05T09:15:00+05:30",
+    "chain": [
+      {
+        "role": "hr_executive",
+        "state": "pending"
+      }
+    ]
+  },
+  {
+    "id": "APR-9013",
+    "type": "leave_request",
+    "subjectId": "LVE-05",
+    "title": "Leave — Arvind Krishnan (5 days earned, 24–28 Aug)",
+    "summary": "Earned leave 24–28 Aug (5 working days). Balance after approval: 7 of 15.",
+    "state": "pending",
+    "createdByName": "Arvind Krishnan",
+    "createdAt": "2026-08-05T17:45:00+05:30",
+    "chain": [
+      {
+        "role": "hr_executive",
+        "state": "pending"
+      }
+    ]
+  },
+  {
+    "id": "APR-9008",
+    "type": "offer",
+    "subjectId": "OFR-201",
+    "title": "Offer — Aishwarya Menon (Senior Backend Engineer)",
+    "summary": "₹36 LPA, inside band ₹28–40 LPA. Joining 1 Oct 2026.",
+    "state": "approved",
+    "createdById": "USR-01",
+    "createdByName": "Ananya Iyer",
+    "createdAt": "2026-08-03T11:05:00+05:30",
+    "resolvedAt": "2026-08-03T16:30:00+05:30",
+    "meta": {
+      "band": "offer_in_band"
+    },
+    "chain": [
+      {
+        "role": "hr_executive",
+        "state": "approved",
+        "actedById": "USR-01",
+        "actedByName": "Ananya Iyer",
+        "actedAt": "2026-08-03T16:30:00+05:30",
+        "comment": "In band; panel unanimous"
+      }
+    ]
+  }
+]

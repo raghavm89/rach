@@ -1,0 +1,211 @@
+[
+  {
+    "id": "INT-490",
+    "applicationId": "APP-3034",
+    "round": "hr_video",
+    "scheduledAt": "2026-05-18T11:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Clear communicator",
+        "Realistic about on-call trade-offs"
+      ],
+      "concerns": [],
+      "notes": "Strong culture signals; comp aligned within band."
+    }
+  },
+  {
+    "id": "INT-491",
+    "applicationId": "APP-3034",
+    "round": "pm_technical",
+    "scheduledAt": "2026-05-26T15:00:00+05:30",
+    "durationMins": 60,
+    "interviewerId": "USR-03",
+    "interviewerName": "Vikram Shah",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Terraform module hygiene",
+        "Incident walkthrough showed ownership"
+      ],
+      "concerns": [
+        "Limited multi-region exposure"
+      ],
+      "notes": "Hire. Good fit for the infra pod."
+    }
+  },
+  {
+    "id": "INT-501",
+    "applicationId": "APP-3022",
+    "round": "hr_video",
+    "scheduledAt": "2026-08-06T11:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "scheduled"
+  },
+  {
+    "id": "INT-502",
+    "applicationId": "APP-3023",
+    "round": "hr_video",
+    "scheduledAt": "2026-08-03T14:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Clear motivation for the move",
+        "Composed under follow-up questions",
+        "Team-fit signals strong"
+      ],
+      "concerns": [
+        "Wants clarity on growth path within 18 months"
+      ],
+      "notes": "Good round. Candidate is deliberate and well-prepared; salary expectation restated at ₹33 LPA, inside band."
+    }
+  },
+  {
+    "id": "INT-503",
+    "applicationId": "APP-3024",
+    "round": "hr_video",
+    "scheduledAt": "2026-08-03T16:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "no_show",
+    "note": "Candidate did not join. Wrote at 6:40 PM — family emergency, apologised, requested reschedule."
+  },
+  {
+    "id": "INT-504",
+    "applicationId": "APP-3024",
+    "round": "hr_video",
+    "scheduledAt": "2026-08-07T15:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "rescheduled",
+    "note": "Rescheduled from 3 Aug (no-show, family emergency)."
+  },
+  {
+    "id": "INT-505",
+    "applicationId": "APP-3025",
+    "round": "pm_technical",
+    "scheduledAt": "2026-08-07T10:30:00+05:30",
+    "durationMins": 60,
+    "interviewerId": "USR-03",
+    "interviewerName": "Vikram Shah",
+    "status": "scheduled"
+  },
+  {
+    "id": "INT-506",
+    "applicationId": "APP-3026",
+    "round": "pm_technical",
+    "scheduledAt": "2026-08-04T15:00:00+05:30",
+    "durationMins": 60,
+    "interviewerId": "USR-03",
+    "interviewerName": "Vikram Shah",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Excellent schema-design discussion",
+        "Realistic about trade-offs",
+        "Has operated at our target scale"
+      ],
+      "concerns": [
+        "Comp expectation at band ceiling",
+        "60-day notice"
+      ],
+      "notes": "Would hire. Design exercise on idempotent settlement was the strongest we've seen this cycle after Aishwarya."
+    }
+  },
+  {
+    "id": "INT-507",
+    "applicationId": "APP-3027",
+    "round": "hr_video",
+    "scheduledAt": "2026-07-30T11:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "completed",
+    "scorecard": {
+      "overall": 5,
+      "strengths": [
+        "Outstanding communication",
+        "Clear leadership narrative",
+        "Well-researched about Meridian"
+      ],
+      "concerns": [],
+      "notes": "Strong yes. Comp aligned at ₹36 LPA. September joining feasible with 60-day notice served from offer acceptance."
+    }
+  },
+  {
+    "id": "INT-508",
+    "applicationId": "APP-3027",
+    "round": "pm_technical",
+    "scheduledAt": "2026-08-01T10:00:00+05:30",
+    "durationMins": 60,
+    "interviewerId": "USR-03",
+    "interviewerName": "Vikram Shah",
+    "status": "completed",
+    "scorecard": {
+      "overall": 5,
+      "strengths": [
+        "Best design round of the cycle",
+        "Deep Postgres + Kafka fluency",
+        "Terraform ownership a bonus"
+      ],
+      "concerns": [],
+      "notes": "Hire. Recommended offer at ₹36 LPA."
+    }
+  },
+  {
+    "id": "INT-509",
+    "applicationId": "APP-3033",
+    "round": "hr_video",
+    "scheduledAt": "2026-07-27T15:00:00+05:30",
+    "durationMins": 45,
+    "interviewerId": "USR-01",
+    "interviewerName": "Ananya Iyer",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Calm, structured communicator",
+        "Clear on-call philosophy"
+      ],
+      "concerns": [
+        "Expectation ₹28 LPA — above band"
+      ],
+      "notes": "Good round; flagged comp expectation early. Candidate is aware band tops at ₹26 LPA and stated ₹28 is firm."
+    }
+  },
+  {
+    "id": "INT-510",
+    "applicationId": "APP-3033",
+    "round": "pm_technical",
+    "scheduledAt": "2026-07-29T11:00:00+05:30",
+    "durationMins": 60,
+    "interviewerId": "USR-03",
+    "interviewerName": "Vikram Shah",
+    "status": "completed",
+    "scorecard": {
+      "overall": 4,
+      "strengths": [
+        "Terraform module design excellent",
+        "Incident walkthrough showed real ownership"
+      ],
+      "concerns": [
+        "Kubernetes networking depth adequate, not exceptional"
+      ],
+      "notes": "Hire at the right number. Worth the out-of-band case given the InMobi reliability background."
+    }
+  }
+]

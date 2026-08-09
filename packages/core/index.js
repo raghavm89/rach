@@ -22,6 +22,11 @@ const idempotency   = require('./src/middleware/idempotency');
 const IdempotencyKey = require('./src/models/idempotencyKey');
 const WebhookEvent   = require('./src/models/webhookEvent');
 const AgentDefinition = require('./src/models/agentDefinition');
+const AgentDeployment = require('./src/models/agentDeployment');
+const Hr = require('./src/models/hr');
+const Settings = require('./src/models/settings');
+
+const agentSpec = require('./src/spec/agentSpec');
 
 const brevo = require('./src/services/brevo');
 const sms   = require('./src/services/sms');
@@ -42,6 +47,12 @@ module.exports = {
   IdempotencyKey,
   WebhookEvent,
   AgentDefinition,
+  AgentDeployment,
+  Hr,
+  Settings,
+
+  // AgentSpec contract (validation + row↔spec mapping)
+  agentSpec,   // { validateAgentSpec, validateAgentSpecInput, rowToSpec, columnsFromInput, ... }
 
   // notifications
   brevo,

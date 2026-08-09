@@ -4,16 +4,24 @@ import { useEffect, useState } from 'react';
 import { Loader2, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { workspace } from '@rach/ui/lib/api';
+import { industryModules } from '@/config/dashboard/registry';
 
-// Industries that map to a live workspace today (mirrors the backend allowlist).
+// Options come from the dashboard registry — registering an industry there makes
+// it selectable here, with its module list as the hint.
 const INDUSTRY_OPTIONS: { value: string; label: string; hint: string }[] = [
-  { value: '',           label: 'None',       hint: 'No workspace — just the basics.' },
-  { value: 'healthcare', label: 'Healthcare', hint: 'Clinical workspace: Control Tower, Scribe, Reception, Inventory, Audit.' },
+  { value: '', label: 'None', hint: 'No workspace — just the basics.' },
+  ...Object.values(industryModules).map((m) => ({
+    value: m.id,
+    label: m.label,
+    hint: `${m.label} workspace: ${m.modules.map((x) => x.label).join(', ')}.`,
+  })),
 ];
 
 export default function WorkspaceSettingsPage() {
   const { user, token, updateUser } = useAuth();
   const [industry, setIndustry] = useState<string>(user?.tenant_industry ?? '');
+  const [military, setMilitary] = useState(false);
+  const [loadedMilitary, setLoadedMilitary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -25,7 +33,7 @@ export default function WorkspaceSettingsPage() {
     (async () => {
       try {
         const { tenant } = await workspace.get(token);
-        if (!cancelled) setIndustry(tenant?.industry ?? '');
+        if (!cancelled) { setIndustry(tenant?.industry ?? ''); setMilitary(Boolean(tenant?.military)); setLoadedMilitary(Boolean(tenant?.military)); }
       } catch {
         /* fall back to the value from the session */
       } finally {
@@ -44,6 +52,7 @@ export default function WorkspaceSettingsPage() {
       const { tenant } = await workspace.setIndustry(token, value);
       // Reflect it in the session immediately so the workspace nav updates.
       updateUser({ tenant_industry: tenant?.industry ?? null });
+      if (industry === 'healthcare') { await workspace.setHealthcare(token, military); setLoadedMilitary(military); }
       setNotice({ type: 'success', msg: 'Workspace updated. Your navigation reflects the change.' });
     } catch (err) {
       setNotice({ type: 'error', msg: (err as Error).message || 'Failed to update workspace.' });
@@ -52,20 +61,20 @@ export default function WorkspaceSettingsPage() {
     }
   };
 
-  const dirty = (user?.tenant_industry ?? '') !== industry;
+  const dirty = (user?.tenant_industry ?? '') !== industry || (industry === 'healthcare' && military !== loadedMilitary);
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="rounded-2xl border border-line bg-surface p-8">
-        <h2 className="text-xl font-semibold text-ink">Workspace</h2>
-        <p className="mt-1 text-sm text-ink-2">
+      <div className="rounded-2xl border border-neutral-border bg-surface-card p-8">
+        <h2 className="text-xl font-semibold text-dash-heading">Workspace</h2>
+        <p className="mt-1 text-sm text-dash-body">
           Choose the industry workspace for your organisation
           {user?.tenant_name ? <> (<span className="font-medium">{user.tenant_name}</span>)</> : null}.
           This decides which agent workspace your team sees.
         </p>
 
         {loading ? (
-          <div className="mt-6 flex items-center gap-2 text-sm text-ink-3">
+          <div className="mt-6 flex items-center gap-2 text-sm text-dash-muted">
             <Loader2 size={16} className="animate-spin" /> Loading…
           </div>
         ) : (
@@ -81,24 +90,39 @@ export default function WorkspaceSettingsPage() {
                     'flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition-colors ' +
                     (selected
                       ? 'border-accent bg-accent-weak'
-                      : 'border-line hover:border-line-2 hover:bg-band')
+                      : 'border-neutral-border hover:border-neutral-border hover:bg-surface-hover')
                   }
                 >
                   <span
                     className={
                       'mt-0.5 flex h-4 w-4 items-center justify-center rounded-full border ' +
-                      (selected ? 'border-accent bg-accent text-white' : 'border-ink-3')
+                      (selected ? 'border-accent bg-accent text-white' : 'border-dash-muted')
                     }
                   >
                     {selected && <Check size={11} />}
                   </span>
                   <span>
-                    <span className="block text-sm font-medium text-ink">{opt.label}</span>
-                    <span className="block text-xs text-ink-3">{opt.hint}</span>
+                    <span className="block text-sm font-medium text-dash-heading">{opt.label}</span>
+                    <span className="block text-xs text-dash-muted">{opt.hint}</span>
                   </span>
                 </button>
               );
             })}
+
+            {industry === 'healthcare' && (
+              <div className="rounded-xl border border-neutral-border p-4">
+                <p className="text-sm font-medium text-dash-heading">Hospital type</p>
+                <p className="mb-3 text-xs text-dash-muted">Military hospitals (AFMS) capture service details (rank, unit, Arms/Corps, ECHS, validity) on patient registration.</p>
+                <div className="flex gap-2">
+                  {[{ v: false, label: 'Non-military' }, { v: true, label: 'Military (AFMS)' }].map((o) => (
+                    <button key={String(o.v)} type="button" onClick={() => setMilitary(o.v)}
+                      className={'rounded-lg border px-4 py-2 text-sm font-medium transition-colors ' + (military === o.v ? 'border-accent bg-accent-weak text-accent' : 'border-neutral-border text-dash-body hover:bg-surface-hover')}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {notice && (
               <div

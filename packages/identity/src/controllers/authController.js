@@ -6,6 +6,7 @@ const { validationResult } = require('express-validator');
 const { parsePhoneNumber } = require('libphonenumber-js');
 const pool = require('@rach/core').pool;
 const { User, ROLES } = require('../models/user');
+const { publicSignupEnabled, SIGNUP_DISABLED_MESSAGE } = require('../lib/signup');
 const VerificationCode = require('../models/verification');
 const RefreshToken = require('../models/refreshToken');
 const { sendOtp } = require('@rach/core').sms;
@@ -185,6 +186,13 @@ async function provisionTenantForUser(userId, workspaceName) {
 // Validates the request and stores it in pending_registrations.
 // No users row is created until the OTP is confirmed via /verify-email.
 async function register(req, res) {
+  // Self-serve signup is off by default — RachDev users are provisioned by an
+  // organization admin (POST /api/users). Enforced here so removing the signup
+  // UI isn't merely cosmetic.
+  if (!publicSignupEnabled()) {
+    return res.status(403).json({ error: SIGNUP_DISABLED_MESSAGE });
+  }
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
 

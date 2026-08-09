@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rachdev.com/schemas/agent-spec/1.0.json",
+  "title": "AgentSpec",
+  "description": "Canonical read shape of a configured agent. Source of truth for the RachDev build/operate seam. See docs/RACHDEV_AGENTSPEC_CONTRACT.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_version", "key", "name", "model_policy", "status", "version"],
+  "properties": {
+    "spec_version": { "const": "1.0" },
+    "id": { "type": "integer" },
+    "tenant_id": { "type": ["integer", "null"] },
+    "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "template_ref": { "anyOf": [{ "$ref": "#/$defs/TemplateRef" }, { "type": "null" }] },
+    "industry": { "type": ["string", "null"] },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "role": { "type": "string", "maxLength": 120 },
+    "description": { "type": "string", "maxLength": 2000 },
+
+    "prompt": { "type": "string", "maxLength": 20000 },
+    "model_policy": { "$ref": "#/$defs/ModelPolicy" },
+    "tools": { "type": "array", "items": { "$ref": "#/$defs/Tool" } },
+    "guardrails": { "$ref": "#/$defs/Guardrails" },
+    "knowledge": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources"],
+          "properties": { "sources": { "type": "array", "items": { "$ref": "#/$defs/KnowledgeSource" } } }
+        },
+        { "type": "null" }
+      ]
+    },
+
+    "channels": { "type": "array", "items": { "$ref": "#/$defs/Channel" } },
+    "runtime_target": { "$ref": "#/$defs/RuntimeTarget" },
+
+    "status": { "enum": ["draft", "published", "deployed", "disabled"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "published_at": { "type": ["string", "null"] },
+    "created_by": { "type": ["integer", "null"] }
+  },
+
+  "$defs": {
+    "TemplateRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "version"],
+      "properties": {
+        "slug": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "ModelPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class"],
+      "properties": {
+        "class": { "enum": ["fast", "balanced", "reasoning"] },
+        "pin": { "type": "string" }
+      }
+    },
+    "Tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "enabled", "config"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+        "type": { "enum": ["http_action", "knowledge_base", "handoff", "function"] },
+        "name": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "config": { "type": "object" }
+      }
+    },
+    "Guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pii": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "redact": { "type": "boolean" },
+            "block_output": { "type": "boolean" }
+          }
+        },
+        "topics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allow": { "type": "array", "items": { "type": "string" } },
+            "block": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "human_review": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": { "type": "boolean" },
+            "roles": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_output_tokens": { "type": "integer", "minimum": 1 },
+            "max_turns": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "escalation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["on"],
+          "properties": {
+            "on": {
+              "type": "array",
+              "items": { "enum": ["low_confidence", "explicit_request", "blocked_topic"] }
+            },
+            "action_tool_id": { "type": "string" }
+          }
+        },
+        "refusal_message": { "type": "string" }
+      }
+    },
+    "Channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "enabled", "config"],
+      "properties": {
+        "type": { "enum": ["web_widget", "whatsapp", "voice", "email", "api"] },
+        "enabled": { "type": "boolean" },
+        "config": { "type": "object" }
+      }
+    },
+    "RuntimeTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["rachbase", "onprem", "byoc"] },
+        "ref": { "type": "string" }
+      }
+    },
+    "KnowledgeSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["document", "url", "collection"] },
+        "config": { "type": "object" }
+      }
+    }
+  }
+}

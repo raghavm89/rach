@@ -1,0 +1,91 @@
+[
+  {
+    "id": "TKT-801",
+    "employeeId": "EMP-1010",
+    "subject": "Cannot open June payslip",
+    "body": "The June payslip link in Keka shows an error for me. Can you check?",
+    "source": "direct",
+    "createdAt": "2026-07-28T10:20:00+05:30",
+    "slaDueAt": "2026-07-30T10:20:00+05:30",
+    "status": "resolved",
+    "replies": [
+      {
+        "authorName": "Ananya Iyer",
+        "body": "Fixed — your payslip was regenerated after the bank-account update. It opens correctly now; sorry for the trouble.",
+        "at": "2026-07-28T14:05:00+05:30",
+        "viaAiDraft": true
+      }
+    ],
+    "resolvedAt": "2026-07-28T14:05:00+05:30"
+  },
+  {
+    "id": "TKT-802",
+    "employeeId": "EMP-1008",
+    "subject": "Earned leave balance looks wrong",
+    "body": "My earned leave shows 9 remaining but I calculated 10 — can someone verify?",
+    "source": "bot_escalation",
+    "createdAt": "2026-07-30T09:10:00+05:30",
+    "slaDueAt": "2026-08-01T09:10:00+05:30",
+    "status": "resolved",
+    "replies": [
+      {
+        "authorName": "Ananya Iyer",
+        "body": "Verified against the ledger — one earned-leave day from 17 Jun was recorded late, which explains the difference. The balance of 9 is correct; the ledger view now shows that entry.",
+        "at": "2026-07-30T16:40:00+05:30",
+        "viaAiDraft": true
+      }
+    ],
+    "resolvedAt": "2026-07-30T16:40:00+05:30"
+  },
+  {
+    "id": "TKT-803",
+    "employeeId": "EMP-1012",
+    "subject": "ID card reissue — lost card",
+    "body": "I lost my access card over the weekend. Need a replacement and temporary access for this week.",
+    "source": "direct",
+    "createdAt": "2026-08-03T09:30:00+05:30",
+    "slaDueAt": "2026-08-05T09:30:00+05:30",
+    "status": "open",
+    "replies": []
+  },
+  {
+    "id": "TKT-804",
+    "employeeId": "EMP-1009",
+    "subject": "PF transfer from previous employer stuck",
+    "body": "My UAN shows the transfer request from my previous employer pending for 3 weeks. Whom should I follow up with?",
+    "source": "bot_escalation",
+    "createdAt": "2026-08-01T11:45:00+05:30",
+    "slaDueAt": "2026-08-03T11:45:00+05:30",
+    "status": "awaiting_employee",
+    "replies": [
+      {
+        "authorName": "Ananya Iyer",
+        "body": "Checked on the EPFO portal — the claim is pending at your previous employer's approval step, not ours. Please raise a grievance from the UAN portal (I've attached the steps) and share the reference number; we'll follow up formally if it isn't cleared in 10 days.",
+        "at": "2026-08-01T17:20:00+05:30",
+        "viaAiDraft": true
+      }
+    ]
+  },
+  {
+    "id": "TKT-805",
+    "employeeId": "EMP-1014",
+    "subject": "Laptop RAM upgrade request",
+    "body": "Local builds are swapping constantly on 16GB. Requesting an upgrade to 32GB or a build-server allocation.",
+    "source": "direct",
+    "createdAt": "2026-08-05T10:05:00+05:30",
+    "slaDueAt": "2026-08-07T10:05:00+05:30",
+    "status": "open",
+    "replies": []
+  },
+  {
+    "id": "TKT-806",
+    "employeeId": "EMP-1013",
+    "subject": "Insurance card for spouse not received",
+    "body": "I added my spouse during the July enrollment window but the e-card hasn't arrived.",
+    "source": "bot_escalation",
+    "createdAt": "2026-08-06T09:50:00+05:30",
+    "slaDueAt": "2026-08-08T09:50:00+05:30",
+    "status": "open",
+    "replies": []
+  }
+]

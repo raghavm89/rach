@@ -52,6 +52,17 @@ const MODELS = {
 // LLM_DEFAULT_MODEL=sarvam-105b to route everything through the vLLM adapter.
 const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'claude-haiku-4-5-20251001';
 
+// AgentSpec `model_policy.class` → concrete catalog model, resolved PER
+// ENVIRONMENT. This is what keeps specs portable: the same spec that maps
+// `reasoning` → Claude Sonnet in the cloud POC maps it to an on-prem Sarvam
+// model when these envs are set for the air-gapped build. Contract:
+// docs/RACHDEV_AGENTSPEC_CONTRACT.md.
+const MODEL_CLASSES = {
+  fast:      process.env.LLM_CLASS_FAST      || DEFAULT_MODEL,
+  balanced:  process.env.LLM_CLASS_BALANCED  || DEFAULT_MODEL,
+  reasoning: process.env.LLM_CLASS_REASONING || 'claude-sonnet-5',
+};
+
 function resolveModel(model) {
   const id = model || DEFAULT_MODEL;
   const spec = MODELS[id];
@@ -59,4 +70,14 @@ function resolveModel(model) {
   return { id, ...spec };
 }
 
-module.exports = { MODELS, DEFAULT_MODEL, resolveModel };
+/**
+ * Resolve an AgentSpec model_policy → a concrete catalog model id.
+ * `pin` wins if set; otherwise the class maps via MODEL_CLASSES.
+ */
+function modelForPolicy(policy) {
+  if (!policy) return DEFAULT_MODEL;
+  if (policy.pin) return policy.pin;
+  return MODEL_CLASSES[policy.class] || DEFAULT_MODEL;
+}
+
+module.exports = { MODELS, DEFAULT_MODEL, MODEL_CLASSES, resolveModel, modelForPolicy };

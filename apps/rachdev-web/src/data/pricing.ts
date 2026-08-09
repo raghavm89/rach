@@ -3,45 +3,31 @@ export interface FAQ {
   answer: string;
 }
 
+// Contact-sales model: no published prices. Every engagement is scoped and quoted.
 export const pricingFAQs: FAQ[] = [
   {
-    question: "How does billing work? Is there a minimum commitment?",
+    question: "How is RachDev priced?",
     answer:
-      "All services are billed monthly based on what you have provisioned. There is no minimum commitment — you pay only for the VMs, databases, load balancers, and IPs that are active in a given month. Usage-based items like VM snapshots and on-demand Postgres backups are charged by the GB consumed.",
+      "We don't publish fixed prices. Every deployment is scoped to your workspace — the number of agents and people using them, your expected volume, and where it runs (our cloud or on-prem). We put together a plan and a quote tailored to exactly that. Talk to us and we'll walk you through it.",
   },
   {
-    question: "What is included in a Virtual Machine?",
+    question: "Why isn't there a public price list?",
     answer:
-      "Each VM comes with 2 vCPUs, 8 GB RAM, and 50 GB of SSD disk at $100/month. If you need more storage, you can attach additional block storage at $0.15/GB/month. All VMs run on dedicated hardware with full resource isolation — no noisy neighbours.",
+      "AI agent deployments vary widely — a single support agent and a full multi-agent industry solution have very different footprints. Rather than force you into a tier that doesn't fit, we scope the solution with you and quote for what you actually need.",
   },
   {
-    question: "What does the Managed PostgreSQL service include?",
+    question: "Can I run RachDev on-premises?",
     answer:
-      "The $200/month DB instance includes WAL archival, automated daily backups with 7-day retention, and on-demand point-in-time recovery. Daily backups run at pre-agreed times. If you need an additional on-demand backup (e.g. before a planned maintenance window), you can request one at least 24 hours in advance — these are billed at $0.10/GB with a 30-day retention.",
+      "Yes. RachDev can run in our managed cloud or entirely inside your own environment (on-prem or your own cloud), so sensitive data never leaves your premises. On-prem is part of our enterprise engagements — mention it when you reach out and we'll scope it with you.",
   },
   {
-    question: "What is VM snapshot retention and how do I get more?",
+    question: "Do you work with teams of our size?",
     answer:
-      "Daily VM snapshots are billed at $0.10/GB and retained for 7 days by default. If you need a longer retention period, raise a request with the Cloud Infra/Ops team and we will configure a custom retention policy for your environment.",
+      "We work with organisations across industries — from focused single-agent rollouts to enterprise-wide solutions. Reach out and we'll tell you honestly whether we're a fit and what an engagement would look like.",
   },
   {
-    question: "What does '24/7 VM Resource Observability' include?",
+    question: "What happens after I get in touch?",
     answer:
-      "For $25/VM/month you get real-time dashboards covering CPU usage, RAM consumption, disk I/O, and network throughput for each of your virtual machines. Metrics are collected continuously and historical data is retained for 7 days. Automated alerts fire when any metric exceeds 80% utilisation.",
-  },
-  {
-    question: "What is Application Workload Monitoring?",
-    answer:
-      "At $25/endpoint/month, we monitor your application endpoints around the clock — tracking uptime, response latency, error rates, and throughput. You receive alerts when an endpoint goes down or degrades beyond configured thresholds.",
-  },
-  {
-    question: "What services are included at no extra charge?",
-    answer:
-      "Every customer receives regular Cloud security patching, CIS security audits, Anti-DDoS protection, and on-demand VM cloning at no additional cost. These are part of the base infrastructure and not optional add-ons.",
-  },
-  {
-    question: "Can I get a custom plan with more VMs or a different configuration?",
-    answer:
-      "Yes. If your workload requires a large number of VMs, custom VM sizes, dedicated SLAs, or a bespoke configuration, contact our sales team. We will put together a tailored plan and pricing for your specific requirements.",
+      "A short conversation to understand your use case and constraints, a scoped proposal with the agents and workspace we'd deploy, and a tailored quote — no obligation and no generic sales pitch.",
   },
 ];

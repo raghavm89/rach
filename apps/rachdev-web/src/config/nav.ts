@@ -21,7 +21,7 @@ export const navGroups = [
   {
     label: "Resources",
     links: [
-      { label: "Documentation", href: "/docs" },
+      // Documentation hidden until /docs ships real content (currently "Coming soon").
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
       { label: "Changelog", href: "/changelog" },
@@ -59,7 +59,7 @@ export const footerColumns = [
   {
     title: "Resources",
     links: [
-      { label: "Documentation", href: "/docs" },
+      // Documentation hidden until /docs ships real content (currently "Coming soon").
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
       { label: "Changelog", href: "/changelog" },

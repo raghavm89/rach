@@ -10,7 +10,7 @@ export default function TermsOfServicePage() {
   return (
     <>
       <div className="mb-6 inline-block rounded-full border border-line bg-band px-3 py-1 text-xs font-medium text-ink-3">
-        Last updated: March 2026
+        Last updated: August 2026
       </div>
 
       <h1 className="font-display text-3xl font-bold text-ink">
@@ -245,7 +245,7 @@ export default function TermsOfServicePage() {
                 Price changes apply at the start of the next billing cycle
               </li>
               <li>
-                All payments are processed securely through Stripe. You are
+                All payments are processed securely through Razorpay. You are
                 responsible for providing valid payment information
               </li>
             </ul>
@@ -264,16 +264,11 @@ export default function TermsOfServicePage() {
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
             <p>
-              We target 99.9% monthly uptime for our production infrastructure.
-              Detailed terms regarding uptime commitments, service credits, and
-              incident response are outlined in our{" "}
-              <a
-                href="/legal/sla"
-                className="text-accent underline hover:text-accent"
-              >
-                Service Level Agreement
-              </a>
-              .
+              We work to keep the Services reliable and available. Any specific
+              uptime commitments, service credits, and incident-response terms
+              are defined in the enterprise agreement executed with your
+              organization; we do not publish a fixed public service-level
+              guarantee.
             </p>
             <p>
               We do not guarantee that the Services will be uninterrupted or

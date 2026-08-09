@@ -1,0 +1,26 @@
+[
+  {
+    "id": "LTR-139",
+    "employeeId": "EMP-1012",
+    "kind": "employment_verification",
+    "serial": "MER/HR/2026/0139",
+    "status": "issued",
+    "requestedAt": "2026-07-08T10:00:00+05:30",
+    "issuedAt": "2026-07-09T12:30:00+05:30",
+    "issuedByName": "Ananya Iyer",
+    "note": "For home-loan application",
+    "body": "TO WHOM IT MAY CONCERN\n\nThis is to certify that Mr. Dhruv Saxena (Employee Code MER-0064) is employed with Meridian Technologies Pvt Ltd as Operations Executive since 3 October 2023, and is a confirmed employee in good standing.\n\nThis letter is issued at the employee's request for bank verification purposes and does not constitute any other undertaking by the company.\n\nFor Meridian Technologies Pvt Ltd,\nAnanya Iyer\nHR Executive — People Ops\nSerial: MER/HR/2026/0139"
+  },
+  {
+    "id": "LTR-140",
+    "employeeId": "EMP-1008",
+    "kind": "address_proof",
+    "serial": "MER/HR/2026/0140",
+    "status": "issued",
+    "requestedAt": "2026-06-18T09:00:00+05:30",
+    "issuedAt": "2026-06-19T11:00:00+05:30",
+    "issuedByName": "Ananya Iyer",
+    "note": "For passport renewal",
+    "body": "TO WHOM IT MAY CONCERN\n\nThis is to certify that Ms. Kavya Hegde (Employee Code MER-0088), Senior Backend Engineer, is employed with Meridian Technologies Pvt Ltd, Bellandur, Bengaluru — 560103, and her address as per company records is available for verification against this reference.\n\nIssued at the employee's request for address-proof purposes.\n\nFor Meridian Technologies Pvt Ltd,\nAnanya Iyer\nHR Executive — People Ops\nSerial: MER/HR/2026/0140"
+  }
+]

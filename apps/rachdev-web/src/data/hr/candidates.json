@@ -1,0 +1,333 @@
+[
+  {
+    "id": "CAND-2001",
+    "name": "Aditya Verma",
+    "email": "aditya.verma87@gmail.com",
+    "phone": "+91 98450 12831",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/aditya-verma-blr",
+    "consentAt": "2026-08-01T09:12:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2002",
+    "name": "Sneha Kulkarni",
+    "email": "sneha.kulkarni@outlook.com",
+    "phone": "+91 99012 44710",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/snehakulkarni-eng",
+    "consentAt": "2026-08-01T11:03:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2003",
+    "name": "Nikhil Joshi",
+    "email": "nikhil.j.dev@gmail.com",
+    "phone": "+91 97401 88234",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/nikhiljoshi-dev",
+    "consentAt": "2026-08-02T08:40:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2004",
+    "name": "Ishita Banerjee",
+    "email": "ishita.banerjee@gmail.com",
+    "phone": "+91 98301 55672",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/ishita-banerjee",
+    "consentAt": "2026-08-02T10:25:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2005",
+    "name": "Farhan Sheikh",
+    "email": "farhan.sheikh91@gmail.com",
+    "phone": "+91 99860 71345",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/farhansheikh-backend",
+    "consentAt": "2026-08-03T09:55:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2006",
+    "name": "Gaurav Bhatia",
+    "email": "gaurav.bhatia.dev@gmail.com",
+    "phone": "+91 98110 23984",
+    "source": "direct",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2007",
+    "name": "Tanvi Deshpande",
+    "email": "tanvi.deshpande@gmail.com",
+    "phone": "+91 98220 67019",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/tanvi-deshpande",
+    "consentAt": "2026-08-03T14:12:00+05:30",
+    "location": "Pune"
+  },
+  {
+    "id": "CAND-2008",
+    "name": "Amit Chauhan",
+    "email": "amit.chauhan.eng@gmail.com",
+    "phone": "+91 98910 34987",
+    "source": "direct",
+    "location": "Pune"
+  },
+  {
+    "id": "CAND-2009",
+    "name": "Rohit Iyengar",
+    "email": "rohit.iyengar@gmail.com",
+    "phone": "+1 408 555 0161",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/rohit-iyengar-sv",
+    "consentAt": "2026-08-04T07:30:00+05:30",
+    "location": "San Jose, USA"
+  },
+  {
+    "id": "CAND-2010",
+    "name": "Zoya Khan",
+    "email": "zoya.khan.dev@gmail.com",
+    "phone": "+91 99100 87563",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/zoyakhan-eng",
+    "consentAt": "2026-08-04T10:05:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2011",
+    "name": "Harish Kumar",
+    "email": "harish.kumar2001@gmail.com",
+    "phone": "+91 96320 11245",
+    "source": "direct",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2012",
+    "name": "Rachit Bansal",
+    "email": "rachit.bansal.blr@gmail.com",
+    "phone": "+91 98863 40912",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/rachitbansal-backend",
+    "consentAt": "2026-08-02T16:44:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2013",
+    "name": "Meera Krishnan",
+    "email": "meera.krishnan@gmail.com",
+    "phone": "+91 98450 90218",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/meerakrishnan-eng",
+    "consentAt": "2026-07-30T09:20:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2014",
+    "name": "Arjun Sharma",
+    "email": "arjun.sharma.dev@gmail.com",
+    "phone": "+91 99720 33481",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/arjunsharma-dev",
+    "consentAt": "2026-07-30T11:15:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2015",
+    "name": "Lakshmi Venkatesh",
+    "email": "lakshmi.venkatesh@gmail.com",
+    "phone": "+91 98807 61529",
+    "source": "agency",
+    "agencyName": "TalentBridge Consulting",
+    "profileUrl": "https://linkedin.com/in/lakshmi-venkatesh",
+    "consentAt": "2026-07-31T10:00:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2016",
+    "name": "Prateek Singh",
+    "email": "prateek.singh.eng@gmail.com",
+    "phone": "+91 99586 20871",
+    "source": "agency",
+    "agencyName": "Apex Talent Partners",
+    "profileUrl": "https://linkedin.com/in/prateeksingh-eng",
+    "consentAt": "2026-07-31T15:30:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2017",
+    "name": "Devika Rajan",
+    "email": "devika.rajan@gmail.com",
+    "phone": "+91 98470 55190",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/devikarajan",
+    "consentAt": "2026-08-01T08:50:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2018",
+    "name": "Priya Nair",
+    "email": "priya.nair.dev@gmail.com",
+    "phone": "+91 98950 27384",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/priya-nair-blr",
+    "consentAt": "2026-07-26T10:18:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2019",
+    "name": "Karthik Subramanian",
+    "email": "karthik.subramanian@gmail.com",
+    "phone": "+91 98410 66823",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/karthik-subramanian",
+    "consentAt": "2026-07-27T09:35:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2020",
+    "name": "Divya Patel",
+    "email": "divya.patel.eng@gmail.com",
+    "phone": "+91 99090 41276",
+    "source": "agency",
+    "agencyName": "Apex Talent Partners",
+    "profileUrl": "https://linkedin.com/in/divyapatel-eng",
+    "consentAt": "2026-07-27T14:22:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2021",
+    "name": "Vivek Malhotra",
+    "email": "vivek.malhotra@gmail.com",
+    "phone": "+91 98118 73402",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/vivekmalhotra-dev",
+    "consentAt": "2026-07-28T11:40:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2022",
+    "name": "Siddharth Rao",
+    "email": "siddharth.rao.dev@gmail.com",
+    "phone": "+91 98860 12097",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/siddharthrao-dev",
+    "consentAt": "2026-07-24T09:10:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2023",
+    "name": "Anjali Das",
+    "email": "anjali.das.eng@gmail.com",
+    "phone": "+91 98300 84756",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/anjalidas-eng",
+    "consentAt": "2026-07-24T13:28:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2024",
+    "name": "Varun Nambiar",
+    "email": "varun.nambiar@gmail.com",
+    "phone": "+91 98470 20931",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/varunnambiar",
+    "consentAt": "2026-07-25T10:02:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2025",
+    "name": "Ritika Kapoor",
+    "email": "ritika.kapoor.dev@gmail.com",
+    "phone": "+91 99105 38472",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/ritikakapoor-dev",
+    "consentAt": "2026-07-23T09:45:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2026",
+    "name": "Sanjay Pillai",
+    "email": "sanjay.pillai@gmail.com",
+    "phone": "+91 98950 61208",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/sanjaypillai-eng",
+    "consentAt": "2026-07-23T11:30:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2027",
+    "name": "Aishwarya Menon",
+    "email": "aishwarya.menon@gmail.com",
+    "phone": "+91 98460 73915",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/aishwaryamenon-eng",
+    "consentAt": "2026-07-23T08:55:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2028",
+    "name": "Manish Tiwari",
+    "email": "manish.tiwari.dev@gmail.com",
+    "phone": "+91 97110 45820",
+    "source": "direct",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2029",
+    "name": "Shruti Rane",
+    "email": "shruti.rane@gmail.com",
+    "phone": "+91 98200 37164",
+    "source": "direct",
+    "location": "Mumbai"
+  },
+  {
+    "id": "CAND-2030",
+    "name": "Deepak Bose",
+    "email": "deepak.bose@gmail.com",
+    "phone": "+91 98310 59273",
+    "source": "direct",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2031",
+    "name": "Kunal Mehta",
+    "email": "kunal.mehta.sales@gmail.com",
+    "phone": "+91 98920 14657",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/kunalmehta-sales",
+    "consentAt": "2026-08-04T09:20:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2032",
+    "name": "Ayesha Siddiqui",
+    "email": "ayesha.siddiqui@gmail.com",
+    "phone": "+91 99000 82341",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/ayeshasiddiqui-sdr",
+    "consentAt": "2026-08-04T12:10:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2033",
+    "name": "Naveen Bhat",
+    "email": "naveen.bhat.sre@gmail.com",
+    "phone": "+91 98807 29184",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/naveenbhat-sre",
+    "consentAt": "2026-07-08T10:30:00+05:30",
+    "location": "Bengaluru"
+  },
+  {
+    "id": "CAND-2034",
+    "name": "Rohan Gupta",
+    "email": "rohan.gupta.sre@gmail.com",
+    "phone": "+91 98867 41230",
+    "source": "direct",
+    "profileUrl": "https://linkedin.com/in/rohangupta-sre",
+    "consentAt": "2026-04-20T09:40:00+05:30",
+    "location": "Bengaluru"
+  }
+]

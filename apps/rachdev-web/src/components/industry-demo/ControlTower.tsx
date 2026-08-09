@@ -291,7 +291,7 @@ export function ControlTower({
                     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-all",
                     active
                       ? "border-transparent bg-accent text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.6)]"
-                      : "border-line-2 bg-surface text-ink-2 hover:border-ink-3",
+                      : "border-line-2 bg-surface text-ink-2 hover:border-dash-muted",
                   )}
                 >
                   <TabIcon className="h-3.5 w-3.5" />
