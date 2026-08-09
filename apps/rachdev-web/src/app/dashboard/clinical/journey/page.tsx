@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Route, Search, AlertCircle, CalendarClock, Pill, FileText, LogIn, LogOut, ArrowRight } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
@@ -23,6 +23,16 @@ function nodeColor(decision: string | null, first: boolean, last: boolean): stri
 }
 
 export default function JourneyPage() {
+  // useSearchParams must sit under a Suspense boundary or Next 14 fails the
+  // static-generation pass for this route.
+  return (
+    <Suspense fallback={null}>
+      <JourneyInner />
+    </Suspense>
+  );
+}
+
+function JourneyInner() {
   const { token } = useAuth();
   const params = useSearchParams();
   const [q, setQ] = useState('');

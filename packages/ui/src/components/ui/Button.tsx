@@ -8,6 +8,10 @@ interface ButtonProps {
   href?: string;
   className?: string;
   onClick?: () => void;
+  /** Native button type — only applies when rendering a <button> (no href). */
+  type?: "button" | "submit" | "reset";
+  /** Disables the <button> (ignored for link buttons). */
+  disabled?: boolean;
 }
 
 export function Button({
@@ -17,9 +21,11 @@ export function Button({
   href,
   className,
   onClick,
+  type = "button",
+  disabled = false,
 }: ButtonProps) {
   const baseStyles =
-    "inline-flex items-center justify-center rounded-full font-semibold transition-all duration-200 cursor-pointer";
+    "inline-flex items-center justify-center rounded-full font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60";
 
   const variants = {
     primary:
@@ -46,7 +52,7 @@ export function Button({
   }
 
   return (
-    <button className={classes} onClick={onClick}>
+    <button className={classes} onClick={onClick} type={type} disabled={disabled}>
       {children}
     </button>
   );

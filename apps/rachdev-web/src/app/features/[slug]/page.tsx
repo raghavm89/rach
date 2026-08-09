@@ -55,7 +55,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 interface FeaturePageProps {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }
 
 export async function generateStaticParams() {
@@ -67,7 +67,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: FeaturePageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug } = params;
   const feature = features.find((f) => f.slug === slug);
 
   if (!feature) {
@@ -81,7 +81,7 @@ export async function generateMetadata({
 }
 
 export default async function FeatureDetailPage({ params }: FeaturePageProps) {
-  const { slug } = await params;
+  const { slug } = params;
   const feature = features.find((f) => f.slug === slug);
 
   if (!feature) {

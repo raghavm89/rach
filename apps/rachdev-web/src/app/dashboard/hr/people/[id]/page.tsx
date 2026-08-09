@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, CheckCircle2, CalendarClock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,8 +17,8 @@ const CP_CLASS: Record<string, string> = {
   completed: 'bg-ok-bg text-ok', due: 'bg-amber-50 text-amber-600', pending: 'bg-surface-hover text-dash-muted',
 };
 
-export default function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function PersonDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const { user, token } = useAuth();
   const { get, loading, error, reload } = useHr(['employees', 'probation', 'review_evals', 'letters', 'leave']);
   const emp = get<Employee>('employees').find((e) => e.id === id);
