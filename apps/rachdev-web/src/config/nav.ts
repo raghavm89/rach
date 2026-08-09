@@ -24,8 +24,6 @@ export const navGroups = [
       // Documentation hidden until /docs ships real content (currently "Coming soon").
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
-      { label: "Changelog", href: "/changelog" },
-      { label: "Why Us", href: "/why-rach-dev" },
     ],
   },
   {
@@ -53,7 +51,6 @@ export const footerColumns = [
     links: [
       { label: "By Industry", href: "/industries" },
       { label: "Templates", href: "/templates" },
-      { label: "Why Us", href: "/why-rach-dev" },
     ],
   },
   {
@@ -62,7 +59,6 @@ export const footerColumns = [
       // Documentation hidden until /docs ships real content (currently "Coming soon").
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
-      { label: "Changelog", href: "/changelog" },
     ],
   },
   {
