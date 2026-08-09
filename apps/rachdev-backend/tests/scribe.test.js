@@ -7,9 +7,11 @@ const path = require('path');
 
 const scribe = require('../src/services/scribe');
 
-test('buildSystemPrompt uses the default, or a custom prompt when given', () => {
+test('buildSystemPrompt uses the persona (default or custom) and always enforces the JSON output contract', () => {
   assert.ok(scribe.buildSystemPrompt().includes('SOAP'));
-  assert.equal(scribe.buildSystemPrompt('Custom scribe rules'), 'Custom scribe rules');
+  const custom = scribe.buildSystemPrompt('Custom scribe rules');
+  assert.ok(custom.startsWith('Custom scribe rules'));   // custom persona preserved
+  assert.ok(custom.includes('"soap"'));                  // JSON contract always appended
   assert.equal(scribe.buildSystemPrompt('   '), scribe.DEFAULT_SYSTEM_PROMPT);
 });
 
@@ -57,4 +59,34 @@ test('clinical_notes migration creates the table with a status column', () => {
   );
   assert.match(sql, /CREATE TABLE IF NOT EXISTS clinical_notes/);
   assert.match(sql, /status\s+TEXT\s+NOT NULL DEFAULT 'draft'/);
+});
+
+// ── generateNote resilience: prose → retry → clean error (no raw 500) ─────────
+test('generateNote retries once and recovers when the first response is prose', async () => {
+  const { gateway } = require('@rach/llm');
+  const orig = gateway.chat;
+  let calls = 0;
+  gateway.chat = async () => {
+    calls += 1;
+    return calls === 1
+      ? { text: 'Sure! Here is the note in plain words.', model: 'test' }
+      : { text: '{"soap":{"subjective":"cough","objective":"","assessment":"","plan":"rest"},"codes":[],"follow_ups":[]}', model: 'test' };
+  };
+  try {
+    const note = await scribe.generateNote({ tenantId: 1, userId: 1, transcript: 'medicine dolo' });
+    assert.equal(calls, 2);                    // it retried
+    assert.equal(note.soap.subjective, 'cough');
+  } finally { gateway.chat = orig; }
+});
+
+test('generateNote surfaces a clean 502-style error when the model never returns JSON', async () => {
+  const { gateway } = require('@rach/llm');
+  const orig = gateway.chat;
+  gateway.chat = async () => ({ text: 'no json here at all', model: 'test' });
+  try {
+    await assert.rejects(
+      scribe.generateNote({ tenantId: 1, userId: 1, transcript: 'medicine dolo' }),
+      (err) => err.code === 'MODEL_OUTPUT' && err.status === 502,
+    );
+  } finally { gateway.chat = orig; }
 });

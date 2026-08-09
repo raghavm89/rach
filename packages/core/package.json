@@ -9,6 +9,8 @@
     "migrate": "node src/db/migrate.js"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "pg": "^8.11.0",
     "express-rate-limit": "^7.1.0",
     "twilio": "^5.0.0",

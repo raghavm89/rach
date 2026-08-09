@@ -1,0 +1,77 @@
+[
+  {
+    "id": "LVE-01",
+    "employeeId": "EMP-1008",
+    "type": "earned",
+    "from": "2026-08-17",
+    "to": "2026-08-18",
+    "workingDays": 2,
+    "reason": "Family function in Mangaluru",
+    "status": "approved",
+    "decidedByName": "Ananya Iyer",
+    "decidedAt": "2026-08-04T11:30:00+05:30",
+    "appliedAt": "2026-08-03T10:00:00+05:30"
+  },
+  {
+    "id": "LVE-02",
+    "employeeId": "EMP-1014",
+    "type": "casual",
+    "from": "2026-08-14",
+    "to": "2026-08-14",
+    "workingDays": 1,
+    "reason": "Long weekend with Independence Day",
+    "status": "pending",
+    "approvalTaskId": "APR-9012",
+    "appliedAt": "2026-08-05T09:15:00+05:30"
+  },
+  {
+    "id": "LVE-03",
+    "employeeId": "EMP-1012",
+    "type": "sick",
+    "from": "2026-07-21",
+    "to": "2026-07-22",
+    "workingDays": 2,
+    "reason": "Viral fever",
+    "status": "approved",
+    "decidedByName": "Ananya Iyer",
+    "decidedAt": "2026-07-21T09:40:00+05:30",
+    "appliedAt": "2026-07-21T08:55:00+05:30"
+  },
+  {
+    "id": "LVE-04",
+    "employeeId": "EMP-1010",
+    "type": "casual",
+    "from": "2026-07-10",
+    "to": "2026-07-10",
+    "workingDays": 1,
+    "status": "approved",
+    "decidedByName": "Ananya Iyer",
+    "decidedAt": "2026-07-09T15:00:00+05:30",
+    "appliedAt": "2026-07-09T12:20:00+05:30"
+  },
+  {
+    "id": "LVE-05",
+    "employeeId": "EMP-1009",
+    "type": "earned",
+    "from": "2026-08-24",
+    "to": "2026-08-28",
+    "workingDays": 5,
+    "reason": "Trip to Coorg",
+    "status": "pending",
+    "approvalTaskId": "APR-9013",
+    "appliedAt": "2026-08-05T17:45:00+05:30"
+  },
+  {
+    "id": "LVE-06",
+    "employeeId": "EMP-1013",
+    "type": "casual",
+    "from": "2026-06-30",
+    "to": "2026-06-30",
+    "workingDays": 1,
+    "status": "rejected",
+    "decidedByName": "Ananya Iyer",
+    "decidedAt": "2026-06-29T16:10:00+05:30",
+    "decisionComment": "Quarter close — please re-plan for the following week",
+    "appliedAt": "2026-06-29T11:00:00+05:30"
+  }
+]

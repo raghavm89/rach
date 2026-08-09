@@ -1,0 +1,254 @@
+[
+  {
+    "employeeId": "EMP-1001",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 4
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 2
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 5
+      }
+    },
+    "id": "EMP-1001"
+  },
+  {
+    "employeeId": "EMP-1002",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 3
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 1
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 6
+      }
+    },
+    "id": "EMP-1002"
+  },
+  {
+    "employeeId": "EMP-1003",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 5
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 2
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 4
+      }
+    },
+    "id": "EMP-1003"
+  },
+  {
+    "employeeId": "EMP-1004",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 4
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 3
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 7
+      }
+    },
+    "id": "EMP-1004"
+  },
+  {
+    "employeeId": "EMP-1005",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 6
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 1
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 8
+      }
+    },
+    "id": "EMP-1005"
+  },
+  {
+    "employeeId": "EMP-1006",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 3
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 4
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 5
+      }
+    },
+    "id": "EMP-1006"
+  },
+  {
+    "employeeId": "EMP-1007",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 2
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 1
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 0
+      }
+    },
+    "id": "EMP-1007"
+  },
+  {
+    "employeeId": "EMP-1008",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 5
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 2
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 6
+      }
+    },
+    "id": "EMP-1008"
+  },
+  {
+    "employeeId": "EMP-1009",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 4
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 5
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 3
+      }
+    },
+    "id": "EMP-1009"
+  },
+  {
+    "employeeId": "EMP-1010",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 3
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 0
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 0
+      }
+    },
+    "id": "EMP-1010"
+  },
+  {
+    "employeeId": "EMP-1011",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 1
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 0
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 0
+      }
+    },
+    "id": "EMP-1011"
+  },
+  {
+    "employeeId": "EMP-1012",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 6
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 3
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 9
+      }
+    },
+    "id": "EMP-1012"
+  },
+  {
+    "employeeId": "EMP-1013",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 4
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 2
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 4
+      }
+    },
+    "id": "EMP-1013"
+  },
+  {
+    "employeeId": "EMP-1014",
+    "balances": {
+      "casual": {
+        "entitled": 12,
+        "used": 5
+      },
+      "sick": {
+        "entitled": 12,
+        "used": 1
+      },
+      "earned": {
+        "entitled": 15,
+        "used": 2
+      }
+    },
+    "id": "EMP-1014"
+  }
+]

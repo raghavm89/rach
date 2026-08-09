@@ -6,13 +6,13 @@ import { SectionHeader } from '@rach/ui/components/ui/SectionHeader';
 import { AnimateIn } from '@rach/ui/components/ui/AnimateIn';
 import { Card } from '@rach/ui/components/ui/Card';
 import { Button } from '@rach/ui/components/ui/Button';
-import { ContactForm } from '@rach/ui/components/forms/ContactForm';
+import { SalesInquiryForm } from '@/components/SalesInquiryForm';
 import { CTABanner } from '@rach/ui/components/sections/CTABanner';
 
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Get in touch with the Rach Dev LLP team. Whether you have a pricing question, need migration help, or want to discuss a custom deployment — we respond within 24 hours.",
+    "Tell us about your AI agent use case — industry, scale, and whether you want cloud or on-prem — and we'll scope a solution and come back with a personalized quote.",
 };
 
 export default function ContactPage() {
@@ -22,8 +22,8 @@ export default function ContactPage() {
       <SectionWrapper>
         <SectionHeader
           eyebrow="GET IN TOUCH"
-          title="Let's talk about what you're building"
-          subtitle="Whether you have a pricing question, need migration help, or want to explore a custom deployment — we're here to help."
+          title="Let's scope your AI agent deployment"
+          subtitle="Tell us what you want your agents to do, your industry, your scale, and whether you want it in our cloud or on-prem. We'll come back with a scoped solution and a personalized quote."
         />
         <AnimateIn>
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
@@ -43,7 +43,7 @@ export default function ContactPage() {
           {/* Contact Form */}
           <div className="lg:col-span-3">
             <AnimateIn>
-              <ContactForm />
+              <SalesInquiryForm />
             </AnimateIn>
           </div>
 

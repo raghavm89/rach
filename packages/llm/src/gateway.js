@@ -11,7 +11,7 @@
  * 1.0) the metered credits are identical to the original inline behavior.
  */
 
-const { resolveModel } = require('./models');
+const { resolveModel, modelForPolicy } = require('./models');
 const anthropic = require('./providers/anthropic');
 const vllm = require('./providers/vllm');
 const { credits } = require('@rach/billing');
@@ -20,6 +20,33 @@ const PROVIDERS = {
   anthropic,
   vllm, // on-prem sovereign path (Sarvam); stubbed until the endpoint is wired
 };
+
+// Demo/offline mode: set LLM_MOCK=1 to return deterministic canned responses
+// without calling any provider and without charging credits. Lets every agent
+// be demoed with no API spend (e.g. when the Anthropic account has no credits).
+const mockEnabled = () => process.env.LLM_MOCK === '1' || process.env.LLM_MOCK === 'true';
+
+const DEFAULT_MOCK_TEXT =
+  'Mock mode (LLM_MOCK) is on — this is a canned response and no external model was called. ' +
+  'Turn LLM_MOCK off and configure a funded ANTHROPIC_API_KEY for real output.';
+
+function mockChat({ text, system, messages, onText, modelId }) {
+  const full = (text && String(text)) || DEFAULT_MOCK_TEXT;
+  if (typeof onText === 'function') {
+    for (let i = 0; i < full.length; i += 24) onText(full.slice(i, i + 24)); // mimic a stream
+  }
+  const inputTokens = Math.max(1, Math.ceil(((system || '').length + JSON.stringify(messages || []).length) / 4));
+  const outputTokens = Math.max(1, Math.ceil(full.length / 4));
+  return {
+    text: full,
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    billedTokens: 0,
+    creditsUsed: 0,
+    model: modelId,
+  };
+}
 
 /**
  * @param {object}   opts
@@ -39,6 +66,7 @@ async function chat({
   tenantId,
   userId,
   model,
+  modelPolicy,
   system,
   messages,
   maxTokens,
@@ -46,8 +74,19 @@ async function chat({
   description = 'LLM call',
   onText,
   meter = true,
+  mock, // optional caller-supplied canned response used only when LLM_MOCK is on
 }) {
-  const spec = resolveModel(model);
+  // Demo/offline: short-circuit before touching a provider or credits.
+  if (mockEnabled()) {
+    let modelId;
+    try { modelId = resolveModel(model || (modelPolicy ? modelForPolicy(modelPolicy) : undefined)).id; }
+    catch { modelId = 'mock-model'; }
+    return mockChat({ text: mock, system, messages, onText, modelId });
+  }
+
+  // An explicit `model` wins; otherwise resolve from an AgentSpec model_policy;
+  // otherwise the environment default. Keeps existing callers unchanged.
+  const spec = resolveModel(model || (modelPolicy ? modelForPolicy(modelPolicy) : undefined));
   const provider = PROVIDERS[spec.provider];
   if (!provider) throw new Error(`No adapter for provider: ${spec.provider}`);
 

@@ -12,6 +12,7 @@ router.use(authenticate);
 router.get('/', asyncHandler(ctrl.getMyTenant));
 
 // Only a tenant admin (or system admin) can change the tenant's industry/workspace
-router.patch('/industry', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.setIndustry));
+router.patch('/industry',   authorize('tenant_admin', 'admin'), asyncHandler(ctrl.setIndustry));
+router.patch('/healthcare', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.setHealthcare));
 
 module.exports = router;

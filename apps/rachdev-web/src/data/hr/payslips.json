@@ -1,0 +1,315 @@
+[
+  {
+    "id": "PSL-001",
+    "employeeId": "EMP-1001",
+    "month": "2026-05",
+    "grossINR": 116667,
+    "netINR": 95400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-002",
+    "employeeId": "EMP-1001",
+    "month": "2026-06",
+    "grossINR": 116667,
+    "netINR": 95400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-003",
+    "employeeId": "EMP-1001",
+    "month": "2026-07",
+    "grossINR": 116667,
+    "netINR": 95400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-004",
+    "employeeId": "EMP-1002",
+    "month": "2026-05",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-005",
+    "employeeId": "EMP-1002",
+    "month": "2026-06",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-006",
+    "employeeId": "EMP-1002",
+    "month": "2026-07",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-007",
+    "employeeId": "EMP-1003",
+    "month": "2026-05",
+    "grossINR": 216667,
+    "netINR": 171900,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-008",
+    "employeeId": "EMP-1003",
+    "month": "2026-06",
+    "grossINR": 216667,
+    "netINR": 171900,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-009",
+    "employeeId": "EMP-1003",
+    "month": "2026-07",
+    "grossINR": 216667,
+    "netINR": 171900,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-010",
+    "employeeId": "EMP-1004",
+    "month": "2026-05",
+    "grossINR": 250000,
+    "netINR": 197600,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-011",
+    "employeeId": "EMP-1004",
+    "month": "2026-06",
+    "grossINR": 250000,
+    "netINR": 197600,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-012",
+    "employeeId": "EMP-1004",
+    "month": "2026-07",
+    "grossINR": 250000,
+    "netINR": 197600,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-013",
+    "employeeId": "EMP-1005",
+    "month": "2026-05",
+    "grossINR": 233333,
+    "netINR": 184700,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-014",
+    "employeeId": "EMP-1005",
+    "month": "2026-06",
+    "grossINR": 233333,
+    "netINR": 184700,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-015",
+    "employeeId": "EMP-1005",
+    "month": "2026-07",
+    "grossINR": 233333,
+    "netINR": 184700,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-016",
+    "employeeId": "EMP-1006",
+    "month": "2026-05",
+    "grossINR": 150000,
+    "netINR": 121300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-017",
+    "employeeId": "EMP-1006",
+    "month": "2026-06",
+    "grossINR": 150000,
+    "netINR": 121300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-018",
+    "employeeId": "EMP-1006",
+    "month": "2026-07",
+    "grossINR": 150000,
+    "netINR": 121300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-019",
+    "employeeId": "EMP-1008",
+    "month": "2026-05",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-020",
+    "employeeId": "EMP-1008",
+    "month": "2026-06",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-021",
+    "employeeId": "EMP-1008",
+    "month": "2026-07",
+    "grossINR": 266667,
+    "netINR": 209800,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-022",
+    "employeeId": "EMP-1009",
+    "month": "2026-05",
+    "grossINR": 133333,
+    "netINR": 108200,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-023",
+    "employeeId": "EMP-1009",
+    "month": "2026-06",
+    "grossINR": 133333,
+    "netINR": 108200,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-024",
+    "employeeId": "EMP-1009",
+    "month": "2026-07",
+    "grossINR": 133333,
+    "netINR": 108200,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-025",
+    "employeeId": "EMP-1010",
+    "month": "2026-05",
+    "grossINR": 75000,
+    "netINR": 62400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-026",
+    "employeeId": "EMP-1010",
+    "month": "2026-06",
+    "grossINR": 75000,
+    "netINR": 62400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-027",
+    "employeeId": "EMP-1010",
+    "month": "2026-07",
+    "grossINR": 75000,
+    "netINR": 62400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-028",
+    "employeeId": "EMP-1012",
+    "month": "2026-05",
+    "grossINR": 70833,
+    "netINR": 59300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-029",
+    "employeeId": "EMP-1012",
+    "month": "2026-06",
+    "grossINR": 70833,
+    "netINR": 59300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-030",
+    "employeeId": "EMP-1012",
+    "month": "2026-07",
+    "grossINR": 70833,
+    "netINR": 59300,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-031",
+    "employeeId": "EMP-1013",
+    "month": "2026-05",
+    "grossINR": 100000,
+    "netINR": 82100,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-032",
+    "employeeId": "EMP-1013",
+    "month": "2026-06",
+    "grossINR": 100000,
+    "netINR": 82100,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-033",
+    "employeeId": "EMP-1013",
+    "month": "2026-07",
+    "grossINR": 100000,
+    "netINR": 82100,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-034",
+    "employeeId": "EMP-1014",
+    "month": "2026-05",
+    "grossINR": 125000,
+    "netINR": 101500,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-035",
+    "employeeId": "EMP-1014",
+    "month": "2026-06",
+    "grossINR": 125000,
+    "netINR": 101500,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-036",
+    "employeeId": "EMP-1014",
+    "month": "2026-07",
+    "grossINR": 125000,
+    "netINR": 101500,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-037",
+    "employeeId": "EMP-1007",
+    "month": "2026-06",
+    "grossINR": 126667,
+    "netINR": 104100,
+    "status": "distributed (simulated)",
+    "note": "Prorated — joined 12 Jun 2026"
+  },
+  {
+    "id": "PSL-038",
+    "employeeId": "EMP-1007",
+    "month": "2026-07",
+    "grossINR": 200000,
+    "netINR": 163400,
+    "status": "distributed (simulated)"
+  },
+  {
+    "id": "PSL-039",
+    "employeeId": "EMP-1011",
+    "month": "2026-07",
+    "grossINR": 91667,
+    "netINR": 75900,
+    "status": "distributed (simulated)"
+  }
+]

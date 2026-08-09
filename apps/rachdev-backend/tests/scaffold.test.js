@@ -8,14 +8,14 @@ const path = require('path');
 const MIG = path.join(__dirname, '..', '..', '..', 'packages', 'core', 'src', 'db', 'migrations');
 
 test('clinical-roles migration adds the three roles', () => {
-  const sql = fs.readFileSync(path.join(MIG, '043_clinical_roles.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(MIG, '047_clinical_roles.sql'), 'utf8');
   for (const role of ['doctor', 'reception', 'store_manager']) {
     assert.match(sql, new RegExp(`ADD VALUE IF NOT EXISTS '${role}'`));
   }
 });
 
 test('agent_definitions migration creates the table with provider column', () => {
-  const sql = fs.readFileSync(path.join(MIG, '044_agent_definitions.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(MIG, '048_agent_definitions.sql'), 'utf8');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS agent_definitions/);
   assert.match(sql, /provider\s+TEXT\s+NOT NULL DEFAULT 'anthropic'/);
   assert.match(sql, /UNIQUE \(tenant_id, key\)/);

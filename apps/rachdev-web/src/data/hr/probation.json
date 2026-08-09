@@ -1,0 +1,82 @@
+[
+  {
+    "id": "PCP-01",
+    "employeeId": "EMP-1007",
+    "day": 7,
+    "due": "2026-06-19",
+    "status": "completed",
+    "completedAt": "2026-06-19T16:30:00+05:30",
+    "checkIn": {
+      "notes": "Setup complete, access working, first supervised deploy done. Rohan flagged that the staging Terraform state docs are outdated — assigned as his first improvement task.",
+      "byName": "Ananya Iyer",
+      "at": "2026-06-19T16:30:00+05:30"
+    }
+  },
+  {
+    "id": "PCP-02",
+    "employeeId": "EMP-1007",
+    "day": 30,
+    "due": "2026-07-12",
+    "status": "completed",
+    "completedAt": "2026-07-13T11:00:00+05:30",
+    "checkIn": {
+      "notes": "Owning the CI runner fleet independently. Vikram reports good incident hygiene during the 4 Jul S3 latency event. Watch-out: tends to over-engineer small fixes — discussed keeping changes minimal. Infosec module still pending.",
+      "byName": "Ananya Iyer",
+      "at": "2026-07-13T11:00:00+05:30"
+    }
+  },
+  {
+    "id": "PCP-03",
+    "employeeId": "EMP-1007",
+    "day": 60,
+    "due": "2026-08-11",
+    "status": "pending"
+  },
+  {
+    "id": "PCP-04",
+    "employeeId": "EMP-1007",
+    "day": 90,
+    "due": "2026-09-10",
+    "status": "pending"
+  },
+  {
+    "id": "PCP-05",
+    "employeeId": "EMP-1011",
+    "day": 7,
+    "due": "2026-07-08",
+    "status": "completed",
+    "completedAt": "2026-07-08T15:00:00+05:30",
+    "checkIn": {
+      "notes": "Ramp going well; completed all mandatory modules in week 1. Shadowing Nandini on two enterprise accounts.",
+      "byName": "Ananya Iyer",
+      "at": "2026-07-08T15:00:00+05:30"
+    }
+  },
+  {
+    "id": "PCP-06",
+    "employeeId": "EMP-1011",
+    "day": 30,
+    "due": "2026-07-31",
+    "status": "completed",
+    "completedAt": "2026-07-31T14:20:00+05:30",
+    "checkIn": {
+      "notes": "First solo discovery call handled well. Pipeline hygiene excellent. On track.",
+      "byName": "Ananya Iyer",
+      "at": "2026-07-31T14:20:00+05:30"
+    }
+  },
+  {
+    "id": "PCP-07",
+    "employeeId": "EMP-1011",
+    "day": 60,
+    "due": "2026-08-30",
+    "status": "pending"
+  },
+  {
+    "id": "PCP-08",
+    "employeeId": "EMP-1011",
+    "day": 90,
+    "due": "2026-09-29",
+    "status": "pending"
+  }
+]

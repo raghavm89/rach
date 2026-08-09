@@ -10,7 +10,7 @@ export default function CookiePolicyPage() {
   return (
     <>
       <div className="mb-6 inline-block rounded-full border border-line bg-band px-3 py-1 text-xs font-medium text-ink-3">
-        Last updated: March 2026
+        Last updated: August 2026
       </div>
 
       <h1 className="font-display text-3xl font-bold text-ink">
@@ -87,38 +87,6 @@ export default function CookiePolicyPage() {
             </ul>
 
             <p className="mt-6 font-semibold text-ink">
-              Analytics Cookies
-            </p>
-            <p>
-              These cookies help us understand how visitors interact with our
-              website by collecting and reporting information anonymously. This
-              data allows us to improve the user experience and identify areas
-              of the platform that need attention.
-            </p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>
-                <span className="font-semibold text-ink">
-                  Page views and navigation paths:
-                </span>{" "}
-                Tracks which pages you visit and how you move through the site
-              </li>
-              <li>
-                <span className="font-semibold text-ink">
-                  Feature usage:
-                </span>{" "}
-                Records which dashboard features and tools are most frequently
-                used
-              </li>
-              <li>
-                <span className="font-semibold text-ink">
-                  Performance metrics:
-                </span>{" "}
-                Measures page load times and responsiveness to help us optimize
-                performance
-              </li>
-            </ul>
-
-            <p className="mt-6 font-semibold text-ink">
               Preference Cookies
             </p>
             <p>
@@ -157,47 +125,30 @@ export default function CookiePolicyPage() {
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
             <p>
               Some cookies on our site are set by third-party services that we
-              use to operate and improve the platform. These include:
+              use to operate the platform. These include:
             </p>
             <ul className="list-disc list-inside space-y-1">
               <li>
                 <span className="font-semibold text-ink">
-                  Google Analytics:
+                  Razorpay:
                 </span>{" "}
-                Used to collect anonymous usage statistics and understand traffic
-                patterns. Google Analytics cookies typically expire after 2
-                years. You can opt out using the{" "}
+                Used for secure payment processing. Razorpay may set cookies to
+                detect and prevent fraud during checkout. These cookies are
+                essential for payment functionality. See the{" "}
                 <a
-                  href="https://tools.google.com/dlpage/gaoptout"
+                  href="https://razorpay.com/privacy/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent underline hover:text-accent"
                 >
-                  Google Analytics Opt-out Browser Add-on
-                </a>
-                .
-              </li>
-              <li>
-                <span className="font-semibold text-ink">
-                  Stripe:
-                </span>{" "}
-                Used for secure payment processing. Stripe sets cookies to
-                detect and prevent fraud. These cookies are essential for
-                payment functionality. See the{" "}
-                <a
-                  href="https://stripe.com/cookies-policy/legal"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent underline hover:text-accent"
-                >
-                  Stripe Cookie Policy
+                  Razorpay Privacy Policy
                 </a>{" "}
                 for details.
               </li>
             </ul>
             <p>
-              We do not use any advertising or tracking cookies. We do not
-              participate in cross-site ad networks.
+              We do not use analytics, advertising, or cross-site tracking
+              cookies, and we do not participate in ad networks.
             </p>
           </div>
         </section>
@@ -245,24 +196,10 @@ export default function CookiePolicyPage() {
               </li>
             </ul>
 
-            <p className="font-semibold text-ink">Opt-Out Links</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>
-                Google Analytics:{" "}
-                <a
-                  href="https://tools.google.com/dlpage/gaoptout"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent underline hover:text-accent"
-                >
-                  https://tools.google.com/dlpage/gaoptout
-                </a>
-              </li>
-            </ul>
             <p>
               If you disable essential cookies, you may not be able to log in or
-              use the Rach Dev LLP platform. Analytics and preference cookies can be
-              disabled without affecting core functionality.
+              use the Rach Dev LLP platform. Preference cookies can be disabled
+              without affecting core functionality.
             </p>
           </div>
         </section>

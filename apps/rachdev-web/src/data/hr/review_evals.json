@@ -1,0 +1,90 @@
+[
+  {
+    "id": "REV-01",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1008",
+    "managerName": "Sameer Kulkarni",
+    "managerRole": "project_manager",
+    "status": "submitted",
+    "rating": 4,
+    "submittedAt": "2026-08-01T15:00:00+05:30",
+    "strengths": "Owned the settlement-service refactor end to end; design docs consistently the clearest in the pod; mentors Arvind well.",
+    "growthAreas": "Delegation — takes on too much during incidents instead of coordinating.",
+    "summaryDraft": {
+      "status": "draft",
+      "body": "Kavya's half-year is defined by the settlement-service refactor, which she owned from design through rollout with zero production regressions. Her design documentation set the standard the pod now follows, and her mentoring of Arvind shows in his review. The single growth theme is delegation under pressure: in two incidents she absorbed coordination work that should have been distributed. Recommended focus for H2: run two incident responses purely as coordinator."
+    }
+  },
+  {
+    "id": "REV-02",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1009",
+    "managerName": "Sameer Kulkarni",
+    "managerRole": "project_manager",
+    "status": "submitted",
+    "rating": 3,
+    "submittedAt": "2026-08-01T15:20:00+05:30",
+    "strengths": "Reliable delivery on scoped tickets; test coverage discipline strong.",
+    "growthAreas": "Needs to propose designs, not only implement them; speak up earlier when blocked."
+  },
+  {
+    "id": "REV-03",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1014",
+    "managerName": "Sameer Kulkarni",
+    "managerRole": "project_manager",
+    "status": "submitted",
+    "rating": 4,
+    "submittedAt": "2026-08-02T10:10:00+05:30",
+    "strengths": "Dashboard performance work cut p95 load times by half; excellent design-eng collaboration.",
+    "growthAreas": "Broaden backend familiarity to reduce handoff friction."
+  },
+  {
+    "id": "REV-04",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1010",
+    "managerName": "Nandini Rao",
+    "managerRole": "project_manager",
+    "status": "submitted",
+    "rating": 4,
+    "submittedAt": "2026-08-03T12:00:00+05:30",
+    "strengths": "Fastest ramp of the SDR cohort; consistently above meeting-quota since May.",
+    "growthAreas": "Enterprise objection handling — pair on two more enterprise cycles."
+  },
+  {
+    "id": "REV-05",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1001",
+    "managerName": "Rajesh Menon",
+    "managerRole": "hr_director",
+    "status": "submitted",
+    "rating": 5,
+    "submittedAt": "2026-08-04T09:30:00+05:30",
+    "strengths": "Ran the entire Senior Backend hiring cycle to offer stage in six weeks; candidate feedback consistently excellent.",
+    "growthAreas": "Take over the HR-policy refresh workstream in H2."
+  },
+  {
+    "id": "REV-06",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1012",
+    "managerName": "Farida Ansari",
+    "managerRole": "hr_director",
+    "status": "pending"
+  },
+  {
+    "id": "REV-07",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1013",
+    "managerName": "Farida Ansari",
+    "managerRole": "hr_director",
+    "status": "pending"
+  },
+  {
+    "id": "REV-08",
+    "cycleId": "RC-01",
+    "employeeId": "EMP-1005",
+    "managerName": "Meera Vasudev (CEO)",
+    "managerRole": "hr_director",
+    "status": "pending"
+  }
+]

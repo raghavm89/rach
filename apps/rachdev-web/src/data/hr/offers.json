@@ -1,0 +1,43 @@
+[
+  {
+    "id": "OFR-201",
+    "applicationId": "APP-3027",
+    "ctcINR": 3600000,
+    "inBand": true,
+    "status": "sent_for_esign",
+    "approvalTaskId": "APR-9008",
+    "joiningDate": "2026-10-01",
+    "createdAt": "2026-08-03T11:05:00+05:30",
+    "letter": {
+      "status": "approved",
+      "approvedById": "USR-02",
+      "approvedByName": "Rajesh Menon",
+      "approvedAt": "2026-08-04T12:40:00+05:30",
+      "body": "Dear Aishwarya,\n\nWe are delighted to offer you the position of Senior Backend Engineer with Meridian Technologies Pvt Ltd, Bengaluru, on the Platform team reporting to Vikram Shah.\n\nYour annual compensation will be ₹36,00,000 (Rupees Thirty-Six Lakhs), structured as fixed pay of ₹32,40,000 and a performance-linked component of ₹3,60,000. In addition, you will be covered under the company's family health insurance plan from your date of joining.\n\nYour proposed date of joining is 1 October 2026. This offer is contingent on satisfactory completion of background verification, conducted with your consent through our verification partner.\n\nWe were genuinely impressed through every conversation in this process, and the team is excited to build with you.\n\nWarm regards,\nRajesh Menon\nHR Director, Meridian Technologies Pvt Ltd"
+    }
+  },
+  {
+    "id": "OFR-105",
+    "applicationId": "APP-3034",
+    "ctcINR": 2400000,
+    "inBand": true,
+    "status": "accepted",
+    "joiningDate": "2026-06-12",
+    "createdAt": "2026-05-28T11:00:00+05:30",
+    "letter": {
+      "status": "approved",
+      "approvedById": "USR-02",
+      "approvedByName": "Rajesh Menon",
+      "approvedAt": "2026-05-29T15:10:00+05:30",
+      "body": "Dear Rohan,\n\nWe are delighted to offer you the position of DevOps Engineer with Meridian Technologies Pvt Ltd, Bengaluru, on the Engineering — Infrastructure team reporting to Vikram Shah.\n\nYour annual compensation will be ₹24,00,000 (Rupees Twenty-Four Lakhs), structured as fixed pay of ₹21,60,000 and a performance-linked component of ₹2,40,000, with family health insurance from your date of joining.\n\nYour proposed date of joining is 12 June 2026. This offer is contingent on satisfactory completion of background verification, conducted with your consent through our verification partner.\n\nWarm regards,\nRajesh Menon\nHR Director, Meridian Technologies Pvt Ltd"
+    }
+  },
+  {
+    "id": "OFR-202",
+    "applicationId": "APP-3033",
+    "ctcINR": 2800000,
+    "inBand": false,
+    "status": "draft",
+    "createdAt": "2026-08-03T15:00:00+05:30"
+  }
+]

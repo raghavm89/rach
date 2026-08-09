@@ -1,0 +1,68 @@
+[
+  {
+    "date": "2026-01-26",
+    "name": "Republic Day",
+    "scope": "national",
+    "id": "2026-01-26"
+  },
+  {
+    "date": "2026-03-19",
+    "name": "Ugadi",
+    "scope": "karnataka",
+    "id": "2026-03-19"
+  },
+  {
+    "date": "2026-05-01",
+    "name": "Labour Day",
+    "scope": "karnataka",
+    "id": "2026-05-01"
+  },
+  {
+    "date": "2026-08-15",
+    "name": "Independence Day",
+    "scope": "national",
+    "id": "2026-08-15"
+  },
+  {
+    "date": "2026-09-14",
+    "name": "Ganesh Chaturthi",
+    "scope": "karnataka",
+    "id": "2026-09-14"
+  },
+  {
+    "date": "2026-10-02",
+    "name": "Gandhi Jayanti",
+    "scope": "national",
+    "id": "2026-10-02"
+  },
+  {
+    "date": "2026-10-20",
+    "name": "Dussehra (Vijayadashami)",
+    "scope": "karnataka",
+    "id": "2026-10-20"
+  },
+  {
+    "date": "2026-11-01",
+    "name": "Kannada Rajyotsava",
+    "scope": "karnataka",
+    "id": "2026-11-01"
+  },
+  {
+    "date": "2026-11-08",
+    "name": "Deepavali",
+    "scope": "national",
+    "id": "2026-11-08"
+  },
+  {
+    "date": "2026-11-09",
+    "name": "Deepavali (Balipadyami)",
+    "scope": "karnataka",
+    "id": "2026-11-09"
+  },
+  {
+    "date": "2026-12-25",
+    "name": "Christmas",
+    "scope": "national",
+    "id": "2026-12-25"
+  }
+]

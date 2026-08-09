@@ -3,21 +3,24 @@
 /**
  * Agent controller (RachDev agent builder).
  *
- * Split out of the original monolith agentController. The concerns that used to
- * be inline here now come from elsewhere:
+ * Concerns are delegated:
  *   - credits/metering  → @rach/billing (credits)
  *   - LLM model call     → @rach/llm (gateway; meters via billing)
- *   - deploy / SSH exec  → RachBase internal API (via RachBaseClient, HTTP)
+ *   - agent deploy/host  → the Agent Runtime Contract (deploymentController)
  *
- * Deploy/SSH are no longer performed in-process. RachBase owns the infra and SSH
- * keys, so RachDev asks it over an authenticated service call. See the deploy API
- * contract in apps/rachbase-backend/src/routes/internal.js.
+ * The chat here is the AGENT BUILDER assistant — it helps users design and
+ * configure agents (AgentSpecs) in natural language. The old DevOps deployment
+ * assistant (run-command / trigger-deploy over VMs) was retired in migration
+ * step #6: infrastructure ops are a RachBase concern and no longer live in
+ * RachDev. See docs/RACHDEV_ARCHITECTURE_PROPOSAL.md.
  */
 
-const { pool, AgentDefinition } = require('@rach/core');
+const { pool, AgentDefinition, agentSpec } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
 const { gateway } = require('@rach/llm');
-const rachbase   = require('../services/rachbaseClient');
+const { getTenantModel } = require('../services/tenantLlm');
+
+const { validateAgentSpecInput, columnsFromInput, rowToSpec } = agentSpec;
 
 // ── GET /api/agent/credits ────────────────────────────────────────────────────
 
@@ -166,37 +169,31 @@ exports.chat = async (req, res) => {
     return res.status(402).json({ error: 'Insufficient credits', balance });
   }
 
-  // 3. Load context — VMs, services
-  const [vmsRes, servicesRes] = await Promise.all([
-    pool.query(
-      `SELECT v.vm_id, v.ip_address, v.ssh_user
-       FROM vm_ssh_config v WHERE v.tenant_id = $1`,
-      [req.user.tenant_id]
-    ),
-    pool.query(
-      `SELECT s.id, s.vm_id, s.repo_full_name, s.branch, s.status
-       FROM deployment_services s WHERE s.tenant_id = $1`,
-      [req.user.tenant_id]
-    ),
-  ]);
+  // 3. Load builder context — the tenant's agents (drafts) + platform templates.
+  const definitions = await AgentDefinition.listForTenant(req.user.tenant_id);
+  const agentsSummary = definitions.map((d) => ({
+    key: d.key,
+    name: d.name,
+    role: d.role,
+    industry: d.industry,
+    status: d.status,
+    version: d.version,
+    is_template: d.tenant_id == null,
+  }));
 
-  const systemPrompt = `You are a deployment assistant for Rach Dev, a managed cloud platform.
-You help tenant admins manage their deployments, debug issues, and run commands on their VMs.
+  const systemPrompt = `You are the RachDev Agent Builder assistant. You help users design and configure AI agents in plain language. You do NOT manage servers, run shell commands, or touch infrastructure — hosting is handled by the platform.
 
-Tenant context:
-- VMs: ${JSON.stringify(vmsRes.rows)}
-- Deployed services: ${JSON.stringify(servicesRes.rows)}
+Your job:
+- Turn an idea (or a starting template) into a well-formed agent: its purpose, system prompt, tools, guardrails, and channels.
+- Recommend sensible guardrails (human review, PII handling, escalation) and an appropriate model class: fast, balanced, or reasoning.
+- Explain the flow: build a draft → publish an immutable version → deploy that version. Deploying and hosting are handled for the user; never expose VMs or commands.
 
-You can help with:
-- Answering questions about deployments and infrastructure
-- Debugging failed deployments (ask for logs if needed)
-- Explaining deployment statuses
-- Suggesting fixes for common issues
-- Triggering deploys when explicitly asked
-- Running safe diagnostic commands on VMs when asked
+Describe configuration in terms of AgentSpec fields (prompt, tools, guardrails, model_policy, channels). Tool types available: http_action, knowledge_base, handoff, function. You advise; the builder saves the spec.
 
-Be concise, technical, and helpful. When suggesting commands, explain what they do first.
-Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
+Workspace context (the user's current agents and available templates):
+${JSON.stringify(agentsSummary)}
+
+Be concise, practical, and specific.`;
 
   // 4. Load message history
   const { rows: history } = await pool.query(
@@ -230,6 +227,7 @@ Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
     const result = await gateway.chat({
       tenantId:    req.user.tenant_id,
       userId:      req.user.id,
+      model:       (await getTenantModel(req.user.tenant_id)) || undefined,
       system:      systemPrompt,
       messages,
       description: `Chat in session ${req.params.id}`,
@@ -283,34 +281,11 @@ Never run destructive commands (rm -rf, etc.) without explicit confirmation.`;
   res.end();
 };
 
-// ── POST /api/agent/sessions/:id/trigger-deploy ───────────────────────────────
-
-exports.triggerDeploy = async (req, res) => {
-  const { service_id } = req.body;
-  if (!service_id) return res.status(400).json({ error: 'service_id required' });
-
-  // RachBase owns the infra: it verifies tenant ownership and runs the deploy.
-  const result = await rachbase.triggerDeploy({
-    tenantId:  req.user.tenant_id,
-    serviceId: service_id,
-  });
-  res.json(result);
-};
-
-// ── POST /api/agent/sessions/:id/run-command ─────────────────────────────────
-
-exports.runCommand = async (req, res) => {
-  const { vm_id, command } = req.body;
-  if (!vm_id || !command) return res.status(400).json({ error: 'vm_id and command required' });
-
-  // RachBase performs the SSH exec (it holds the keys + VM config).
-  const result = await rachbase.runCommand({
-    tenantId: req.user.tenant_id,
-    vmId:     vm_id,
-    command,
-  });
-  res.json(result);
-};
+// NOTE: the DevOps `trigger-deploy` and `run-command` handlers were removed in
+// migration step #6. Running commands and deploying git services on VMs are
+// RachBase concerns; RachDev deploys *agents* (published AgentSpecs) through the
+// Agent Runtime Contract instead — see controllers/deploymentController.js and
+// docs/RACHDEV_RUNTIME_CONTRACT.md.
 
 // ── GET /api/agent/usage — summary ────────────────────────────────────────────
 
@@ -385,25 +360,55 @@ exports.getSessionUsage = async (req, res) => {
 // GET /api/agent/definitions — tenant's definitions + platform templates
 exports.listDefinitions = async (req, res) => {
   const rows = await AgentDefinition.listForTenant(req.user.tenant_id);
-  res.json({ definitions: rows });
+  res.json({ definitions: rows.map(rowToSpec) });
 };
 
-// POST /api/agent/definitions — create/configure an agent in the builder
+// POST /api/agent/definitions — create/configure an agent in the builder.
+// Body is validated against the AgentSpec input contract (unknown fields
+// rejected); model_policy/template_ref are mapped to columns before persisting.
 exports.createDefinition = async (req, res) => {
-  const { key, name } = req.body;
-  if (!key?.trim() || !name?.trim()) {
-    return res.status(400).json({ error: 'key and name are required' });
-  }
-  const def = await AgentDefinition.create({ ...req.body, tenant_id: req.user.tenant_id });
-  res.status(201).json({ definition: def });
+  const { valid, errors } = validateAgentSpecInput(req.body);
+  if (!valid) return res.status(422).json({ error: 'Invalid agent spec', details: errors });
+
+  const def = await AgentDefinition.create({
+    ...columnsFromInput(req.body),
+    tenant_id: req.user.tenant_id,
+    created_by: req.user.id,
+  });
+  res.status(201).json({ definition: rowToSpec(def) });
 };
 
 // PUT /api/agent/definitions/:id — update a definition (must belong to tenant)
 exports.updateDefinition = async (req, res) => {
+  const { valid, errors } = validateAgentSpecInput(req.body, { partial: true });
+  if (!valid) return res.status(422).json({ error: 'Invalid agent spec', details: errors });
+
   const existing = await AgentDefinition.findById(req.params.id);
   if (!existing || existing.tenant_id !== req.user.tenant_id) {
     return res.status(404).json({ error: 'Definition not found' });
   }
-  const def = await AgentDefinition.update(req.params.id, req.body);
-  res.json({ definition: def });
+  const def = await AgentDefinition.update(req.params.id, columnsFromInput(req.body));
+  res.json({ definition: rowToSpec(def) });
+};
+
+// POST /api/agent/definitions/:id/publish — snapshot the draft as an immutable
+// version (agent_spec_versions) and bump the version. Deployments reference a
+// published version, so a live agent never mutates under itself.
+exports.publishDefinition = async (req, res) => {
+  const existing = await AgentDefinition.findById(req.params.id);
+  if (!existing || existing.tenant_id !== req.user.tenant_id) {
+    return res.status(404).json({ error: 'Definition not found' });
+  }
+  const result = await AgentDefinition.publish(req.params.id, req.user.id);
+  res.json({ version: result.version, definition: result.spec });
+};
+
+// GET /api/agent/definitions/:id/versions — published version history
+exports.listDefinitionVersions = async (req, res) => {
+  const existing = await AgentDefinition.findById(req.params.id);
+  if (!existing || existing.tenant_id !== req.user.tenant_id) {
+    return res.status(404).json({ error: 'Definition not found' });
+  }
+  const versions = await AgentDefinition.listVersions(req.user.tenant_id, existing.key);
+  res.json({ versions });
 };

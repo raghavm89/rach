@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <div className="mb-6 inline-block rounded-full border border-line bg-band px-3 py-1 text-xs font-medium text-ink-3">
-        Last updated: March 2026
+        Last updated: August 2026
       </div>
 
       <h1 className="font-display text-3xl font-bold text-ink">
@@ -55,8 +55,8 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>Organization name and billing address for paid plans</li>
               <li>
-                Payment information processed securely through Stripe (we do not
-                store full card numbers)
+                Payment information processed securely through Razorpay (we do
+                not store full card numbers)
               </li>
             </ul>
             <p className="font-semibold text-ink">Usage Data</p>
@@ -127,9 +127,13 @@ export default function PrivacyPolicyPage() {
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
             <p>
-              Your data is stored on infrastructure hosted in the United States
-              and India. We employ industry-standard security measures to protect
-              your information, including:
+              The rachdev.com application is the control plane you use to build,
+              configure, and manage your agents and workspaces. Your data is
+              hosted and processed on Rach Dev LLP&apos;s RachBase infrastructure
+              (located in the United States and India) or, where separately
+              agreed, within your own or on-premises environment. We employ
+              industry-standard security measures to protect your information,
+              including:
             </p>
             <ul className="list-disc list-inside space-y-1">
               <li>Encryption at rest (AES-256) and in transit (TLS 1.2+)</li>
@@ -141,10 +145,6 @@ export default function PrivacyPolicyPage() {
                 Regular security audits and vulnerability assessments
               </li>
               <li>Automated backups with point-in-time recovery</li>
-              <li>
-                SOC 2 Type II compliance currently in progress, with expected
-                certification by Q3 2026
-              </li>
             </ul>
             <p>
               While we implement commercially reasonable security measures, no
@@ -169,24 +169,17 @@ export default function PrivacyPolicyPage() {
                 <span className="font-semibold text-ink">
                   Payment processing:
                 </span>{" "}
-                Stripe processes payment information on our behalf. Their
+                Razorpay processes payment information on our behalf. Their
                 handling of your payment data is governed by the{" "}
                 <a
-                  href="https://stripe.com/privacy"
+                  href="https://razorpay.com/privacy/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent underline hover:text-accent"
                 >
-                  Stripe Privacy Policy
+                  Razorpay Privacy Policy
                 </a>
                 .
-              </li>
-              <li>
-                <span className="font-semibold text-ink">
-                  Analytics:
-                </span>{" "}
-                We use analytics providers to understand how our Services are
-                used and to improve performance.
               </li>
               <li>
                 <span className="font-semibold text-ink">
@@ -277,7 +270,7 @@ export default function PrivacyPolicyPage() {
             7. Cookies
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
-            <p>We use cookies and similar technologies for three purposes:</p>
+            <p>We use cookies and similar technologies for two purposes:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>
                 <span className="font-semibold text-ink">
@@ -288,18 +281,15 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <span className="font-semibold text-ink">
-                  Analytics cookies:
-                </span>{" "}
-                Help us understand how visitors interact with our website and
-                Services
-              </li>
-              <li>
-                <span className="font-semibold text-ink">
                   Preference cookies:
                 </span>{" "}
                 Remember your settings and display preferences
               </li>
             </ul>
+            <p>
+              We do not use analytics, advertising, or cross-site tracking
+              cookies.
+            </p>
             <p>
               For detailed information about the cookies we use and how to
               manage them, please refer to our{" "}

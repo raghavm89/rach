@@ -1,0 +1,215 @@
+[
+  {
+    "id": "ONB-01",
+    "employeeId": "EMP-1007",
+    "joinerName": "Rohan Gupta",
+    "candidateRef": "CAND-2034",
+    "buddyName": "Kavya Hegde",
+    "day1": {
+      "date": "2026-06-12",
+      "location": "Bellandur office, 3rd floor — report at 9:30 AM",
+      "reportingTo": "Vikram Shah",
+      "schedule": [
+        "9:30 — HR welcome, ID card and access badge",
+        "10:30 — IT setup and laptop handover",
+        "12:30 — Team lunch with the Infra pod",
+        "2:00 — Infra codebase and runbook walk-through with Kavya",
+        "4:00 — Week-1 plan with Vikram"
+      ]
+    },
+    "bgvStatus": "clear",
+    "checklist": [
+      {
+        "id": "CHK-01",
+        "item": "PAN card copy",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-06-05T10:00:00+05:30",
+        "doneByName": "Rohan Gupta"
+      },
+      {
+        "id": "CHK-02",
+        "item": "Aadhaar copy",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-06-05T10:02:00+05:30",
+        "doneByName": "Rohan Gupta"
+      },
+      {
+        "id": "CHK-03",
+        "item": "Bank account proof (cancelled cheque)",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-06-06T09:20:00+05:30",
+        "doneByName": "Rohan Gupta"
+      },
+      {
+        "id": "CHK-04",
+        "item": "Passport-size photographs",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-06-12T09:45:00+05:30",
+        "doneByName": "Ananya Iyer"
+      },
+      {
+        "id": "CHK-05",
+        "item": "Signed appointment letter (hard copy)",
+        "owner": "hr",
+        "status": "done",
+        "doneAt": "2026-06-12T10:05:00+05:30",
+        "doneByName": "Ananya Iyer"
+      },
+      {
+        "id": "CHK-06",
+        "item": "UAN / PF transfer confirmation",
+        "owner": "employee",
+        "status": "pending"
+      },
+      {
+        "id": "CHK-07",
+        "item": "Insurance nominee declaration",
+        "owner": "employee",
+        "status": "pending"
+      }
+    ],
+    "provisioning": [
+      {
+        "item": "Laptop (MacBook Pro 14)",
+        "status": "done"
+      },
+      {
+        "item": "Email + SSO account",
+        "status": "done"
+      },
+      {
+        "item": "Repo + AWS access (infra tier)",
+        "status": "done"
+      }
+    ],
+    "invites": [
+      {
+        "channel": "Slack — #eng-infra, #announcements",
+        "status": "invited"
+      },
+      {
+        "channel": "Email group — engineering@meridiantech.in",
+        "status": "invited"
+      },
+      {
+        "channel": "WhatsApp — Bengaluru office",
+        "status": "invited"
+      }
+    ],
+    "inductionKit": {
+      "status": "approved",
+      "approvedByName": "Ananya Iyer",
+      "approvedAt": "2026-06-11T15:30:00+05:30",
+      "modules": [
+        {
+          "key": "posh",
+          "label": "POSH awareness",
+          "mandatory": true,
+          "status": "completed",
+          "completedAt": "2026-06-16T17:00:00+05:30"
+        },
+        {
+          "key": "code_of_conduct",
+          "label": "Code of conduct",
+          "mandatory": true,
+          "status": "completed",
+          "completedAt": "2026-06-17T11:30:00+05:30"
+        },
+        {
+          "key": "infosec",
+          "label": "Information security basics",
+          "mandatory": true,
+          "status": "pending"
+        }
+      ],
+      "body": "## Welcome to Meridian, Rohan\n\nMeridian Technologies builds the transaction and ledger infrastructure that mid-market enterprises run their business on. You are joining the Engineering — Infrastructure pod, reporting to Vikram Shah.\n\n## Your first week\n\n- Day 1: setup, access, team lunch, codebase walk-through with your buddy Kavya Hegde\n- Day 2–3: shadow the on-call engineer; read the top five runbooks\n- Day 4: first supervised deploy through the paved-road pipeline\n- Day 5: week-1 retro with Vikram; agree your 30-day plan\n\n## Tools you will use\n\n- AWS (EKS, Terraform-managed), GitHub + Actions, Prometheus/Grafana, Slack, Keka (HR)\n\n## Benefits at a glance\n\n- Family health insurance from day 1; parental cover optional top-up\n- 12 casual + 12 sick + 15 earned leave days per year\n- Learning budget of ₹40,000 per year\n\n## Mandatory modules (complete in week 1–2)\n\n- POSH awareness · Code of conduct · Information security basics\n\nYour probation runs 90 days with check-ins at day 7, 30, 60 and 90 — they are conversations, not exams. Welcome aboard."
+    }
+  },
+  {
+    "id": "ONB-02",
+    "joinerName": "Aishwarya Menon",
+    "candidateRef": "CAND-2027",
+    "buddyName": "Kavya Hegde",
+    "day1": {
+      "date": "2026-10-01",
+      "location": "Bellandur office, 3rd floor — report at 9:30 AM",
+      "reportingTo": "Vikram Shah",
+      "schedule": [
+        "9:30 — HR welcome, ID card and access badge",
+        "10:30 — IT setup and laptop handover",
+        "12:30 — Team lunch with the Platform pod",
+        "2:00 — Ledger architecture walk-through",
+        "4:00 — Week-1 plan with Vikram"
+      ]
+    },
+    "bgvStatus": "in_progress",
+    "checklist": [
+      {
+        "id": "CHK-11",
+        "item": "PAN card copy",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-08-04T12:00:00+05:30",
+        "doneByName": "Aishwarya Menon"
+      },
+      {
+        "id": "CHK-12",
+        "item": "Aadhaar copy",
+        "owner": "employee",
+        "status": "done",
+        "doneAt": "2026-08-04T12:02:00+05:30",
+        "doneByName": "Aishwarya Menon"
+      },
+      {
+        "id": "CHK-13",
+        "item": "Bank account proof (cancelled cheque)",
+        "owner": "employee",
+        "status": "pending"
+      },
+      {
+        "id": "CHK-14",
+        "item": "Passport-size photographs",
+        "owner": "employee",
+        "status": "pending"
+      },
+      {
+        "id": "CHK-15",
+        "item": "UAN / PF transfer confirmation",
+        "owner": "employee",
+        "status": "pending"
+      }
+    ],
+    "provisioning": [
+      {
+        "item": "Laptop (MacBook Pro 14)",
+        "status": "requested"
+      },
+      {
+        "item": "Email + SSO account",
+        "status": "requested"
+      },
+      {
+        "item": "Repo access (platform tier)",
+        "status": "requested"
+      }
+    ],
+    "invites": [
+      {
+        "channel": "Slack — #eng-platform, #announcements",
+        "status": "not_sent"
+      },
+      {
+        "channel": "Email group — engineering@meridiantech.in",
+        "status": "not_sent"
+      },
+      {
+        "channel": "WhatsApp — Bengaluru office",
+        "status": "not_sent"
+      }
+    ]
+  }
+]

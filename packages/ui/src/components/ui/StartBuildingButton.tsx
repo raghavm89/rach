@@ -21,7 +21,9 @@ export function StartBuildingButton({
   label = 'Start Building →',
 }: Props) {
   const { user } = useAuth();
-  const href = user ? '/dashboard' : '/signup';
+  // Self-serve signup is retired — send signed-out visitors to sign-in, which
+  // lands them on the dashboard once authenticated.
+  const href = user ? '/dashboard' : '/login';
 
   return (
     <Button

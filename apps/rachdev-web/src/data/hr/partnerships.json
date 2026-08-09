@@ -1,0 +1,81 @@
+[
+  {
+    "id": "PRT-01",
+    "partner": "Serene Health",
+    "category": "Mental-health EAP",
+    "estCostBand": "₹350–500 / emp / mo",
+    "pitch": "Employee assistance program with 24×7 counsellor access in 9 Indian languages, 6 sessions per employee per year, manager-training webinars, and anonymised org-level wellbeing reporting. Used by 140+ Indian mid-market companies; typical onboarding in two weeks.",
+    "status": "new",
+    "receivedAt": "2026-08-03T08:00:00+05:30"
+  },
+  {
+    "id": "PRT-02",
+    "partner": "FitPass Flex",
+    "category": "Fitness",
+    "estCostBand": "₹250–400 / emp / mo",
+    "pitch": "One membership across 4,200 gyms and studios in Bengaluru, employer-subsidised tiers, monthly utilisation reports. Employees pay ₹0–299 depending on the tier you sponsor.",
+    "status": "new",
+    "receivedAt": "2026-08-03T08:00:00+05:30"
+  },
+  {
+    "id": "PRT-03",
+    "partner": "Upskill Labs",
+    "category": "L&D platform",
+    "estCostBand": "₹900–1,400 / emp / mo",
+    "pitch": "Curated engineering and sales learning paths with live cohort courses, integrated with your review cycle for growth-area mapping. Includes 12 live masterclasses a year.",
+    "status": "new",
+    "receivedAt": "2026-07-27T08:00:00+05:30"
+  },
+  {
+    "id": "PRT-04",
+    "partner": "MediShield Plus",
+    "category": "Group insurance top-up",
+    "estCostBand": "₹180–320 / emp / mo",
+    "pitch": "Voluntary top-up over your base group cover: parents' cover to 5L, OPD add-on, zero-waiting-period maternity. Payroll-deduction billing, no minimum participation.",
+    "status": "exploring",
+    "receivedAt": "2026-07-20T08:00:00+05:30",
+    "decidedByName": "Rajesh Menon",
+    "decidedAt": "2026-07-22T10:00:00+05:30"
+  },
+  {
+    "id": "PRT-05",
+    "partner": "Bento Works",
+    "category": "Cafeteria",
+    "estCostBand": "₹90–140 / meal",
+    "pitch": "Managed cafeteria counter with rotating regional menus, UPI + meal-card billing, headcount-based pricing that works from 50 employees. Dietary tagging and a weekly feedback loop.",
+    "status": "new",
+    "receivedAt": "2026-07-29T08:00:00+05:30"
+  },
+  {
+    "id": "PRT-06",
+    "partner": "TinyNest",
+    "category": "Crèche network",
+    "estCostBand": "₹8,000–14,000 / child / mo",
+    "pitch": "Statutory-compliant crèche partner network with 22 Bengaluru centres, corporate seats with priority allocation near Bellandur, monthly compliance certificates for your records.",
+    "status": "new",
+    "receivedAt": "2026-08-01T08:00:00+05:30"
+  },
+  {
+    "id": "PRT-07",
+    "partner": "Stillpoint",
+    "category": "Wellness workshops",
+    "estCostBand": "₹60,000–90,000 / workshop",
+    "pitch": "On-site mindfulness and ergonomics workshop series, quarterly cadence, includes desk-assessment clinics.",
+    "status": "declined",
+    "receivedAt": "2026-07-12T08:00:00+05:30",
+    "decidedByName": "Rajesh Menon",
+    "decidedAt": "2026-07-15T11:30:00+05:30",
+    "declineReason": "Overlaps with the EAP evaluation; revisit after an EAP decision."
+  },
+  {
+    "id": "PRT-08",
+    "partner": "CodeCamp Pro",
+    "category": "Upskilling bootcamps",
+    "estCostBand": "₹45,000–65,000 / seat",
+    "pitch": "Sponsored 8-week evening bootcamps (cloud, data, security) with completion-linked billing — you pay full price only for employees who finish.",
+    "status": "exploring",
+    "receivedAt": "2026-07-18T08:00:00+05:30",
+    "decidedByName": "Vikram Shah",
+    "decidedAt": "2026-07-21T09:00:00+05:30"
+  }
+]

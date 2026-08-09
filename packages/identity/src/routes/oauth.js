@@ -35,6 +35,7 @@ const pool = require('@rach/core').pool;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { oauthLimiter } = require('@rach/core').rateLimit;
 const { User } = require('../models/user');
+const { publicSignupEnabled } = require('../lib/signup');
 const { issueTokens, normalizeEmail } = require('../controllers/authController');
 
 const router = Router();
@@ -108,6 +109,7 @@ const ERROR_MESSAGES = {
   exchange_failed: 'We could not complete sign-in with that provider. Please try again.',
   no_email:        'That account has no verified email address we can use.',
   unverified:      'Your email address is not verified. Verify it first, then try again.',
+  no_account:      'No RachDev account exists for this email. Ask your organization admin to add you.',
   server_error:    'Something went wrong during sign-in. Please try again.',
 };
 
@@ -162,6 +164,12 @@ async function resolveOAuthUser({ provider, providerUserId, email, name, emailVe
       [existing.id, provider, String(providerUserId), normalized]
     );
     return existing;
+  }
+
+  // No local account and self-serve signup is off: OAuth may only sign in
+  // users an org admin already provisioned — never auto-create one.
+  if (!publicSignupEnabled()) {
+    throw Object.assign(new Error('no RachDev account for this email'), { code: 'no_account' });
   }
 
   const created = await User.create({

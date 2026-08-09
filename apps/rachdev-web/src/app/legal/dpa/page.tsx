@@ -10,7 +10,7 @@ export default function DPAPage() {
   return (
     <>
       <div className="mb-6 inline-block rounded-full border border-line bg-band px-3 py-1 text-xs font-medium text-ink-3">
-        Last updated: March 2026
+        Last updated: August 2026
       </div>
 
       <h1 className="font-display text-3xl font-bold text-ink">
@@ -112,14 +112,28 @@ export default function DPAPage() {
                 behalf of the Controller
               </li>
               <li>
-                Generating usage analytics, logs, and performance reports for
-                the Controller
+                Generating operational logs, usage metrics, and performance
+                reports for the Controller
               </li>
               <li>
                 Providing technical support and troubleshooting when requested
                 by the Controller
               </li>
             </ul>
+            <p>
+              <span className="font-semibold text-ink">
+                Processing architecture.
+              </span>{" "}
+              Rach Dev LLP is the Processor for all Personal Data handled through
+              the Services. The rachdev.com application is the control plane
+              through which the Controller builds, configures, publishes, and
+              manages agents and workspaces. Personal Data is hosted and
+              processed within Rach Dev LLP&apos;s RachBase infrastructure (and,
+              where separately agreed, within the Controller&apos;s own or
+              on-premises environment). The infrastructure and service providers
+              listed in the Sub-processors section support this processing on
+              Rach Dev LLP&apos;s behalf.
+            </p>
             <p>
               We will not process personal data for any purpose other than those
               specified in this DPA or as otherwise instructed in writing by the
@@ -291,16 +305,23 @@ export default function DPAPage() {
                     <td className="py-3">US, India, EU</td>
                   </tr>
                   <tr className="border-b border-line">
-                    <td className="py-3 pr-6">Stripe</td>
+                    <td className="py-3 pr-6">ARKA Microstacks</td>
+                    <td className="py-3 pr-6">
+                      Cloud infrastructure management and operations (RachBase)
+                    </td>
+                    <td className="py-3">India</td>
+                  </tr>
+                  <tr className="border-b border-line">
+                    <td className="py-3 pr-6">Razorpay</td>
                     <td className="py-3 pr-6">Payment processing</td>
-                    <td className="py-3">US</td>
+                    <td className="py-3">India</td>
                   </tr>
                   <tr>
-                    <td className="py-3 pr-6">SendGrid</td>
+                    <td className="py-3 pr-6">Brevo</td>
                     <td className="py-3 pr-6">
                       Transactional email delivery
                     </td>
-                    <td className="py-3">US</td>
+                    <td className="py-3">EU</td>
                   </tr>
                 </tbody>
               </table>
@@ -411,12 +432,8 @@ export default function DPAPage() {
                 infrastructure and processes
               </li>
               <li>
-                Audit reports and certifications are available to customers on
-                paid plans upon request under NDA
-              </li>
-              <li>
-                We are actively pursuing SOC 2 Type II certification, with
-                expected completion by Q3 2026
+                Audit reports are available to enterprise customers upon request
+                under NDA
               </li>
               <li>
                 The Controller may conduct or commission a third-party audit of
