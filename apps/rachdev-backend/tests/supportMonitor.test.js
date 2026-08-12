@@ -36,5 +36,5 @@ test('agent monitor returns an empty shape when the user has no tenant', async (
   const res = mockRes();
   await monitor.overview({ user: { id: 1, tenant_id: null } }, res);
   assert.equal(res.body.summary, null);
-  assert.deepEqual(res.body.agents, []);
+  assert.deepEqual(res.body.entities, []);
 });

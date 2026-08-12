@@ -127,7 +127,7 @@ exports.createOrg = async (req, res) => {
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO tenants (name, industry) VALUES ($1, $2)
+      `INSERT INTO tenants (name, industry, kind) VALUES ($1, $2, 'org')
        RETURNING id, name, industry, created_at`,
       [name, industry]
     );

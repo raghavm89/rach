@@ -3,15 +3,16 @@
 /**
  * Self-serve signup toggle.
  *
- * RachDev is provisioned like Google Workspace: an organization admin adds
- * users (POST /api/users). Public self-service account creation — both
- * email/password registration and OAuth auto-provisioning — is OFF unless
- * PUBLIC_SIGNUP_ENABLED is explicitly set truthy. Read at call time so it can
- * be flipped without a rebuild.
+ * RachDev runs a product-led motion: anyone can sign up, gets free credits, and
+ * builds/tests an agent before paying. Public self-service signup is therefore
+ * ON by default. Set PUBLIC_SIGNUP_ENABLED=false to fall back to the
+ * admin-provisioned ("Google Workspace") model where an admin adds users via
+ * POST /api/users. Read at call time so it can be flipped without a rebuild.
  */
 function publicSignupEnabled() {
-  const v = String(process.env.PUBLIC_SIGNUP_ENABLED || '').toLowerCase();
-  return v === 'true' || v === '1' || v === 'yes';
+  const v = String(process.env.PUBLIC_SIGNUP_ENABLED ?? '').toLowerCase();
+  if (v === 'false' || v === '0' || v === 'no') return false;
+  return true; // default on
 }
 
 const SIGNUP_DISABLED_MESSAGE =

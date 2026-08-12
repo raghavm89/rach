@@ -38,6 +38,8 @@ export interface User {
   tenant_name: string | null;
   /** Tenant's industry (e.g. 'healthcare') — gates the industry workspace nav. */
   tenant_industry?: string | null;
+  /** 'personal' (self-serve owner → "Member") | 'org' (enterprise). */
+  tenant_kind?: string | null;
   pve_pool?: string | null;
   // Business profile (migration 018)
   account_type?:        'individual' | 'business';
@@ -159,8 +161,10 @@ function clearSession() {
 }
 
 async function rawFetch(path: string, options: RequestInit, token?: string | null) {
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    // Let the browser set the multipart boundary for FormData uploads.
+    ...(isForm ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -1599,9 +1603,52 @@ export const admin = {
     }, token),
 };
 
-// ─── Agent Monitor (org admin) — RachDev's analogue of VM Monitor ─────────────
+// ─── Agent Monitor — operations view over the tenant's agents + teams ─────────
 
-export interface AgentMonitorAgent {
+/** A built agent or assembled team, with activity + credit spend. */
+export interface AgentMonitorEntity {
+  kind: 'agent' | 'team';
+  id: number;
+  name: string;
+  subtitle: string;
+  status: string;              // draft | published | deployed | disabled
+  model: string;
+  runs_today: number;
+  runs_total: number;
+  credits_spent: number;
+  last_run: string | null;
+}
+
+export interface AgentMonitorActivity {
+  type: 'usage' | 'purchase';
+  description: string;
+  credits: number;             // spent (usage) or added (purchase)
+  tokens: number | null;
+  at: string;
+}
+
+export interface AgentMonitorOverview {
+  summary: {
+    agents: number;
+    teams: number;
+    deployed: number;
+    balance: number;
+    spent_today: number;
+    spent_total: number;
+    activity_today: number;
+  } | null;
+  entities: AgentMonitorEntity[];
+  recent: AgentMonitorActivity[];
+}
+
+export const agentMonitor = {
+  overview: (token: string) =>
+    apiFetch<AgentMonitorOverview>('/api/agent-monitor', {}, token),
+};
+
+// ─── Clinical Control Tower (healthcare workspace) — fixed persona roster ──────
+
+export interface ControlTowerAgent {
   key: string;
   name: string;
   role: string;
@@ -1615,7 +1662,7 @@ export interface AgentMonitorAgent {
   model: string;
 }
 
-export interface AgentMonitorActivity {
+export interface ControlTowerActivity {
   agent: string;
   kind: string;
   ref: string | null;
@@ -1626,7 +1673,7 @@ export interface AgentMonitorActivity {
   at: string;
 }
 
-export interface AgentMonitorOverview {
+export interface ControlTowerOverview {
   summary: {
     active_agents: number;
     runs_today: number;
@@ -1636,14 +1683,14 @@ export interface AgentMonitorOverview {
     credits_used: number;
     last_run: string | null;
   } | null;
-  agents: AgentMonitorAgent[];
-  recent: AgentMonitorActivity[];
+  agents: ControlTowerAgent[];
+  recent: ControlTowerActivity[];
   health: { models: string[]; drafts_pending: number; shortage_alerts?: number; disabled: string[] };
 }
 
-export const agentMonitor = {
+export const controlTower = {
   overview: (token: string) =>
-    apiFetch<AgentMonitorOverview>('/api/agent-monitor', {}, token),
+    apiFetch<ControlTowerOverview>('/api/control-tower', {}, token),
 };
 
 // ── Audit trail (governance) ──────────────────────────────────────────────────
@@ -1987,6 +2034,8 @@ export interface AgentSpec {
   key: string;
   name: string;
   role: string;
+  description?: string;
+  prompt?: string;
   industry: string | null;
   status: AgentStatus;
   version: number;
@@ -2018,9 +2067,60 @@ export interface AgentDeployment {
   last_status_at?: string | null;
 }
 
+/** A model a tenant can pick for an agent/specialist. `billed` = consumes credits. */
+export interface ModelOption { id: string; label: string; provider: 'auto' | 'anthropic' | 'openai'; billed: boolean }
+
+export type DeployTarget = 'rachbase' | 'self_hosted';
+
+/** Result of a deploy. Self-hosted includes an export bundle; managed includes the live run surface. */
+export interface DeployResult {
+  mode: DeployTarget;
+  deployment?: AgentDeployment;
+  error?: string;
+  config?: unknown;
+  instructions?: { steps: string[]; docs_url?: string };
+  publicToken?: string;
+  widgetUrl?: string;
+  messageUrl?: string;
+  embed?: string;
+}
+
+export interface AgentIntegration {
+  public_token: string | null;
+  deployed: boolean;
+  api_base: string;
+  message_url: string | null;
+  widget_url: string | null;
+}
+
+export interface ApiKeyInfo {
+  id: number;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface AgentDeploymentLogs {
+  deployment_id: number;
+  agent_key: string;
+  version: number;
+  status: string;
+  target: string | null;
+  last_error: string | null;
+  last_status_at: string | null;
+  logs: unknown[];
+  note: string | null;
+}
+
 export const agentBuilder = {
   list: (token: string) =>
     apiFetch<{ definitions: AgentSpec[] }>('/api/agent/definitions', {}, token),
+
+  /** Models this workspace can run (platform Claude + any connected BYOK keys). */
+  models: (token: string) =>
+    apiFetch<{ models: ModelOption[] }>('/api/agent/models', {}, token).then((r) => r.models),
 
   create: (body: AgentSpecInput, token: string) =>
     apiFetch<{ definition: AgentSpec }>('/api/agent/definitions',
@@ -2038,9 +2138,16 @@ export const agentBuilder = {
     apiFetch<{ versions: { version: number; published_at: string }[] }>(
       `/api/agent/definitions/${id}/versions`, {}, token),
 
-  deploy: (id: number, token: string) =>
-    apiFetch<{ deployment: AgentDeployment }>(`/api/agent/definitions/${id}/deploy`,
-      { method: 'POST' }, token),
+  /** Deploy to a target ('rachbase' | 'self_hosted'); self-hosted returns an export bundle. */
+  deploy: (id: number, token: string, target?: DeployTarget) =>
+    apiFetch<DeployResult>(`/api/agent/definitions/${id}/deploy`,
+      { method: 'POST', body: JSON.stringify(target ? { target } : {}) }, token),
+
+  /** Workspace default deploy target + whether RachBase is wired on the server. */
+  deploySettings: (token: string) =>
+    apiFetch<{ target: DeployTarget | null; rachbase_ready: boolean }>('/api/agent/deploy-settings', {}, token),
+  setDeployTarget: (target: DeployTarget, token: string) =>
+    apiFetch<{ target: DeployTarget }>('/api/agent/deploy-settings', { method: 'PUT', body: JSON.stringify({ target }) }, token),
 
   deployments: (token: string) =>
     apiFetch<{ deployments: AgentDeployment[] }>('/api/agent/deployments', {}, token),
@@ -2048,9 +2155,169 @@ export const agentBuilder = {
   stop: (deploymentId: number, token: string) =>
     apiFetch<{ deployment: AgentDeployment }>(`/api/agent/deployments/${deploymentId}/stop`,
       { method: 'POST' }, token),
+
+  /** Deployment run logs + status/error (runtime logs are best-effort). */
+  logs: (deploymentId: number, token: string) =>
+    apiFetch<AgentDeploymentLogs>(`/api/agent/deployments/${deploymentId}/logs`, {}, token),
+
+  /** Integration surface for an agent (public token + endpoint URLs). */
+  integration: (id: number, token: string) =>
+    apiFetch<AgentIntegration>(`/api/agent/definitions/${id}/integration`, {}, token),
+
+  /** Workspace API keys for programmatic access. */
+  apiKeys: (token: string) =>
+    apiFetch<{ keys: ApiKeyInfo[] }>('/api/agent/api-keys', {}, token).then((r) => r.keys),
+  createApiKey: (name: string, token: string) =>
+    apiFetch<{ key: ApiKeyInfo & { key: string } }>('/api/agent/api-keys', { method: 'POST', body: JSON.stringify({ name }) }, token).then((r) => r.key),
+  revokeApiKey: (id: number, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/agent/api-keys/${id}`, { method: 'DELETE' }, token),
+
+  /** Platform starter templates the builder can begin from. */
+  templates: (token: string) =>
+    apiFetch<{ templates: AgentSpec[] }>('/api/agent/templates', {}, token),
+
+  /** Copy a platform template into the workspace as a new draft agent. */
+  fromTemplate: (templateId: number, token: string) =>
+    apiFetch<{ definition: AgentSpec }>(`/api/agent/definitions/from-template/${templateId}`,
+      { method: 'POST' }, token),
+
+  /** Delete one of the workspace's agents. */
+  remove: (id: number, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/agent/definitions/${id}`, { method: 'DELETE' }, token),
+
+  /** Credit balance for the header chip. */
+  credits: (token: string) =>
+    apiFetch<{ balance: number }>('/api/agent/credits', {}, token),
+
+  /** Test-run an agent's own prompt against a message (spends metered credits). */
+  test: (id: number, message: string, token: string) =>
+    apiFetch<{ reply: string; creditsUsed: number; model: string; balance: number }>(
+      `/api/agent/definitions/${id}/test`, { method: 'POST', body: JSON.stringify({ message }) }, token),
 };
 
 // ─── HR vertical (tenant-scoped data; returns domain objects as stored) ───────
+// ─── Agent Teams (multi-agent canvas) ────────────────────────────────────────
+
+export interface TeamNode {
+  id: string;
+  type: 'channel' | 'conductor' | 'specialist' | 'integration' | 'handoff';
+  position: { x: number; y: number };
+  data: {
+    label?: string;
+    role?: string;
+    prompt?: string;
+    model_class?: ModelClass;
+    integration?: string;
+    agentDefId?: number;
+    [k: string]: unknown;
+  };
+}
+export interface TeamEdge { id: string; source: string; target: string; label?: string }
+export interface TeamGraph { nodes: TeamNode[]; edges: TeamEdge[] }
+export interface AgentTeam {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  industry: string | null;
+  graph: TeamGraph;
+  status: string;
+  version: number;
+  updated_at: string;
+}
+
+export interface TeamTraceStep { node: string; label: string; detail: string }
+export interface TeamRunResult { reply: string; trace: TeamTraceStep[]; creditsUsed: number; model?: string; balance: number }
+
+export const agentTeams = {
+  list: (token: string) =>
+    apiFetch<{ teams: AgentTeam[] }>('/api/agent/teams', {}, token).then((r) => r.teams),
+  get: (id: number, token: string) =>
+    apiFetch<{ team: AgentTeam }>(`/api/agent/teams/${id}`, {}, token).then((r) => r.team),
+  create: (body: { name: string; description?: string; industry?: string | null; graph?: TeamGraph }, token: string) =>
+    apiFetch<{ team: AgentTeam }>('/api/agent/teams', { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.team),
+  update: (id: number, body: { name?: string; description?: string; industry?: string | null; graph?: TeamGraph }, token: string) =>
+    apiFetch<{ team: AgentTeam }>(`/api/agent/teams/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token).then((r) => r.team),
+  publish: (id: number, token: string) =>
+    apiFetch<{ team: AgentTeam }>(`/api/agent/teams/${id}/publish`, { method: 'POST' }, token).then((r) => r.team),
+  remove: (id: number, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/agent/teams/${id}`, { method: 'DELETE' }, token),
+  /** Run the team on a message (metered). Returns reply + decision trace. */
+  run: (id: number, message: string, token: string) =>
+    apiFetch<TeamRunResult>(`/api/agent/teams/${id}/run`, { method: 'POST', body: JSON.stringify({ message }) }, token),
+  /** Make a published team live. Mints the website-widget embed. */
+  deploy: (id: number, token: string) =>
+    apiFetch<{ team: AgentTeam; endpoint: string } & WidgetEmbed>(`/api/agent/teams/${id}/deploy`, { method: 'POST' }, token),
+  /** Rotate the public widget token (invalidates existing embeds). */
+  rotateToken: (id: number, token: string) =>
+    apiFetch<WidgetEmbed>(`/api/agent/teams/${id}/rotate-token`, { method: 'POST' }, token),
+  /** Edit the graph from a natural-language instruction (metered). */
+  edit: (id: number, instruction: string, token: string) =>
+    apiFetch<{ team: AgentTeam; creditsUsed: number }>(`/api/agent/teams/${id}/edit`, { method: 'POST', body: JSON.stringify({ instruction }) }, token),
+};
+
+/** Public channel surface returned by deploy / rotate-token. */
+export interface WidgetEmbed { publicToken: string; widgetUrl: string; embed: string; whatsappWebhookUrl?: string }
+
+// ─── Integrations / Connections ──────────────────────────────────────────────
+
+export interface ConnectorField { key: string; label: string; secret: boolean }
+export interface Connector {
+  id: string;
+  name: string;
+  category: 'channel' | 'tool' | 'model';
+  auth: 'api_key' | 'oauth' | 'none';
+  blurb: string;
+  fields: ConnectorField[];
+  actions: string[];
+  connected: boolean;
+  config: Record<string, unknown>;
+}
+
+export const integrations = {
+  list: (token: string) =>
+    apiFetch<{ connectors: Connector[] }>('/api/integrations', {}, token).then((r) => r.connectors),
+  connect: (id: string, body: { credentials?: Record<string, string>; config?: Record<string, unknown> }, token: string) =>
+    apiFetch<{ connection: unknown }>(`/api/integrations/${id}/connect`, { method: 'POST', body: JSON.stringify(body) }, token),
+  disconnect: (id: string, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/integrations/${id}/disconnect`, { method: 'POST' }, token),
+  /** Begin an OAuth connect; returns the provider authorize URL to redirect to.
+   *  Pass `shop` for Shopify (the *.myshopify.com domain). */
+  oauthStart: (id: string, token: string, shop?: string) => {
+    const q = new URLSearchParams({ return: typeof window !== 'undefined' ? window.location.origin : '' });
+    if (shop) q.set('shop', shop);
+    return apiFetch<{ url: string }>(`/api/integrations/${id}/oauth/start?${q.toString()}`, {}, token);
+  },
+};
+
+// ─── Knowledge base (agent reference docs — /api/kb) ──────────────────────────
+
+export interface KbDoc {
+  id: number;
+  title: string;
+  citation: string | null;
+  chunk_count: number;
+  char_len: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const knowledgeBase = {
+  list: (token: string) =>
+    apiFetch<{ docs: KbDoc[] }>('/api/kb/docs', {}, token).then((r) => r.docs),
+  add: (body: { title: string; body: string; citation?: string }, token: string) =>
+    apiFetch<{ doc: KbDoc }>('/api/kb/docs', { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.doc),
+  remove: (id: number, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/kb/docs/${id}`, { method: 'DELETE' }, token),
+  /** Upload a .txt/.md/.pdf file; the server extracts text and chunks it. */
+  upload: (file: File, token: string, title?: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (title) fd.append('title', title);
+    return apiFetch<{ doc: KbDoc }>('/api/kb/upload', { method: 'POST', body: fd }, token).then((r) => r.doc);
+  },
+};
+
 export type HrEntity =
   | 'requisitions' | 'applications' | 'candidates'
   | 'approvals' | 'interviews' | 'offers' | 'audit'

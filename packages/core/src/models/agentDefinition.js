@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { rowToSpec } = require('../spec/agentSpec');
 
@@ -83,6 +84,35 @@ const AgentDefinition = {
       [tenantId]
     );
     return rows;
+  },
+
+  /** Strictly the tenant's own agents — excludes platform templates (tenant_id NULL). */
+  async listOwned(tenantId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM agent_definitions WHERE tenant_id = $1 ORDER BY id DESC',
+      [tenantId]
+    );
+    return rows;
+  },
+
+  // ── Shared agent runtime (public token) ─────────────────────────────────────
+  async findByPublicToken(token) {
+    if (!token) return null;
+    const { rows } = await pool.query('SELECT * FROM agent_definitions WHERE public_token = $1', [token]);
+    return rows[0] || null;
+  },
+
+  /** Mint a public token if absent; returns it. */
+  async ensurePublicToken(id) {
+    const { rows } = await pool.query('SELECT public_token FROM agent_definitions WHERE id = $1', [id]);
+    if (!rows[0]) return null;
+    if (rows[0].public_token) return rows[0].public_token;
+    const token = `agt_${crypto.randomBytes(16).toString('hex')}`;
+    const upd = await pool.query(
+      'UPDATE agent_definitions SET public_token = $2 WHERE id = $1 RETURNING public_token',
+      [id, token]
+    );
+    return upd.rows[0] ? upd.rows[0].public_token : token;
   },
 
   async findByKey(tenantId, key) {

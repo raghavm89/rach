@@ -12,6 +12,7 @@
 
 const pool          = require('./src/config/db');
 const validateEnv   = require('./src/config/env');
+const flags         = require('./src/config/flags');
 
 const asyncHandler  = require('./src/middleware/asyncHandler');
 const parseId       = require('./src/middleware/parseId');
@@ -22,6 +23,11 @@ const idempotency   = require('./src/middleware/idempotency');
 const IdempotencyKey = require('./src/models/idempotencyKey');
 const WebhookEvent   = require('./src/models/webhookEvent');
 const AgentDefinition = require('./src/models/agentDefinition');
+const AgentTeam = require('./src/models/agentTeam');
+const Integration = require('./src/models/integration');
+const KnowledgeBase = require('./src/models/knowledgeBase');
+const ApiKey = require('./src/models/apiKey');
+const secretbox = require('./src/services/secretbox');
 const AgentDeployment = require('./src/models/agentDeployment');
 const Hr = require('./src/models/hr');
 const Settings = require('./src/models/settings');
@@ -35,6 +41,7 @@ module.exports = {
   // config / db
   pool,
   validateEnv,
+  flags,         // { isEnabled, allFlags, FLAGS }
 
   // middleware
   asyncHandler,
@@ -47,6 +54,11 @@ module.exports = {
   IdempotencyKey,
   WebhookEvent,
   AgentDefinition,
+  AgentTeam,
+  Integration,
+  KnowledgeBase,
+  ApiKey,
+  secretbox,
   AgentDeployment,
   Hr,
   Settings,

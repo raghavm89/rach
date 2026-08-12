@@ -103,6 +103,45 @@ export default function AgentBuilderPage() {
       {/* Hero — agent-only variant of the shared home hero */}
       <Hero variant="agent" />
 
+      {/* Showcase — what you can do yourself at rachdev.com */}
+      <SectionWrapper>
+        <SectionHeader
+          eyebrow="Build it yourself"
+          title="Design your agent team, connect your tools"
+          subtitle="No engineers required. Assemble a multi-agent team on a visual canvas, then plug in the channels and tools it uses — all from your own workspace."
+        />
+        <div className="mt-10 grid gap-8 lg:grid-cols-2">
+          <AnimateIn>
+            <figure className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-lg ring-1 ring-black/5">
+              <Image
+                src="/images/showcase/team-canvas.png"
+                alt="Agent team canvas — a conductor routing a website channel to a specialist and human handoff"
+                width={2316}
+                height={1240}
+                className="h-auto w-full"
+              />
+              <figcaption className="border-t border-ink/10 bg-page px-5 py-3 text-sm text-ink-2">
+                <span className="font-semibold text-ink">Visual team canvas.</span> Drag in a conductor, specialists, tools, and human handoff — connect them into a flow.
+              </figcaption>
+            </figure>
+          </AnimateIn>
+          <AnimateIn delay={0.1}>
+            <figure className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-lg ring-1 ring-black/5">
+              <Image
+                src="/images/showcase/connections.png"
+                alt="Connections — channels (Website Widget, Slack, WhatsApp) and tools (Razorpay, Stripe, Shopify, Perplexity, Email, Knowledge Base, HTTP)"
+                width={2072}
+                height={1472}
+                className="h-auto w-full"
+              />
+              <figcaption className="border-t border-ink/10 bg-page px-5 py-3 text-sm text-ink-2">
+                <span className="font-semibold text-ink">Your channels &amp; tools.</span> Connect Slack, WhatsApp, Razorpay, Stripe, Shopify, and more — credentials encrypted at rest.
+              </figcaption>
+            </figure>
+          </AnimateIn>
+        </div>
+      </SectionWrapper>
+
       {/* Workflow */}
       <SectionWrapper>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">

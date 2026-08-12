@@ -16,7 +16,8 @@ const SAFE_FIELDS = `
   u.account_type, u.business_name, u.business_website, u.business_industry, u.gstin, u.billing_address,
   u.created_at, u.updated_at,
   t.name AS tenant_name,
-  t.industry AS tenant_industry
+  t.industry AS tenant_industry,
+  t.kind AS tenant_kind
 `;
 
 // Joins tenants for convenience (tenant_name may be NULL for system admins)
@@ -28,7 +29,7 @@ const User = {
   async findByEmail(email) {
     if (!email) return null;
     const { rows } = await pool.query(
-      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry ${FROM_CLAUSE} WHERE lower(u.email) = lower($1)`,
+      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE lower(u.email) = lower($1)`,
       [String(email).trim()]
     );
     return rows[0] || null;
@@ -36,7 +37,7 @@ const User = {
 
   async findByPhone(phone) {
     const { rows } = await pool.query(
-      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry ${FROM_CLAUSE} WHERE u.phone_number = $1`,
+      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE u.phone_number = $1`,
       [phone]
     );
     return rows[0] || null;

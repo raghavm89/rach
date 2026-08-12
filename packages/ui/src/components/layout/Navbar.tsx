@@ -50,8 +50,6 @@ const DEFAULT_NAV_GROUPS: NavGroup[] = [
       { label: "Documentation", href: "/docs" },
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
-      { label: "Changelog", href: "/changelog" },
-      { label: "Why Us", href: "/why-rach-dev" },
     ],
   },
   {
@@ -206,7 +204,7 @@ export function Navbar({
               >
                 Sign in
               </Link>
-              <HomeButton variant="primary" href="/login" arrow>
+              <HomeButton variant="primary" href="/signup" arrow>
                 Get started
               </HomeButton>
             </>

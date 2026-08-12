@@ -75,7 +75,7 @@ function WorkspaceLayout({ children }: { children: React.ReactNode }) {
           <p className="truncate text-sm font-semibold text-dash-heading">{user.name}</p>
           <p className="truncate text-xs text-dash-muted">{user.email}</p>
           <span className="mt-2 inline-flex items-center rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
-            {roleLabel(user.role, user.tenant_industry)}
+            {roleLabel(user.role, user.tenant_industry, user.tenant_kind)}
           </span>
         </div>
       </div>
