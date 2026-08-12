@@ -34,8 +34,19 @@ Verified present in the shared packages RachDev already uses:
 
 ## Deferred (P3 structural — optional, not a correctness/security fix)
 
-- **OTP-screen extraction.** RachBase refactored its login page into a dedicated `OtpScreen` component + a `pending` object driven by the backend's `resends_remaining`. RachDev's login is still the monolithic (~540-line) version. Functionally correct after the fixes above; the refactor is a cleanup we can port later.
 - **Two signup entry points.** `/signup` is still a stub linking into `/login?tab=signup`. Structural tidy-up, not a fix.
+
+### TODO — port the OTP-screen refactor to RachDev  *(follow-up)*
+
+RachBase replaced its inline OTP state machine with the **shared** `OtpVerification` component; RachDev's `login/page.tsx` still hand-rolls the OTP screen (boxes, timers, resend cooldown, attempts — ~150 lines and most of the page's `useState` calls). Porting it is low-risk because the component already exists and is shared.
+
+What to do:
+1. Import the shared component: `import { OtpVerification } from '@rach/ui/components/auth/OtpVerification';`
+2. Replace RachDev's OTP-related state with a single `pending` object: `{ pendingId, email, expiresAt, resendsRemaining }` (drive `resendsRemaining` off the backend's `resends_remaining` instead of the hardcoded frontend `MAX_RESENDS`, which can drift).
+3. On successful register / `pending_id` login, `setPending({...})`; render `<OtpVerification ... onVerified={handleVerified} onBack={...} />` when `pending` is set (see `apps/rachbase-web/src/app/(auth)/login/page.tsx` ~L138–150 for the exact shape).
+4. Delete the now-dead inline OTP markup + handlers (`handleOtpChange`, resend timers, otp state, etc.).
+
+Reference: `apps/rachbase-web/src/app/(auth)/login/page.tsx`. Effort: ~1 focused pass; net line reduction. Purely a maintainability/consistency win — behaviour is already correct in RachDev.
 
 ## Verification
 

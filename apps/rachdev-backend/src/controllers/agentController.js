@@ -15,10 +15,10 @@
  * RachDev. See docs/RACHDEV_ARCHITECTURE_PROPOSAL.md.
  */
 
-const { pool, AgentDefinition, agentSpec } = require('@rach/core');
+const { pool, AgentDefinition, agentSpec, Settings, ApiKey } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
-const { gateway } = require('@rach/llm');
-const { getTenantModel } = require('../services/tenantLlm');
+const { gateway, models } = require('@rach/llm');
+const { getTenantModel, getTenantLlm, llmOpts, availableModels, resolveModelRun } = require('../services/tenantLlm');
 
 const { validateAgentSpecInput, columnsFromInput, rowToSpec } = agentSpec;
 
@@ -224,6 +224,7 @@ Be concise, practical, and specific.`;
   let streamed = '';
 
   try {
+    const chatLlm = await getTenantLlm(req.user.tenant_id);
     const result = await gateway.chat({
       tenantId:    req.user.tenant_id,
       userId:      req.user.id,
@@ -232,6 +233,7 @@ Be concise, practical, and specific.`;
       messages,
       description: `Chat in session ${req.params.id}`,
       onText:      (text) => { streamed += text; res.write(`data: ${JSON.stringify({ type: 'text', text })}\n\n`); },
+      ...llmOpts(chatLlm),
     });
 
     // Save assistant message
@@ -359,8 +361,177 @@ exports.getSessionUsage = async (req, res) => {
 
 // GET /api/agent/definitions — tenant's definitions + platform templates
 exports.listDefinitions = async (req, res) => {
-  const rows = await AgentDefinition.listForTenant(req.user.tenant_id);
+  // Only the tenant's own agents — platform templates live behind /templates.
+  const rows = await AgentDefinition.listOwned(req.user.tenant_id);
   res.json({ definitions: rows.map(rowToSpec) });
+};
+
+// GET /api/agent/templates — platform starter templates (tenant_id IS NULL) the
+// builder can start from. Read-only; anyone in a workspace can browse them.
+exports.listTemplates = async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM agent_definitions WHERE tenant_id IS NULL ORDER BY key'
+  );
+  res.json({ templates: rows.map(rowToSpec) });
+};
+
+// GET /api/agent/models — models this tenant can pick for an agent/specialist,
+// reflecting which BYOK keys are connected.
+exports.listModels = async (req, res) => {
+  res.json({ models: await availableModels(req.user.tenant_id) });
+};
+
+const DEPLOY_TARGETS = ['rachbase', 'self_hosted'];
+
+// GET /api/agent/deploy-settings — the workspace's default deploy target.
+exports.getDeploySettings = async (req, res) => {
+  const v = req.user.tenant_id == null ? null : await Settings.get(req.user.tenant_id, 'deploy').catch(() => null);
+  const target = v && DEPLOY_TARGETS.includes(v.target) ? v.target : null;
+  // Whether the managed (RachBase) target is wired on this server.
+  const rachbaseReady = !!(process.env.RACHBASE_API_URL && process.env.RACHBASE_SERVICE_TOKEN);
+  res.json({ target, rachbase_ready: rachbaseReady });
+};
+
+// ── Workspace API keys (programmatic agent access) ───────────────────────────
+exports.listApiKeys = async (req, res) => {
+  if (req.user.tenant_id == null) return res.json({ keys: [] });
+  res.json({ keys: await ApiKey.list(req.user.tenant_id) });
+};
+exports.createApiKey = async (req, res) => {
+  if (req.user.tenant_id == null) return res.status(400).json({ error: 'No workspace provisioned', code: 'no_tenant' });
+  const name = String((req.body && req.body.name) || 'API key').trim().slice(0, 60) || 'API key';
+  const key = await ApiKey.create(req.user.tenant_id, { name, userId: req.user.id });
+  res.status(201).json({ key }); // `key.key` is the one-time plaintext secret
+};
+exports.revokeApiKey = async (req, res) => {
+  if (req.user.tenant_id == null) return res.status(400).json({ error: 'No workspace provisioned' });
+  const ok = await ApiKey.revoke(req.user.tenant_id, Number(req.params.id));
+  if (!ok) return res.status(404).json({ error: 'Key not found' });
+  res.json({ ok: true });
+};
+
+// GET /api/agent/definitions/:id/integration — endpoint + token for embedding/API.
+exports.getIntegration = async (req, res) => {
+  const def = await AgentDefinition.findById(Number(req.params.id));
+  if (!def || def.tenant_id !== req.user.tenant_id) return res.status(404).json({ error: 'Agent not found' });
+  const apiBase = process.env.PUBLIC_API_BASE || `${req.protocol}://${req.get('host')}`;
+  const token = def.public_token || null;
+  res.json({
+    public_token: token,
+    deployed: def.status === 'deployed',
+    api_base: apiBase,
+    message_url: token ? `${apiBase}/api/public/agent/${token}/message` : null,
+    widget_url: token ? `${apiBase}/api/public/agent/${token}/widget.js` : null,
+  });
+};
+
+// PUT /api/agent/deploy-settings — set the default deploy target.
+exports.setDeploySettings = async (req, res) => {
+  if (req.user.tenant_id == null) return res.status(400).json({ error: 'No workspace provisioned', code: 'no_tenant' });
+  const target = String((req.body && req.body.target) || '');
+  if (!DEPLOY_TARGETS.includes(target)) return res.status(400).json({ error: `target must be one of ${DEPLOY_TARGETS.join(', ')}` });
+  await Settings.set(req.user.tenant_id, 'deploy', { target });
+  res.json({ target });
+};
+
+// POST /api/agent/definitions/from-template/:templateId — copy a platform
+// template into the caller's workspace as a new draft agent they can test,
+// edit, and deploy.
+exports.createFromTemplate = async (req, res) => {
+  if (req.user.tenant_id == null) {
+    return res.status(400).json({ error: 'No workspace provisioned for this account yet', code: 'no_tenant' });
+  }
+  const { rows } = await pool.query(
+    'SELECT * FROM agent_definitions WHERE id = $1 AND tenant_id IS NULL',
+    [req.params.templateId]
+  );
+  const t = rows[0];
+  if (!t) return res.status(404).json({ error: 'Template not found' });
+
+  const def = await AgentDefinition.create({
+    tenant_id: req.user.tenant_id,
+    key: `${t.key}-${Date.now().toString(36)}`, // unique per workspace
+    name: t.name,
+    role: t.role,
+    description: t.description,
+    industry: t.industry,
+    template_slug: t.key,
+    template_version: t.version ?? 1,
+    prompt: t.prompt,
+    model_class: t.model_class,
+    model: t.model,
+    tools: t.tools ?? [],
+    guardrails: t.guardrails ?? {},
+    knowledge: t.knowledge ?? null,
+    channels: t.channels ?? [],
+    runtime_target: t.runtime_target ?? { type: 'rachbase' },
+    status: 'draft',
+    created_by: req.user.id,
+  });
+  res.status(201).json({ definition: rowToSpec(def) });
+};
+
+// DELETE /api/agent/definitions/:id — remove one of the workspace's agents.
+exports.deleteDefinition = async (req, res) => {
+  const row = await AgentDefinition.findById(req.params.id);
+  if (!row || row.tenant_id !== req.user.tenant_id) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+  await AgentDefinition.remove(row.id);
+  res.json({ ok: true });
+};
+
+// POST /api/agent/definitions/:id/test — run the agent's own prompt against a
+// message through the metered LLM gateway (spends credits). This is the builder
+// "test panel": it exercises the agent being built, not the builder assistant.
+exports.testDefinition = async (req, res) => {
+  const message = (req.body && req.body.message || '').trim();
+  if (!message) return res.status(400).json({ error: 'Message required' });
+  if (req.user.tenant_id == null) {
+    return res.status(400).json({ error: 'No workspace provisioned for this account yet', code: 'no_tenant' });
+  }
+
+  const row = await AgentDefinition.findById(req.params.id);
+  if (!row || row.tenant_id !== req.user.tenant_id) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+  const spec = rowToSpec(row);
+
+  // The agent's chosen model → provider/key/meter. A BYOK model runs on the
+  // tenant's key and is not billed; otherwise it's platform + credits.
+  const pinned = (spec.model_policy && spec.model_policy.pin) || null;
+  const run = await resolveModelRun(req.user.tenant_id, pinned);
+  if (run.meter) {
+    // Paywall: out of credits → 402 (the client surfaces a "top up" prompt).
+    const balance = await credits.getOrCreateBalance(req.user.tenant_id);
+    if (balance <= 0) return res.status(402).json({ error: 'Insufficient credits', balance });
+  }
+
+  const system = spec.prompt || 'You are a helpful assistant.';
+  const model = run.model || models.modelForPolicy(spec.model_policy || {});
+  const mock = `**[Test — mock mode]** "${system.slice(0, 60)}${system.length > 60 ? '…' : ''}" would respond to: "${message}". Set a funded ANTHROPIC_API_KEY and turn off LLM_MOCK to see the real model.`;
+
+  try {
+    const result = await gateway.chat({
+      tenantId: req.user.tenant_id,
+      userId: req.user.id,
+      model,
+      system,
+      messages: [{ role: 'user', content: message }],
+      description: `Agent test: ${spec.name || spec.key || row.id}`,
+      mock,
+      apiKey: run.apiKey,
+      meter: run.meter,
+    });
+    const after = await credits.getOrCreateBalance(req.user.tenant_id);
+    return res.json({ reply: result.text, creditsUsed: result.creditsUsed, model: result.model, balance: after });
+  } catch (err) {
+    if (err && err.code === 'insufficient_credits') {
+      const bal = await credits.getOrCreateBalance(req.user.tenant_id);
+      return res.status(402).json({ error: 'Insufficient credits', balance: bal });
+    }
+    throw err;
+  }
 };
 
 // POST /api/agent/definitions — create/configure an agent in the builder.

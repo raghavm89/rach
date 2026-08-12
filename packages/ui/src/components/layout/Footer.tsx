@@ -30,7 +30,6 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
     links: [
       { label: "By Industry", href: "/industries" },
       { label: "Templates", href: "/templates" },
-      { label: "Why Us", href: "/why-rach-dev" },
     ],
   },
   {
@@ -39,7 +38,6 @@ const DEFAULT_COLUMNS: FooterColumn[] = [
       { label: "Documentation", href: "/docs" },
       { label: "Security", href: "/security" },
       { label: "Blog", href: "/blog" },
-      { label: "Changelog", href: "/changelog" },
     ],
   },
   {

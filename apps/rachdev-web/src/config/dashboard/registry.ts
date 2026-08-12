@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Kanban, Inbox, CalendarClock, HandCoins, ScrollText, Plug,
   Siren, BookOpen, HeartPulse, Receipt, Network, Route,
   UserPlus, Hourglass, Luggage, StickyNote, CalendarDays, Handshake,
-  UserRound, MailOpen, MessageCircleQuestion,
+  UserRound, MailOpen, MessageCircleQuestion, Coins,
 } from 'lucide-react';
 
 /**
@@ -50,11 +50,15 @@ export const platformNav: DashboardModule[] = [
   { label: 'Users',           href: '/dashboard/users',         icon: Users,     roles: ['admin'] },
   { label: 'Agent Templates', href: '/dashboard/agents',         icon: Boxes,     roles: ['admin'] },
   { label: 'Agent Builder',   href: '/dashboard/agents-builder', icon: Bot,       roles: ['tenant_admin'] },
+  { label: 'Agent Teams',     href: '/dashboard/agent-teams',    icon: Network,   roles: ['tenant_admin'] },
+  { label: 'Connections',     href: '/dashboard/connections',    icon: Plug,      roles: ['tenant_admin'] },
+  { label: 'Knowledge',       href: '/dashboard/knowledge',      icon: BookOpen,  roles: ['tenant_admin'] },
   { label: 'Agent Monitor',   href: '/dashboard/agent-monitor',  icon: Activity,  roles: ['tenant_admin'] },
 ];
 
 // Industry-independent nav shown BELOW the industry workspace.
 export const platformFooterNav: DashboardModule[] = [
+  { label: 'Billing',  href: '/dashboard/billing',  icon: Coins,    roles: ['tenant_admin'] },
   { label: 'Support',  href: '/dashboard/support',  icon: LifeBuoy },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['tenant_admin'] },
 ];
@@ -143,7 +147,10 @@ export function navForUser(role: string, industry?: string | null): DashboardMod
 }
 
 /** Display label for a role, using the industry's labels if it defines them. */
-export function roleLabel(role: string, industry?: string | null): string {
+export function roleLabel(role: string, industry?: string | null, tenantKind?: string | null): string {
+  // A personal (self-serve) workspace owner is shown as "Member" — they own their
+  // own workspace but aren't an enterprise Org Admin.
+  if (tenantKind === 'personal') return 'Member';
   const industryLabels =
     industry && industryModules[industry] ? industryModules[industry].roleLabels ?? {} : {};
   return { ...platformRoleLabels, ...industryLabels }[role] ?? role;

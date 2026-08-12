@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, RefreshCw, Radio, Stethoscope, ClipboardList, Package, ArrowRight, ShieldCheck, Activity, AlertCircle, ScrollText } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { agentMonitor, audit, type AgentMonitorOverview, type AgentMonitorAgent, type AuditEntry, type AuditSummary } from '@rach/ui/lib/api';
+import { controlTower, audit, type ControlTowerOverview, type ControlTowerAgent, type AuditEntry, type AuditSummary } from '@rach/ui/lib/api';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 
 const AGENT_ICON: Record<string, typeof Radio> = { scribe: Stethoscope, reception: ClipboardList, inventory: Package };
@@ -34,7 +34,7 @@ function ago(iso: string | null): string {
 
 export default function ControlTowerPage() {
   const { token } = useAuth();
-  const [ov, setOv] = useState<AgentMonitorOverview | null>(null);
+  const [ov, setOv] = useState<ControlTowerOverview | null>(null);
   const [sum, setSum] = useState<AuditSummary | null>(null);
   const [feed, setFeed] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function ControlTowerPage() {
     setError('');
     try {
       const [o, s, f] = await Promise.all([
-        agentMonitor.overview(token),
+        controlTower.overview(token),
         audit.summary(token),
         audit.list(token, { limit: 12 }),
       ]);
@@ -114,7 +114,7 @@ export default function ControlTowerPage() {
 
           {/* Agent roster */}
           <div className="grid gap-4 md:grid-cols-3">
-            {(ov?.agents ?? []).map((a: AgentMonitorAgent) => {
+            {(ov?.agents ?? []).map((a: ControlTowerAgent) => {
               const Icon = AGENT_ICON[a.key] ?? Radio;
               return (
                 <div key={a.key} className="rounded-2xl border border-neutral-border bg-surface-card p-5">

@@ -57,4 +57,27 @@ async function streamChat({ model, system, messages, maxTokens, apiKey, onText }
   return { text, inputTokens, outputTokens };
 }
 
-module.exports = { streamChat };
+/**
+ * One tool-use turn (non-streaming). Passes tool definitions and returns the
+ * raw content blocks (text + tool_use) plus stop_reason so the gateway can run
+ * the call → tool_use → tool_result → final loop.
+ * @returns {Promise<{ content: any[], stop_reason: string, inputTokens: number, outputTokens: number }>}
+ */
+async function toolChat({ model, system, messages, tools, maxTokens, apiKey }) {
+  const client = makeClient(apiKey);
+  const msg = await client.messages.create({
+    model,
+    max_tokens: maxTokens || 1024,
+    system,
+    messages,
+    ...(tools && tools.length ? { tools } : {}),
+  });
+  return {
+    content: msg.content || [],
+    stop_reason: msg.stop_reason,
+    inputTokens: msg.usage?.input_tokens ?? 0,
+    outputTokens: msg.usage?.output_tokens ?? 0,
+  };
+}
+
+module.exports = { streamChat, toolChat };

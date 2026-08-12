@@ -42,6 +42,13 @@ const hrRoutes = require('./routes/hr');
 
 const app = express();
 
+// Public website-widget embed — mounted FIRST, ahead of the origin-locked CORS
+// block, because third-party sites load it from any origin. Self-contained
+// (own CORS + JSON parser); unauthenticated but rate-limited + credit-gated.
+app.use('/api/public/widget', require('./routes/publicWidget'));
+app.use('/api/public/agent', require('./routes/publicAgent'));
+app.use('/api/public/whatsapp', require('./routes/whatsappWebhook'));
+
 // CORS (mirror the platform's manual preflight handling)
 app.use((req, res, next) => {
   const allowed = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -82,6 +89,9 @@ app.use('/api/users', userRoutes);
 
 // RachDev agent builder
 app.use('/api/agent', agentRoutes);
+app.use('/api/integrations/oauth', require('./routes/oauthConnect')); // public callback, before the authed router
+app.use('/api/integrations', require('./routes/integrations'));
+app.use('/api/kb', require('./routes/knowledgeBase'));
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/scribe', scribeRoutes);
 app.use('/api/reception', receptionRoutes);
@@ -89,6 +99,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/agent-monitor', agentMonitorRoutes);
+app.use('/api/control-tower', require('./routes/controlTower'));
 app.use('/api/audit', auditRoutes);
 app.use('/api/triage', triageRoutes);
 app.use('/api/knowledge', knowledgeRoutes);

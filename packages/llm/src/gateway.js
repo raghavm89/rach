@@ -13,12 +13,14 @@
 
 const { resolveModel, modelForPolicy } = require('./models');
 const anthropic = require('./providers/anthropic');
+const openai = require('./providers/openai');
 const vllm = require('./providers/vllm');
 const { credits } = require('@rach/billing');
 
 const PROVIDERS = {
   anthropic,
-  vllm, // on-prem sovereign path (Sarvam); stubbed until the endpoint is wired
+  openai, // BYOK: tenant brings an OpenAI key (metering skipped for BYOK runs)
+  vllm,   // on-prem sovereign path (Sarvam); stubbed until the endpoint is wired
 };
 
 // Demo/offline mode: set LLM_MOCK=1 to return deterministic canned responses
@@ -157,4 +159,73 @@ async function chat({
   };
 }
 
-module.exports = { chat, PROVIDERS };
+/**
+ * Tool-use chat: runs the model ↔ tool loop.
+ *   call model (with tool defs) → if it requests tools, execute handlers →
+ *   feed results back → repeat until a final text answer (or maxSteps).
+ * Each model turn is metered like chat(). Mock mode simulates one tool call so
+ * the flow demos without a provider.
+ *
+ * @param {Array}    opts.tools         [{ name, description, input_schema }]
+ * @param {object}   opts.toolHandlers  { [name]: async (input) => any }
+ * @param {number}   [opts.maxSteps=5]
+ * @returns {Promise<{ text, toolCalls:[{name,input,result}], creditsUsed, model }>}
+ */
+async function chatWithTools({
+  tenantId, userId, model, modelPolicy, system, messages,
+  tools = [], toolHandlers = {}, maxTokens, apiKey,
+  description = 'LLM tool call', meter = true, maxSteps = 5, mock,
+}) {
+  if (mockEnabled()) {
+    const toolCalls = [];
+    if (tools.length && toolHandlers[tools[0].name]) {
+      try { const result = await toolHandlers[tools[0].name]({}); toolCalls.push({ name: tools[0].name, input: {}, result }); }
+      catch (e) { toolCalls.push({ name: tools[0].name, input: {}, result: { error: String(e.message) } }); }
+    }
+    const text = mock || `Mock mode — ${toolCalls.length ? `called ${toolCalls.map((t) => t.name).join(', ')}` : 'no tools called'}. Turn LLM_MOCK off for real tool use.`;
+    return { text, toolCalls, creditsUsed: 0, model: 'mock-model' };
+  }
+
+  const spec = resolveModel(model || (modelPolicy ? modelForPolicy(modelPolicy) : undefined));
+  const provider = PROVIDERS[spec.provider];
+  if (!provider || typeof provider.toolChat !== 'function') {
+    throw new Error(`Tool use is not supported on provider: ${spec.provider}`);
+  }
+  const { TOKENS_PER_CREDIT } = credits;
+
+  const convo = Array.isArray(messages) ? [...messages] : [];
+  const toolCalls = [];
+  let creditsUsed = 0;
+  let finalText = '';
+
+  for (let step = 0; step < maxSteps; step++) {
+    if (meter) {
+      const balance = await credits.getOrCreateBalance(tenantId);
+      if (balance <= 0) throw new credits.InsufficientCreditsError(balance, 1);
+    }
+    const resp = await provider.toolChat({ model: spec.id, system, messages: convo, tools, maxTokens: maxTokens || spec.max_tokens_default, apiKey });
+    if (meter) {
+      const billed = Math.round(((resp.inputTokens || 0) + (resp.outputTokens || 0)) * spec.credit_multiplier);
+      if (billed > 0) creditsUsed += await credits.deductCredits(tenantId, userId, billed, description, { allowOverdraft: true });
+    }
+    const blocks = Array.isArray(resp.content) ? resp.content : [];
+    finalText = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const toolUses = blocks.filter((b) => b.type === 'tool_use');
+    if (resp.stop_reason !== 'tool_use' || toolUses.length === 0) break;
+
+    convo.push({ role: 'assistant', content: blocks });
+    const results = [];
+    for (const tu of toolUses) {
+      let out;
+      try { out = toolHandlers[tu.name] ? await toolHandlers[tu.name](tu.input || {}) : { error: `No handler for ${tu.name}` }; }
+      catch (e) { out = { error: String(e.message) }; }
+      toolCalls.push({ name: tu.name, input: tu.input || {}, result: out });
+      results.push({ type: 'tool_result', tool_use_id: tu.id, content: typeof out === 'string' ? out : JSON.stringify(out) });
+    }
+    convo.push({ role: 'user', content: results });
+  }
+
+  return { text: finalText, toolCalls, creditsUsed, model: spec.id };
+}
+
+module.exports = { chat, chatWithTools, PROVIDERS };

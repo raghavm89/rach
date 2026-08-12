@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
-// Self-serve signup has been retired — RachDev accounts are provisioned by an
-// organization admin (enterprise auth). Any old /signup link now lands on sign-in.
+// Signup lives on the auth page's Sign Up tab. Keep /signup as a stable entry
+// point (marketing CTAs, old links) that lands directly on it.
 export default function SignupPage() {
-  redirect('/login');
+  redirect('/login?tab=signup');
 }

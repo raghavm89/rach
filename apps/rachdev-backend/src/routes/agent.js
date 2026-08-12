@@ -20,7 +20,32 @@ router.get ('/credits/history', asyncHandler(ctrl.getCreditHistory));
 router.get ('/usage/sessions',  asyncHandler(ctrl.getSessionUsage));
 
 // Agent definitions (AgentSpec — builder ↔ operate seam)
+router.get ('/models',                  authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listModels));
+router.get ('/deploy-settings',         authorize('tenant_admin', 'admin'), asyncHandler(ctrl.getDeploySettings));
+router.put ('/deploy-settings',         authorize('tenant_admin'),          asyncHandler(ctrl.setDeploySettings));
+router.get ('/api-keys',                authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listApiKeys));
+router.post('/api-keys',                authorize('tenant_admin'),          asyncHandler(ctrl.createApiKey));
+router.delete('/api-keys/:id',          authorize('tenant_admin'),          asyncHandler(ctrl.revokeApiKey));
+router.get ('/definitions/:id/integration', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.getIntegration));
+router.get ('/templates',               authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listTemplates));
 router.get ('/definitions',             authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listDefinitions));
+router.post('/definitions/:id/test',    authorize('tenant_admin', 'admin'), asyncHandler(ctrl.testDefinition));
+router.delete('/definitions/:id',       authorize('tenant_admin', 'admin'), asyncHandler(ctrl.deleteDefinition));
+
+// ── Agent Teams (multi-agent canvas) ─────────────────────────────────────────
+const teams = require('../controllers/agentTeamController');
+const teamGate = authorize('tenant_admin', 'admin');
+router.get   ('/teams',            teamGate, asyncHandler(teams.list));
+router.post  ('/teams',            teamGate, asyncHandler(teams.create));
+router.get   ('/teams/:id',        teamGate, asyncHandler(teams.get));
+router.put   ('/teams/:id',        teamGate, asyncHandler(teams.update));
+router.post  ('/teams/:id/publish', teamGate, asyncHandler(teams.publish));
+router.post  ('/teams/:id/run',     teamGate, asyncHandler(teams.run));
+router.post  ('/teams/:id/deploy',  teamGate, asyncHandler(teams.deploy));
+router.post  ('/teams/:id/rotate-token', teamGate, asyncHandler(teams.rotateToken));
+router.post  ('/teams/:id/edit',    teamGate, asyncHandler(teams.edit));
+router.delete('/teams/:id',        teamGate, asyncHandler(teams.remove));
+router.post('/definitions/from-template/:templateId', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.createFromTemplate));
 router.post('/definitions',             authorize('tenant_admin', 'admin'), asyncHandler(ctrl.createDefinition));
 router.put ('/definitions/:id',         authorize('tenant_admin', 'admin'), asyncHandler(ctrl.updateDefinition));
 router.post('/definitions/:id/publish', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.publishDefinition));

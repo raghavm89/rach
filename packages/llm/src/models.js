@@ -31,6 +31,21 @@ const MODELS = {
     max_tokens_default: 2048,
   },
 
+  // ── OpenAI (BYOK only) — routed to the tenant's own OpenAI key; because BYOK
+  // runs are metered:false, credit_multiplier is unused for billing. ──
+  'gpt-4o': {
+    provider: 'openai',
+    label: 'GPT-4o (your key)',
+    credit_multiplier: 3.0,
+    max_tokens_default: 2048,
+  },
+  'gpt-4o-mini': {
+    provider: 'openai',
+    label: 'GPT-4o mini (your key)',
+    credit_multiplier: 1.0,
+    max_tokens_default: 2048,
+  },
+
   // ── On-prem sovereign models (served by vLLM inside the hospital) ──
   // Indian open models for the AFMS deployment; no data leaves the base.
   // credit_multiplier 0 = not metered (on-prem is licensed, not per-call billed).

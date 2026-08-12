@@ -128,8 +128,33 @@ const chatLimiter = rateLimit({
   handler: jsonError('You are sending messages too quickly. Please slow down.'),
 });
 
+// Public widget: 20 / min / (IP+token) — the embed endpoint is unauthenticated
+// and metered against the owning tenant's credits, so bound how fast an anonymous
+// visitor (or a scraped token) can drive spend. Keyed by IP + widget token.
+const publicWidgetLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${ipKey(req.ip)}:${req.params?.token || 'anon'}`,
+  handler: jsonError('You are sending messages too quickly. Please slow down.'),
+});
+
+// Keyed API access: 120 / min / key — the raised tier for authenticated
+// programmatic callers (a valid workspace API key), vs the anonymous widget tier.
+const apiKeyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `ak:${(req.apiKey && req.apiKey.id) || 'anon'}`,
+  handler: jsonError('API rate limit exceeded. Please slow down or contact us to raise your limit.'),
+});
+
 module.exports = {
   loginLimiter,
+  publicWidgetLimiter,
+  apiKeyLimiter,
   registerLimiter,
   otpVerifyLimiter,
   otpResendLimiter,

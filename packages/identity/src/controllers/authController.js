@@ -5,6 +5,7 @@ const ms = require('ms');
 const { validationResult } = require('express-validator');
 const { parsePhoneNumber } = require('libphonenumber-js');
 const pool = require('@rach/core').pool;
+const flags = require('@rach/core').flags;
 const { User, ROLES } = require('../models/user');
 const { publicSignupEnabled, SIGNUP_DISABLED_MESSAGE } = require('../lib/signup');
 const VerificationCode = require('../models/verification');
@@ -92,6 +93,7 @@ function publicUser(u) {
     tenant_id     : u.tenant_id     ?? null,
     tenant_name   : u.tenant_name   ?? null,
     tenant_industry: u.tenant_industry ?? null,
+    tenant_kind   : u.tenant_kind   ?? null,
     email_verified: u.email_verified ?? false,
     phone_verified: u.phone_verified ?? false,
   };
@@ -112,7 +114,7 @@ function toE164(rawPhone) {
 // (rotation); otherwise a new family is started.
 async function issueTokens(user, res, familyId = null) {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id ?? null, tenant_industry: user.tenant_industry ?? null },
+    { id: user.id, email: user.email, role: user.role, tenant_id: user.tenant_id ?? null, tenant_industry: user.tenant_industry ?? null, tenant_kind: user.tenant_kind ?? null },
     process.env.JWT_ACCESS_SECRET,
     { expiresIn: ACCESS_TOKEN_TTL }
   );
@@ -148,20 +150,25 @@ function accessTokenExpiresIn() {
  * credits/billing work immediately. `tenants.name` is UNIQUE, so on a name
  * collision we append " (2)", " (3)", … until one is free. The workspace creator
  * becomes tenant_admin (they own it — and only tenant_admins can buy credits).
+ * An optional `plan` ('pro'|'max') sets the tenant tier. Pro is honoured only when
+ * the pro_tier feature flag is on; otherwise the tenant is created as Max. When the
+ * effective plan is Max the INSERT is byte-identical to before (the DB default
+ * supplies 'max'), so the existing Max signup path is completely unchanged.
  * @returns {Promise<number>} the new tenant id
  */
-async function provisionTenantForUser(userId, workspaceName) {
+async function provisionTenantForUser(userId, workspaceName, opts = {}) {
   const base = String(workspaceName).trim().slice(0, 150) || `Workspace ${userId}`;
+  // Pro only under the flag; anything else falls back to Max (the column default).
+  const plan = opts.plan === 'pro' && flags.isEnabled('pro_tier') ? 'pro' : null;
   let tenantId = null;
 
   for (let attempt = 0; attempt < 25 && tenantId == null; attempt++) {
     const suffix    = attempt === 0 ? '' : ` (${attempt + 1})`;
     const candidate = `${base.slice(0, 150 - suffix.length)}${suffix}`;
     try {
-      const { rows } = await pool.query(
-        'INSERT INTO tenants (name) VALUES ($1) RETURNING id',
-        [candidate]
-      );
+      const { rows } = plan
+        ? await pool.query("INSERT INTO tenants (name, plan, kind) VALUES ($1, $2, 'personal') RETURNING id", [candidate, plan])
+        : await pool.query("INSERT INTO tenants (name, kind) VALUES ($1, 'personal') RETURNING id", [candidate]);
       tenantId = rows[0].id;
     } catch (err) {
       if (err.code === '23505') continue; // name taken — try the next suffix
@@ -411,13 +418,30 @@ async function verifyEmail(req, res) {
     pool.query('DELETE FROM pending_registrations WHERE id = $1', [pending_id]),
   ]);
 
-  // If a workspace name was given at signup, provision a tenant and make this
-  // user its admin so credits/billing work immediately. If it was blank, the
-  // user stays tenantless until an admin assigns them a tenant. A provisioning
-  // failure must not fail the signup — the account is already created.
-  if (pending.workspace_name) {
+  // Provision a personal workspace so credits/billing/agent-building work
+  // immediately. In the product-led (public signup) deployment EVERY new account
+  // gets its own workspace — and becomes its tenant_admin — even without a name
+  // or a credit grant; that's the whole self-serve model. A welcome grant is
+  // added on top when SIGNUP_FREE_CREDITS>0. In the admin-provisioned deployment
+  // (public signup off) we only provision when a workspace name was given,
+  // leaving others tenantless for an admin to assign. A provisioning/grant
+  // failure must never fail the signup — the account is already created.
+  const FREE_CREDITS = Number(process.env.SIGNUP_FREE_CREDITS || 0);
+  if (pending.workspace_name || publicSignupEnabled() || FREE_CREDITS > 0) {
     try {
-      await provisionTenantForUser(user.id, pending.workspace_name);
+      const wsName = pending.workspace_name || `${pending.name.split(' ')[0]}'s workspace`;
+      const tenantId = await provisionTenantForUser(user.id, wsName);
+      if (FREE_CREDITS > 0) {
+        try {
+          // Lazy require avoids an identity↔billing load-time cycle.
+          const { credits } = require('@rach/billing');
+          await credits.addCredits(tenantId, user.id, FREE_CREDITS, {
+            description: 'Welcome free credits',
+          });
+        } catch (err) {
+          console.error('[verifyEmail] free-credit grant failed:', err.message);
+        }
+      }
     } catch (err) {
       console.error('[verifyEmail] tenant provisioning failed:', err.message);
     }
