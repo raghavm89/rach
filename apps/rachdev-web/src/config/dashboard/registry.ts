@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Kanban, Inbox, CalendarClock, HandCoins, ScrollText, Plug,
   Siren, BookOpen, HeartPulse, Receipt, Network, Route,
   UserPlus, Hourglass, Luggage, StickyNote, CalendarDays, Handshake,
-  UserRound, MailOpen, MessageCircleQuestion, Coins,
+  UserRound, MailOpen, MessageCircleQuestion, Coins, MessagesSquare,
 } from 'lucide-react';
 
 /**
@@ -53,6 +53,7 @@ export const platformNav: DashboardModule[] = [
   { label: 'Agent Teams',     href: '/dashboard/agent-teams',    icon: Network,   roles: ['tenant_admin'] },
   { label: 'Connections',     href: '/dashboard/connections',    icon: Plug,      roles: ['tenant_admin'] },
   { label: 'Knowledge',       href: '/dashboard/knowledge',      icon: BookOpen,  roles: ['tenant_admin'] },
+  { label: 'Conversations',   href: '/dashboard/conversations',  icon: MessagesSquare, roles: ['tenant_admin'] },
   { label: 'Agent Monitor',   href: '/dashboard/agent-monitor',  icon: Activity,  roles: ['tenant_admin'] },
 ];
 

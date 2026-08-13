@@ -37,6 +37,13 @@ exports.remove = async (req, res) => {
   res.json({ ok: true });
 };
 
+// POST /api/kb/reindex — embed any chunks that lack an embedding (semantic search).
+exports.reindex = async (req, res) => {
+  if (noWorkspace(req, res)) return;
+  const result = await KnowledgeBase.reindex(req.user.tenant_id);
+  res.json(result); // { embedded, pending }
+};
+
 // Extract plain text from an uploaded file buffer by extension.
 async function extractText(filename, buffer) {
   const ext = String(filename || '').toLowerCase().split('.').pop();

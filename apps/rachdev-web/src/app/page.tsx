@@ -142,6 +142,41 @@ export default function AgentBuilderPage() {
         </div>
       </SectionWrapper>
 
+      {/* Capabilities — keyword-rich highlights of the agent stack */}
+      <SectionWrapper band>
+        <SectionHeader
+          eyebrow="A full agent stack"
+          title="More than a chatbot"
+          subtitle="Everything you need to build, ground, connect, and ship production agents — built in."
+        />
+        <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+          {[
+            'Multi-agent teams', 'Conductor routing', 'RAG knowledge base', 'Semantic search',
+            'Tool use', 'Bring your own model (Claude / GPT-4o)', 'Per-agent model picker',
+            'Human handoff', 'Embeddable chat widget', 'REST API & webhooks', 'Streaming replies',
+            'Guardrails', 'Decision traces', 'Pay-as-you-go credits', 'One-click deploy', 'Self-host option',
+          ].map((term) => (
+            <span key={term} className="rounded-full border border-ink/10 bg-page px-3.5 py-1.5 text-sm font-medium text-ink-2">
+              {term}
+            </span>
+          ))}
+        </div>
+
+        <p className="mt-10 text-center text-xs font-semibold uppercase tracking-wider text-ink-2">
+          Channels &amp; tools your agents can use
+        </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2.5">
+          {[
+            'Website widget', 'Slack', 'WhatsApp', 'Razorpay', 'Stripe', 'Shopify',
+            'Perplexity (live web search)', 'Email', 'Knowledge base', 'HTTP action',
+          ].map((tool) => (
+            <span key={tool} className="rounded-full bg-accent-weak px-3.5 py-1.5 text-sm font-medium text-accent">
+              {tool}
+            </span>
+          ))}
+        </div>
+      </SectionWrapper>
+
       {/* Workflow */}
       <SectionWrapper>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">

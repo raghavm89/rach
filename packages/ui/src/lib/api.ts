@@ -1641,9 +1641,41 @@ export interface AgentMonitorOverview {
   recent: AgentMonitorActivity[];
 }
 
+/** One handled message across any channel (the Conversations inbox row). */
+export interface AgentRunRow {
+  id: number;
+  subject_type: 'agent' | 'team';
+  subject_id: number;
+  subject_name: string | null;
+  channel: 'widget' | 'whatsapp' | 'slack' | 'api' | 'test';
+  conversation_id: string | null;
+  user_message: string | null;
+  reply: string | null;
+  model: string | null;
+  credits_used: number;
+  status: 'ok' | 'error';
+  created_at: string;
+}
+
+export interface ConversationsFilter {
+  channel?: string;
+  subject_type?: 'agent' | 'team';
+  subject_id?: number;
+  limit?: number;
+}
+
 export const agentMonitor = {
   overview: (token: string) =>
     apiFetch<AgentMonitorOverview>('/api/agent-monitor', {}, token),
+  conversations: (token: string, filter: ConversationsFilter = {}) => {
+    const qs = new URLSearchParams();
+    if (filter.channel) qs.set('channel', filter.channel);
+    if (filter.subject_type) qs.set('subject_type', filter.subject_type);
+    if (filter.subject_id != null) qs.set('subject_id', String(filter.subject_id));
+    if (filter.limit != null) qs.set('limit', String(filter.limit));
+    const q = qs.toString();
+    return apiFetch<{ runs: AgentRunRow[] }>(`/api/agent-monitor/conversations${q ? `?${q}` : ''}`, {}, token);
+  },
 };
 
 // ─── Clinical Control Tower (healthcare workspace) — fixed persona roster ──────
@@ -2071,6 +2103,17 @@ export interface AgentDeployment {
 export interface ModelOption { id: string; label: string; provider: 'auto' | 'anthropic' | 'openai'; billed: boolean }
 
 export type DeployTarget = 'rachbase' | 'self_hosted';
+export type Placement = 'onprem' | 'aws' | 'gcp' | 'azure' | 'k8s';
+
+export interface RuntimeRecipeFile { name: string; language: string; content: string }
+export interface RuntimeRecipe {
+  placement: Placement;
+  label: string;
+  image: string;
+  control_url: string;
+  files: RuntimeRecipeFile[];
+  notes: string;
+}
 
 /** Result of a deploy. Self-hosted includes an export bundle; managed includes the live run surface. */
 export interface DeployResult {
@@ -2083,7 +2126,26 @@ export interface DeployResult {
   widgetUrl?: string;
   messageUrl?: string;
   embed?: string;
+  // Self-hosted (on-prem / BYOC) bundle:
+  placement?: Placement;
+  runtime_token?: string;   // shown ONCE
+  image?: string;
+  control_url?: string;
+  recipe?: RuntimeRecipe;
 }
+
+export type EvalExpectType = 'contains' | 'not_contains' | 'regex';
+export interface AgentEvalCase {
+  id: number;
+  name: string;
+  input: string;
+  expect_type: EvalExpectType;
+  expect_value: string;
+  last_status: 'pass' | 'fail' | null;
+  last_output: string | null;
+  last_run_at: string | null;
+}
+export interface EvalReadiness { total: number; passed: number; ran: number; readiness: number }
 
 export interface AgentIntegration {
   public_token: string | null;
@@ -2091,6 +2153,8 @@ export interface AgentIntegration {
   api_base: string;
   message_url: string | null;
   widget_url: string | null;
+  openai_base_url: string;
+  openai_model: string | null;
 }
 
 export interface ApiKeyInfo {
@@ -2138,10 +2202,10 @@ export const agentBuilder = {
     apiFetch<{ versions: { version: number; published_at: string }[] }>(
       `/api/agent/definitions/${id}/versions`, {}, token),
 
-  /** Deploy to a target ('rachbase' | 'self_hosted'); self-hosted returns an export bundle. */
-  deploy: (id: number, token: string, target?: DeployTarget) =>
+  /** Deploy to a target ('rachbase' | 'self_hosted'); self-hosted returns an export bundle + runtime recipe. */
+  deploy: (id: number, token: string, target?: DeployTarget, placement?: Placement) =>
     apiFetch<DeployResult>(`/api/agent/definitions/${id}/deploy`,
-      { method: 'POST', body: JSON.stringify(target ? { target } : {}) }, token),
+      { method: 'POST', body: JSON.stringify({ ...(target ? { target } : {}), ...(placement ? { placement } : {}) }) }, token),
 
   /** Workspace default deploy target + whether RachBase is wired on the server. */
   deploySettings: (token: string) =>
@@ -2163,6 +2227,18 @@ export const agentBuilder = {
   /** Integration surface for an agent (public token + endpoint URLs). */
   integration: (id: number, token: string) =>
     apiFetch<AgentIntegration>(`/api/agent/definitions/${id}/integration`, {}, token),
+
+  /** Per-agent evals + readiness. */
+  evals: (id: number, token: string) =>
+    apiFetch<{ evals: AgentEvalCase[]; readiness: EvalReadiness }>(`/api/agent/definitions/${id}/evals`, {}, token),
+  createEval: (id: number, body: { name?: string; input: string; expect_type: EvalExpectType; expect_value: string }, token: string) =>
+    apiFetch<{ eval: AgentEvalCase }>(`/api/agent/definitions/${id}/evals`, { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.eval),
+  deleteEval: (evalId: number, token: string) =>
+    apiFetch<{ ok: boolean }>(`/api/agent/evals/${evalId}`, { method: 'DELETE' }, token),
+  runEvals: (id: number, token: string) =>
+    apiFetch<{ results: { id: number; status: 'pass' | 'fail'; output: string }[]; readiness: EvalReadiness }>(`/api/agent/definitions/${id}/evals/run`, { method: 'POST' }, token),
+  readiness: (id: number, token: string) =>
+    apiFetch<EvalReadiness>(`/api/agent/definitions/${id}/readiness`, {}, token),
 
   /** Workspace API keys for programmatic access. */
   apiKeys: (token: string) =>
@@ -2297,6 +2373,7 @@ export interface KbDoc {
   title: string;
   citation: string | null;
   chunk_count: number;
+  embedded_count: number;
   char_len: number;
   created_at: string;
   updated_at: string;
@@ -2305,6 +2382,9 @@ export interface KbDoc {
 export const knowledgeBase = {
   list: (token: string) =>
     apiFetch<{ docs: KbDoc[] }>('/api/kb/docs', {}, token).then((r) => r.docs),
+  /** Embed any chunks missing an embedding (enable semantic search). */
+  reindex: (token: string) =>
+    apiFetch<{ embedded: number; pending: number }>('/api/kb/reindex', { method: 'POST' }, token),
   add: (body: { title: string; body: string; citation?: string }, token: string) =>
     apiFetch<{ doc: KbDoc }>('/api/kb/docs', { method: 'POST', body: JSON.stringify(body) }, token).then((r) => r.doc),
   remove: (id: number, token: string) =>

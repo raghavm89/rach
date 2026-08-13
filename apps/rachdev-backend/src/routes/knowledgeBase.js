@@ -18,6 +18,7 @@ const gate = authorize('tenant_admin', 'admin');
 router.get   ('/docs',     gate, asyncHandler(ctrl.list));
 router.post  ('/docs',     gate, asyncHandler(ctrl.create));
 router.post  ('/upload',   gate, asyncHandler(ctrl.upload));      // multipart (busboy)
+router.post  ('/reindex',  gate, asyncHandler(ctrl.reindex));    // embed missing chunks
 router.delete('/docs/:id', gate, parseId(), asyncHandler(ctrl.remove));
 
 module.exports = router;

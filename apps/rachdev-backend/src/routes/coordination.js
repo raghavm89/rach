@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/coordinationController');
 
@@ -9,8 +10,8 @@ const router = Router();
 router.use(authenticate);
 
 // Coordination is a clinical/front-desk logistics surface.
-const staff = authorize('reception', 'doctor', 'tenant_admin', 'admin');
-const clinician = authorize('doctor', 'tenant_admin', 'admin');
+const staff = authorize(...HEALTHCARE.frontdesk);
+const clinician = authorize(...HEALTHCARE.clinician);
 
 // Beds / OT
 router.get  ('/beds',            staff, asyncHandler(ctrl.listBeds));

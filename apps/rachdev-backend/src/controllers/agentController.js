@@ -15,7 +15,7 @@
  * RachDev. See docs/RACHDEV_ARCHITECTURE_PROPOSAL.md.
  */
 
-const { pool, AgentDefinition, agentSpec, Settings, ApiKey } = require('@rach/core');
+const { pool, AgentDefinition, agentSpec, Settings, ApiKey, AgentRun } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
 const { gateway, models } = require('@rach/llm');
 const { getTenantModel, getTenantLlm, llmOpts, availableModels, resolveModelRun } = require('../services/tenantLlm');
@@ -422,6 +422,9 @@ exports.getIntegration = async (req, res) => {
     api_base: apiBase,
     message_url: token ? `${apiBase}/api/public/agent/${token}/message` : null,
     widget_url: token ? `${apiBase}/api/public/agent/${token}/widget.js` : null,
+    // OpenAI-compatible Developer API: base_url swap + `model` = the public token.
+    openai_base_url: `${apiBase}/v1`,
+    openai_model: token,
   });
 };
 
@@ -522,6 +525,11 @@ exports.testDefinition = async (req, res) => {
       mock,
       apiKey: run.apiKey,
       meter: run.meter,
+    });
+    await AgentRun.log({
+      tenantId: req.user.tenant_id, subjectType: 'agent', subjectId: row.id, subjectName: row.name,
+      channel: 'test', userMessage: message, reply: result.text, model: result.model,
+      creditsUsed: result.creditsUsed, status: 'ok',
     });
     const after = await credits.getOrCreateBalance(req.user.tenant_id);
     return res.json({ reply: result.text, creditsUsed: result.creditsUsed, model: result.model, balance: after });

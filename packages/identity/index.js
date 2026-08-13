@@ -24,6 +24,7 @@ const authenticate = require('./src/middleware/auth');
 const authorize    = require('./src/middleware/role');
 
 const { User, ROLES }    = require('./src/models/user');
+const roles              = require('./src/config/roles');
 const RefreshToken       = require('./src/models/refreshToken');
 const VerificationCode   = require('./src/models/verification');
 
@@ -46,6 +47,7 @@ module.exports = {
   // models
   User,
   ROLES,
+  roles,   // { PLATFORM_ROLES, INDUSTRIES, ALL_ROLES, HEALTHCARE, HR, withAdmins, rolesForIndustry }
   RefreshToken,
   VerificationCode,
 

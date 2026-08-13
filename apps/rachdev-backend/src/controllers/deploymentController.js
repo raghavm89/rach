@@ -11,8 +11,15 @@
 
 const { AgentDefinition, AgentDeployment, Settings } = require('@rach/core');
 const runtime = require('../services/agentRuntimeClient');
+const { recipeFor, PLACEMENTS } = require('../services/runtimeRecipes');
 
 const rachbaseReady = () => !!(process.env.RACHBASE_API_URL && process.env.RACHBASE_SERVICE_TOKEN);
+
+// Pull-based targets (customer runs the agent) vs push (RachBase runs it).
+const isPullTarget = (t) => {
+  const type = t && (t.type || t);
+  return type === 'byoc' || type === 'self_hosted' || type === 'onprem';
+};
 
 // Public run surface for a managed (RachBase) agent — where it answers, + embed.
 function runSurface(req, token) {
@@ -26,16 +33,24 @@ function runSurface(req, token) {
   };
 }
 
-// Self-host bundle: the config to run elsewhere + a short setup guide.
-function selfHostBundle(spec, req) {
+// Self-host bundle: the runtime token (once), the launch recipe for the chosen
+// placement, and the config to run elsewhere. The runtime agent pulls its spec
+// and phones telemetry home; conversation data never leaves the customer.
+function selfHostBundle(spec, req, { token = null, placement = 'onprem' } = {}) {
   const apiBase = process.env.PUBLIC_API_BASE || `${req.protocol}://${req.get('host')}`;
+  const recipe = recipeFor(placement, { controlUrl: apiBase });
   return {
-    config: spec, // downloadable JSON — prompts, tools, guardrails, model policy
+    placement: recipe.placement,
+    runtime_token: token,       // shown ONCE; the customer stores it as RACHDEV_RUNTIME_TOKEN
+    image: recipe.image,
+    control_url: apiBase,
+    recipe,                     // { label, files:[{name,language,content}], notes }
+    config: spec,               // downloadable JSON — prompts, tools, guardrails, model policy
     instructions: {
       steps: [
-        'Download the agent config (JSON) below.',
-        'Run the RachDev runtime agent (or your own) pointed at this config — it pulls the spec and streams telemetry back.',
-        'Point your channel/webhook at your own runtime. Guardrails, prompts, and evals travel with the config.',
+        'Copy the runtime token below — it is shown only once.',
+        `Launch the runtime agent with the ${recipe.label} recipe, setting RACHDEV_RUNTIME_TOKEN and your own LLM_API_KEY.`,
+        'The agent pulls this spec from the control plane and reports health/usage back. Point your channel/webhook at the agent’s local endpoint.',
       ],
       docs_url: `${apiBase}/docs`,
     },
@@ -76,6 +91,7 @@ exports.deploy = async (req, res) => {
   // ── Self-hosted: no push (avoids the RachBase round-trip). Records a pull-based
   //    deployment and returns the export bundle + setup instructions. ──
   if (target === 'self_hosted') {
+    const placement = PLACEMENTS.includes(req.body && req.body.placement) ? req.body.placement : 'onprem';
     const effectiveSpec = { ...spec, runtime_target: { type: 'byoc' } };
     const result = await runtime.deploy({ tenantId: req.user.tenant_id, spec: effectiveSpec });
     const deployment = await AgentDeployment.upsert({
@@ -83,8 +99,14 @@ exports.deploy = async (req, res) => {
       runtime_target: { type: 'byoc' }, runtime_handle: result.handle, status: result.status,
       endpoint: result.endpoint, created_by: req.user.id,
     });
+    // Mint the per-deployment runtime token the customer's agent authenticates
+    // with. Returned ONCE in the bundle; only its hash is stored.
+    const minted = await AgentDeployment.mintRuntimeToken(deployment.id, { placement });
     await AgentDefinition.update(def.id, { status: 'deployed' });
-    return res.status(202).json({ mode: 'self_hosted', deployment, ...selfHostBundle(spec, req) });
+    return res.status(202).json({
+      mode: 'self_hosted', deployment,
+      ...selfHostBundle(spec, req, { token: minted && minted.token, placement }),
+    });
   }
 
   // ── Managed (RachBase): guard if not wired, else push. ──
@@ -126,6 +148,12 @@ async function loadDeployment(req, res) {
 // ── GET /api/agent/deployments/:id/status ────────────────────────────────────
 exports.status = async (req, res) => {
   const d = await loadDeployment(req, res); if (!d) return;
+  // Pull targets (on-prem/BYOC): derive health from the last phone-home, not a
+  // reachable runtime endpoint.
+  if (isPullTarget(d.runtime_target)) {
+    const h = AgentDeployment.health(d);
+    return res.json({ deployment_id: d.id, target: 'byoc', ...h });
+  }
   const info = await runtime.status({ tenantId: req.user.tenant_id, handle: d.runtime_handle, target: d.runtime_target });
   // Persist the latest metadata snapshot.
   if (info.status) await AgentDeployment.updateStatus(d.id, { status: info.status, endpoint: info.endpoint });
@@ -135,6 +163,15 @@ exports.status = async (req, res) => {
 // ── GET /api/agent/deployments/:id/metrics ───────────────────────────────────
 exports.metrics = async (req, res) => {
   const d = await loadDeployment(req, res); if (!d) return;
+  // Pull targets report metrics via telemetry; return the last snapshot.
+  if (isPullTarget(d.runtime_target)) {
+    return res.json({
+      deployment_id: d.id, target: 'byoc',
+      metrics: d.telemetry || {},
+      last_heartbeat_at: d.last_heartbeat_at || null,
+      runtime_version: d.runtime_version || null,
+    });
+  }
   const info = await runtime.metrics({ tenantId: req.user.tenant_id, handle: d.runtime_handle, target: d.runtime_target });
   res.json({ deployment_id: d.id, ...info });
 };
@@ -154,6 +191,15 @@ exports.logs = async (req, res) => {
     last_error: d.last_error || null,
     last_status_at: d.last_status_at || null,
   };
+  // Pull targets keep logs on the customer's premises (data residency). We only
+  // ever hold metadata; surface health + heartbeat, not conversation logs.
+  if (isPullTarget(d.runtime_target)) {
+    const h = AgentDeployment.health(d);
+    return res.json({
+      ...meta, ...h, logs: [],
+      note: 'On-prem/BYOC: operational logs stay on your infrastructure. Only health and usage metadata is reported to the dashboard.',
+    });
+  }
   try {
     const info = await runtime.logs({ tenantId: req.user.tenant_id, handle: d.runtime_handle, target: d.runtime_target, limit });
     res.json({ ...meta, logs: Array.isArray(info.logs) ? info.logs : [], note: info.note || null });

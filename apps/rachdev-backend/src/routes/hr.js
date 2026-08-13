@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HR } = roles;
 const { asyncHandler } = require('@rach/core');
 const ctrl = require('../controllers/hrController');
 const ops = require('../controllers/hrOpsController');
@@ -10,11 +11,11 @@ const router = Router();
 router.use(authenticate);
 
 // HR workspace: Org Admin + HR staff roles (and platform admin).
-const hr = authorize('tenant_admin', 'admin', 'hr_executive', 'hr_director', 'project_manager');
+const hr = authorize(...HR.staff);
 // Deleting records (e.g. requisitions) is a governance action.
-const hrDelete = authorize('hr_director', 'tenant_admin', 'admin');
+const hrDelete = authorize(...HR.director);
 // Employee self-service (My Space) — the employee plus admins (for testing).
-const employee = authorize('employee', 'tenant_admin', 'admin');
+const employee = authorize(...HR.employee);
 
 router.get('/summary',  hr, asyncHandler(ctrl.summary));
 // Config routes must precede /:entity so 'config' isn't treated as an entity.

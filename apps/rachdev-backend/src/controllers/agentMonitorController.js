@@ -9,31 +9,21 @@
  * credit ledger. This is the "are my agents running and what are they costing me"
  * screen — the one that matters once usage is billed per credit.
  *
- * Telemetry source: credit_transactions. Every metered LLM call writes a `usage`
- * row with a structured description we can attribute back to a team or agent:
- *   "Team run: <name> · <specialist>" | "Team route: <name>" | "Team edit: <name>"
- *   "Agent test: <name>"
- * Attribution is by exact name parsed out of that prefix.
+ * Telemetry source: agent_runs (migration 094). Every handled message — test,
+ * widget, WhatsApp, Slack, or API — writes one row attributed by subject id, so
+ * per-entity runs/credits/last-active are exact (no fragile ledger-description
+ * parsing). The credit ledger still supplies the workspace balance and the
+ * running spend total (which also covers non-run costs like edits/routing).
  */
 
-const { pool, AgentDefinition, AgentTeam } = require('@rach/core');
+const { pool, AgentDefinition, AgentTeam, AgentRun } = require('@rach/core');
 const { credits } = require('@rach/billing');
 
 const isToday = (d) => {
+  if (!d) return false;
   const t = new Date(d); const n = new Date();
   return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate();
 };
-
-// Parse a ledger description → which entity it belongs to (or null).
-function attribute(desc) {
-  const s = String(desc || '');
-  if (s.startsWith('Team run: ')) return { kind: 'team', name: s.slice('Team run: '.length).split(' · ')[0] };
-  if (s.startsWith('Team route: ')) return { kind: 'team', name: s.slice('Team route: '.length) };
-  if (s.startsWith('Team edit: ')) return { kind: 'team', name: s.slice('Team edit: '.length) };
-  if (s.startsWith('Team test: ')) return { kind: 'team', name: s.slice('Team test: '.length) };
-  if (s.startsWith('Agent test: ')) return { kind: 'agent', name: s.slice('Agent test: '.length) };
-  return null;
-}
 
 const agentStatus = (row) => {
   if (typeof row.enabled === 'boolean' && !row.enabled) return 'disabled';
@@ -54,7 +44,7 @@ exports.overview = async (req, res) => {
     return res.json({ summary: null, entities: [], recent: [] });
   }
 
-  const [defs, teams, balance, txnsRes] = await Promise.all([
+  const [defs, teams, balance, txnsRes, runStats] = await Promise.all([
     AgentDefinition.listOwned(tid).catch(() => []),
     AgentTeam.listForTenant(tid).catch(() => []),
     credits.getOrCreateBalance(tid).catch(() => 0),
@@ -64,29 +54,30 @@ exports.overview = async (req, res) => {
          ORDER BY created_at DESC LIMIT 2000`,
       [tid]
     ),
+    AgentRun.statsBySubject(tid).catch(() => ({})),
   ]);
   const txns = txnsRes.rows;
 
-  // Aggregate spend/activity per attributed entity.
-  const agg = new Map(); // key `${kind}:${name}` → { runsToday, runsTotal, credits, lastRun }
-  let spentToday = 0; let spentTotal = 0; let activityToday = 0;
+  // Workspace-wide spend from the ledger (covers runs + edits/routing).
+  let spentToday = 0; let spentTotal = 0;
   for (const t of txns) {
     const spend = t.type === 'usage' ? -Number(t.amount) : 0;
-    if (spend > 0) { spentTotal += spend; if (isToday(t.created_at)) { spentToday += spend; activityToday += 1; } }
-    const a = attribute(t.description);
-    if (!a) continue;
-    const key = `${a.kind}:${a.name}`;
-    const cur = agg.get(key) || { runsToday: 0, runsTotal: 0, credits: 0, lastRun: null };
-    cur.runsTotal += 1;
-    cur.credits += Math.max(0, spend);
-    if (isToday(t.created_at)) cur.runsToday += 1;
-    if (!cur.lastRun || new Date(t.created_at) > new Date(cur.lastRun)) cur.lastRun = t.created_at;
-    agg.set(key, cur);
+    if (spend > 0) { spentTotal += spend; if (isToday(t.created_at)) spentToday += spend; }
   }
 
+  // Per-entity activity comes from agent_runs, attributed by subject id.
+  let activityToday = 0;
+  for (const k of Object.keys(runStats)) activityToday += runStats[k].runs_today || 0;
+
   const entityFor = (kind, id, name, subtitle, status, model) => {
-    const a = agg.get(`${kind}:${name}`) || { runsToday: 0, runsTotal: 0, credits: 0, lastRun: null };
-    return { kind, id, name, subtitle, status, model, runs_today: a.runsToday, runs_total: a.runsTotal, credits_spent: a.credits, last_run: a.lastRun };
+    const a = runStats[`${kind}:${id}`] || {};
+    return {
+      kind, id, name, subtitle, status, model,
+      runs_today: a.runs_today || 0,
+      runs_total: a.runs_total || 0,
+      credits_spent: a.credits_spent || 0,
+      last_run: a.last_run || null,
+    };
   };
 
   const agents = defs.map((d) => entityFor(
@@ -123,4 +114,20 @@ exports.overview = async (req, res) => {
     entities,
     recent,
   });
+};
+
+// GET /api/agent-monitor/conversations — the Conversations inbox. Recent runs
+// across every channel, newest first, with optional ?channel= / ?subject_type= /
+// ?subject_id= filters. Each row is one handled message (grouped loosely by
+// conversation_id where the channel provides one).
+exports.conversations = async (req, res) => {
+  const tid = req.user.tenant_id;
+  if (tid == null) return res.json({ runs: [] });
+  const runs = await AgentRun.recent(tid, {
+    limit: req.query.limit ? Number(req.query.limit) : 100,
+    channel: req.query.channel || null,
+    subjectType: req.query.subject_type || null,
+    subjectId: req.query.subject_id ? Number(req.query.subject_id) : null,
+  }).catch(() => []);
+  res.json({ runs });
 };

@@ -11,7 +11,7 @@
  */
 
 const { gateway } = require('@rach/llm');
-const { AgentDefinition } = require('@rach/core');
+const { AgentDefinition, AgentRun } = require('@rach/core');
 const { buildTools, toolNameFor } = require('./agentTools');
 const { getTenantLlm, llmOpts, resolveModelRun } = require('./tenantLlm');
 
@@ -58,7 +58,16 @@ async function resolveAgent(node, tenantId) {
   return { system, modelId: text(data.model) || null };
 }
 
-async function runTeam({ team, message, tenantId, userId }) {
+async function runTeam({ team, message, tenantId, userId, log = null }) {
+  // Best-effort telemetry: one row per team run, at whichever return fires.
+  const logRun = (reply, model, creditsUsed, status) => {
+    if (!log) return;
+    return AgentRun.log({
+      tenantId, subjectType: 'team', subjectId: team.id, subjectName: team.name,
+      channel: log.channel || 'api', conversationId: log.conversationId || null,
+      userMessage: message, reply, model: model || null, creditsUsed, status,
+    });
+  };
   const nodes = (team.graph && Array.isArray(team.graph.nodes)) ? team.graph.nodes : [];
   const conductor = nodes.find((n) => n.type === 'conductor');
   const specialists = nodes.filter((n) => n.type === 'specialist');
@@ -116,7 +125,9 @@ async function runTeam({ team, message, tenantId, userId }) {
   // 2. Human handoff short-circuits.
   if (toHandoff) {
     trace.push({ node: handoff.id, label: label(handoff), detail: 'ticket created for a person' });
-    return { reply: "I've passed this to a human on the team — they'll follow up with you shortly.", trace, creditsUsed };
+    const reply = "I've passed this to a human on the team — they'll follow up with you shortly.";
+    await logRun(reply, null, creditsUsed, 'ok');
+    return { reply, trace, creditsUsed };
   }
 
   // 3. Run the chosen specialist (or the conductor directly if no specialists).
@@ -157,6 +168,7 @@ async function runTeam({ team, message, tenantId, userId }) {
     trace.push({ node: inode ? inode.id : call.name, label: iLabel, detail: 'tool called' });
   }
 
+  await logRun(res.text, res.model, creditsUsed, 'ok');
   return { reply: res.text, trace, creditsUsed, model: res.model };
 }
 

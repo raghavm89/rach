@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/receptionController');
 const opd = require('../controllers/opdController');
@@ -10,7 +11,7 @@ const router = Router();
 router.use(authenticate);
 
 // Reception is a front-desk surface — reception staff use it; doctor/admin may view.
-const frontdesk = authorize('reception', 'doctor', 'tenant_admin', 'admin');
+const frontdesk = authorize(...HEALTHCARE.frontdesk);
 
 // AI intake (Asha)
 router.get   ('/encounters',              frontdesk, asyncHandler(ctrl.list));

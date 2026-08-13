@@ -27,7 +27,10 @@ const AgentTeam = require('./src/models/agentTeam');
 const Integration = require('./src/models/integration');
 const KnowledgeBase = require('./src/models/knowledgeBase');
 const ApiKey = require('./src/models/apiKey');
+const AgentEval = require('./src/models/agentEval');
+const AgentRun = require('./src/models/agentRun');
 const secretbox = require('./src/services/secretbox');
+const embeddings = require('./src/services/embeddings');
 const AgentDeployment = require('./src/models/agentDeployment');
 const Hr = require('./src/models/hr');
 const Settings = require('./src/models/settings');
@@ -58,7 +61,10 @@ module.exports = {
   Integration,
   KnowledgeBase,
   ApiKey,
+  AgentEval,
+  AgentRun,
   secretbox,
+  embeddings,   // { embed, cosine, enabled }
   AgentDeployment,
   Hr,
   Settings,

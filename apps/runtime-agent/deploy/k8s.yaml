@@ -1,0 +1,33 @@
+# Kubernetes / BYOC. Create the secret first:
+#   kubectl create secret generic rachdev-agent \
+#     --from-literal=runtime-token=rt_xxx --from-literal=llm-api-key=sk-ant-xxx
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rachdev-agent
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: rachdev-agent } }
+  template:
+    metadata: { labels: { app: rachdev-agent } }
+    spec:
+      containers:
+        - name: rachdev-agent
+          image: ghcr.io/rachdev/runtime-agent:latest
+          ports: [{ containerPort: 8080 }]
+          env:
+            - name: RACHDEV_CONTROL_URL
+              value: "https://api.rachdev.com"
+            - name: LLM_PROVIDER
+              value: "anthropic"
+            - name: RACHDEV_RUNTIME_TOKEN
+              valueFrom: { secretKeyRef: { name: rachdev-agent, key: runtime-token } }
+            - name: LLM_API_KEY
+              valueFrom: { secretKeyRef: { name: rachdev-agent, key: llm-api-key } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: rachdev-agent }
+spec:
+  selector: { app: rachdev-agent }
+  ports: [{ port: 80, targetPort: 8080 }]

@@ -1,15 +1,16 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/integrationsController');
 
 const router = Router();
 router.use(authenticate);
 
-const frontdesk = authorize('reception', 'doctor', 'tenant_admin', 'admin');
-const coder = authorize('doctor', 'tenant_admin', 'admin');
+const frontdesk = authorize(...HEALTHCARE.frontdesk);
+const coder = authorize(...HEALTHCARE.clinician);
 
 router.post('/eligibility',              frontdesk, asyncHandler(ctrl.verifyEligibility));
 router.get ('/eligibility/:patientId',   parseId('patientId'), frontdesk, asyncHandler(ctrl.latestEligibility));

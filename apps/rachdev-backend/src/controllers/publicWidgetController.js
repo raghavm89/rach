@@ -58,8 +58,9 @@ exports.message = async (req, res) => {
   if (balance <= 0) return res.json({ reply: UNAVAILABLE });
 
   const graph = await AgentTeam.getPublishedGraph(team);
+  const conversationId = String((req.body && req.body.conversation_id) || '').slice(0, 128) || null;
   try {
-    const out = await runTeam({ team: { ...team, graph }, message, tenantId: team.tenant_id, userId: null });
+    const out = await runTeam({ team: { ...team, graph }, message, tenantId: team.tenant_id, userId: null, log: { channel: 'widget', conversationId } });
     res.json({ reply: out.reply }); // trace intentionally omitted from the public surface
   } catch (err) {
     if (err && err.code === 'insufficient_credits') return res.json({ reply: UNAVAILABLE });
@@ -89,6 +90,8 @@ const WIDGET_JS = `(function(){
   var token = "__TOKEN__";
   var cfg = { title: 'Assistant', greeting: 'Hi! How can I help you today?', accent: '#4f46e5' };
   var open = false, booted = false;
+  // Per-visit conversation id so a session's messages group into one thread.
+  var convId = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
   function el(tag, style, text){ var e=document.createElement(tag); if(style) e.setAttribute('style',style); if(text!=null) e.textContent=text; return e; }
 
@@ -121,7 +124,7 @@ const WIDGET_JS = `(function(){
     var msg=(input.value||'').trim(); if(!msg) return; input.value='';
     row('you', msg);
     var typing=row('bot','…');
-    fetch(base+'/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})})
+    fetch(base+'/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,conversation_id:convId})})
       .then(function(r){return r.json();})
       .then(function(d){ typing.textContent=(d&&d.reply)||'Sorry, something went wrong.'; log.scrollTop=log.scrollHeight; })
       .catch(function(){ typing.textContent='Sorry, something went wrong.'; });
