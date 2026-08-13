@@ -1,14 +1,10 @@
 const pool = require('@rach/core').pool;
+const { ALL_ROLES } = require('../config/roles');
 
-const ROLES = [
-  'admin', 'tenant_admin', 'tenant_user', 'developer',
-  // Healthcare workspace roles (migration 047)
-  'doctor', 'reception', 'store_manager',
-  // HR workspace roles (migration 052)
-  'hr_executive', 'hr_director', 'project_manager',
-  // HR self-service portal role (migration 081)
-  'employee',
-];
+// The valid-role allowlist is derived from the role registry (config/roles.js),
+// so adding a vertical's roles is a single edit there — kept in parity with the
+// DB `user_role` enum (migrations 047 healthcare, 052 HR, 081 employee).
+const ROLES = ALL_ROLES;
 
 const SAFE_FIELDS = `
   u.id, u.name, u.email, u.phone_number, u.phone_verified,

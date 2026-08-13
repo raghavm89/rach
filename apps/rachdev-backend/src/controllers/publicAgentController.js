@@ -53,8 +53,13 @@ exports.message = async (req, res) => {
     const balance = await credits.getOrCreateBalance(def.tenant_id);
     if (balance <= 0) return res.json({ reply: UNAVAILABLE });
   }
+  const channel = req.apiKey ? 'api' : 'widget';
+  const conversationId = String((req.body && req.body.conversation_id) || '').slice(0, 128) || null;
   try {
-    const out = await runAgent({ spec, tenantId: def.tenant_id, message });
+    const out = await runAgent({
+      spec, tenantId: def.tenant_id, message,
+      log: { channel, conversationId, subjectId: def.id, subjectName: def.name },
+    });
     res.json({ reply: out.reply });
   } catch (err) {
     if (err && err.code === 'insufficient_credits') return res.json({ reply: UNAVAILABLE });

@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/icuController');
 
@@ -9,7 +10,7 @@ const router = Router();
 router.use(authenticate);
 
 // ICU is a clinical monitoring surface.
-const clinical = authorize('doctor', 'tenant_admin', 'admin');
+const clinical = authorize(...HEALTHCARE.clinician);
 
 router.get ('/',                     clinical, asyncHandler(ctrl.board));
 router.get ('/alerts',               clinical, asyncHandler(ctrl.listAlerts));

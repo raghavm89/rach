@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bot, RefreshCw, Rocket, UploadCloud, Plus, Loader2, Send, Sparkles, Save, Coins, X, Trash2, ScrollText, AlertCircle, Server, Download, Check, Copy, Code2, KeyRound } from 'lucide-react';
+import { Bot, RefreshCw, Rocket, UploadCloud, Plus, Loader2, Send, Sparkles, Save, Coins, X, Trash2, ScrollText, AlertCircle, Server, Download, Check, Copy, Code2, KeyRound, FlaskConical, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { agentBuilder, type AgentSpec, type AgentDeployment, type ModelOption, type AgentDeploymentLogs, type DeployTarget, type DeployResult, type AgentIntegration, type ApiKeyInfo } from '@rach/ui/lib/api';
+import { agentBuilder, type AgentSpec, type AgentDeployment, type ModelOption, type AgentDeploymentLogs, type DeployTarget, type DeployResult, type Placement, type AgentIntegration, type ApiKeyInfo, type AgentEvalCase, type EvalReadiness, type EvalExpectType } from '@rach/ui/lib/api';
 
 // Render a log entry (string, or {ts,level,message}, or object) as one line.
 function logLine(l: unknown): string {
@@ -56,9 +56,20 @@ export default function AgentBuilderPage() {
   // Ship-it (deploy) modal
   const [shipOpen, setShipOpen] = useState(false);
   const [shipTarget, setShipTarget] = useState<DeployTarget>('rachbase');
+  const [placement, setPlacement] = useState<Placement>('onprem');
   const [rachbaseReady, setRachbaseReady] = useState(true);
   const [shipResult, setShipResult] = useState<DeployResult | null>(null);
   const [shipErr, setShipErr] = useState('');
+
+  // Evals modal
+  const [evalsOpen, setEvalsOpen] = useState(false);
+  const [evalCases, setEvalCases] = useState<AgentEvalCase[]>([]);
+  const [readiness, setReadiness] = useState<EvalReadiness | null>(null);
+  const [evalBusy, setEvalBusy] = useState(false);
+  const [evInput, setEvInput] = useState('');
+  const [evType, setEvType] = useState<EvalExpectType>('contains');
+  const [evValue, setEvValue] = useState('');
+  const [shipReadiness, setShipReadiness] = useState<EvalReadiness | null>(null);
 
   // Integrate modal
   const [integrateOpen, setIntegrateOpen] = useState(false);
@@ -104,6 +115,42 @@ export default function AgentBuilderPage() {
   function select(a: AgentSpec) {
     setSelId(a.id); setEName(a.name); setEPrompt(a.prompt ?? ''); setEModel(a.model_policy?.pin ?? 'auto');
     setMsgs([]); setPaywall(false);
+  }
+
+  async function openEvals() {
+    if (!token || !sel) return;
+    setEvalsOpen(true); setEvalBusy(true);
+    try { const r = await agentBuilder.evals(sel.id, token); setEvalCases(r.evals); setReadiness(r.readiness); }
+    catch (e) { toast.error((e as Error).message); }
+    finally { setEvalBusy(false); }
+  }
+  async function addEvalCase() {
+    if (!token || !sel || !evInput.trim() || !evValue.trim()) return;
+    setEvalBusy(true);
+    try {
+      await agentBuilder.createEval(sel.id, { input: evInput.trim(), expect_type: evType, expect_value: evValue.trim() }, token);
+      setEvInput(''); setEvValue('');
+      const r = await agentBuilder.evals(sel.id, token); setEvalCases(r.evals); setReadiness(r.readiness);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setEvalBusy(false); }
+  }
+  async function runEvals() {
+    if (!token || !sel) return;
+    setEvalBusy(true);
+    try {
+      const r = await agentBuilder.runEvals(sel.id, token);
+      setReadiness(r.readiness);
+      const list = await agentBuilder.evals(sel.id, token); setEvalCases(list.evals);
+      toast.success(`Readiness ${r.readiness.readiness}%`);
+    } catch (e) {
+      if ((e as { status?: number }).status === 402) toast.error('Out of credits — top up in Billing.');
+      else toast.error((e as Error).message);
+    } finally { setEvalBusy(false); }
+  }
+  async function delEval(id: number) {
+    if (!token || !sel) return;
+    try { await agentBuilder.deleteEval(id, token); const r = await agentBuilder.evals(sel.id, token); setEvalCases(r.evals); setReadiness(r.readiness); }
+    catch (e) { toast.error((e as Error).message); }
   }
 
   async function openIntegrate() {
@@ -171,7 +218,11 @@ export default function AgentBuilderPage() {
 
   async function act(kind: 'publish' | 'deploy') {
     if (!token || !sel) return;
-    if (kind === 'deploy') { setShipResult(null); setShipErr(''); setShipOpen(true); return; }
+    if (kind === 'deploy') {
+      setShipResult(null); setShipErr(''); setShipReadiness(null); setShipOpen(true);
+      agentBuilder.readiness(sel.id, token).then(setShipReadiness).catch(() => {});
+      return;
+    }
     setBusy(kind);
     try {
       const r = await agentBuilder.publish(sel.id, token); toast.success(`Published v${r.version}`);
@@ -184,7 +235,7 @@ export default function AgentBuilderPage() {
     if (!token || !sel) return;
     setBusy('ship'); setShipErr(''); setShipResult(null);
     try {
-      const r = await agentBuilder.deploy(sel.id, token, target);
+      const r = await agentBuilder.deploy(sel.id, token, target, target === 'self_hosted' ? placement : undefined);
       setShipResult(r); // show result (self-host export, or the live run surface)
       if (target === 'rachbase') toast.success(`Deployed: ${r.deployment?.status ?? 'ok'}`);
       await load();
@@ -326,6 +377,7 @@ export default function AgentBuilderPage() {
                 <div className="flex items-center gap-2"><h3 className="text-base font-semibold text-dash-heading">{sel.name}</h3><Badge value={sel.status} /><span className="text-[11px] text-dash-muted">v{sel.version}</span></div>
                 <div className="flex gap-2">
                   <button onClick={() => act('publish')} disabled={!!busy} className="flex items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-1.5 text-xs font-medium text-dash-body hover:bg-surface-hover disabled:opacity-50">{busy === 'publish' ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />} Publish</button>
+                  <button onClick={openEvals} className="flex items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-1.5 text-xs font-medium text-dash-body hover:bg-surface-hover" title="Test cases & readiness"><FlaskConical size={13} /> Evals</button>
                   <button onClick={openIntegrate} className="flex items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-1.5 text-xs font-medium text-dash-body hover:bg-surface-hover" title="Endpoint, embed & API keys"><Code2 size={13} /> Integrate</button>
                   <button onClick={() => act('deploy')} disabled={!!busy || sel.status === 'draft'} title={sel.status === 'draft' ? 'Publish first' : 'Deploy published version'} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"><Rocket size={13} /> Deploy</button>
                 </div>
@@ -402,6 +454,66 @@ export default function AgentBuilderPage() {
         </div>
       )}
 
+      {/* Evals (test cases + readiness) */}
+      {evalsOpen && sel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setEvalsOpen(false)} />
+          <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-neutral-border bg-surface-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-border px-5 py-3">
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-semibold text-dash-heading">Evals · {sel.name}</h3>
+                {readiness && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${readiness.readiness === 100 ? 'bg-ok-bg text-ok' : readiness.readiness >= 1 ? 'bg-wait-bg text-wait' : 'bg-surface-hover text-dash-muted'}`}>
+                    Readiness {readiness.readiness}%
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={runEvals} disabled={evalBusy || evalCases.length === 0} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90 disabled:opacity-50">{evalBusy ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />} Run all</button>
+                <button onClick={() => setEvalsOpen(false)} className="rounded-lg p-1.5 text-dash-muted hover:bg-surface-hover"><X size={16} /></button>
+              </div>
+            </div>
+            <div className="overflow-auto p-5">
+              <p className="mb-3 text-[12px] text-dash-muted">Define what a good reply looks like. Each run sends the input to this agent and checks the expectation. {readiness && readiness.ran < readiness.total && <span className="text-wait">Some cases haven&apos;t been run yet.</span>}</p>
+
+              {/* Add a case */}
+              <div className="mb-4 space-y-2 rounded-xl border border-neutral-border p-3">
+                <input value={evInput} onChange={(e) => setEvInput(e.target.value)} placeholder="Input message — e.g. “Do you ship to India?”" className={INPUT} />
+                <div className="flex gap-2">
+                  <select value={evType} onChange={(e) => setEvType(e.target.value as EvalExpectType)} className={`${INPUT} w-40`}>
+                    <option value="contains">reply contains</option>
+                    <option value="not_contains">reply omits</option>
+                    <option value="regex">reply matches (regex)</option>
+                  </select>
+                  <input value={evValue} onChange={(e) => setEvValue(e.target.value)} placeholder="expected text / pattern" className={INPUT} />
+                  <button onClick={addEvalCase} disabled={evalBusy || !evInput.trim() || !evValue.trim()} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-2 text-[12px] font-medium text-dash-body hover:bg-surface-hover disabled:opacity-50"><Plus size={13} /> Add</button>
+                </div>
+              </div>
+
+              {evalCases.length === 0 ? (
+                <p className="py-6 text-center text-[13px] text-dash-muted">No test cases yet. Add one above, then Run all to get a readiness score.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {evalCases.map((c) => (
+                    <li key={c.id} className="flex items-start justify-between gap-3 rounded-xl border border-neutral-border px-3 py-2.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {c.last_status === 'pass' ? <CheckCircle2 size={14} className="shrink-0 text-ok" /> : c.last_status === 'fail' ? <XCircle size={14} className="shrink-0 text-red-500" /> : <span className="h-2 w-2 shrink-0 rounded-full bg-dash-muted" />}
+                          <span className="truncate text-[13px] text-dash-heading">{c.input}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-dash-muted">{c.expect_type.replace('_', ' ')}: <span className="font-mono">{c.expect_value}</span></p>
+                        {c.last_status === 'fail' && c.last_output && <p className="mt-1 truncate text-[11px] text-red-500">got: {c.last_output}</p>}
+                      </div>
+                      <button onClick={() => delEval(c.id)} className="shrink-0 rounded-md p-1 text-dash-muted hover:text-red-600" title="Delete"><Trash2 size={13} /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Integrate (endpoint + curl + API keys) */}
       {integrateOpen && sel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -434,6 +546,31 @@ export default function AgentBuilderPage() {
                     <div className="flex items-start gap-2">
                       <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-app px-3 py-2.5 text-[12px] text-dash-body ring-1 ring-neutral-border"><code>{`<script src="${integration.widget_url}" async></script>`}</code></pre>
                       <button onClick={() => { navigator.clipboard.writeText(`<script src="${integration.widget_url}" async></script>`); toast.success('Copied'); }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-2 text-xs font-medium text-dash-body hover:bg-surface-hover"><Copy size={13} /></button>
+                    </div>
+                  </div>
+
+                  {/* OpenAI-compatible Developer API */}
+                  <div className="border-t border-neutral-border pt-4">
+                    <p className="mb-1 text-[12px] font-medium text-dash-heading">OpenAI-compatible API</p>
+                    <p className="mb-2 text-[11px] text-dash-muted">Point any OpenAI SDK at this base URL and use <code className="rounded bg-surface-app px-1">{integration.openai_model || 'agt_…'}</code> as the model. Supports streaming.</p>
+                    <div className="flex items-start gap-2">
+                      <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-app px-3 py-2.5 text-[12px] text-dash-body ring-1 ring-neutral-border"><code>{`from openai import OpenAI
+client = OpenAI(base_url="${integration.openai_base_url}", api_key="YOUR_API_KEY")
+r = client.chat.completions.create(
+    model="${integration.openai_model || 'agt_…'}",
+    messages=[{"role": "user", "content": "hello"}],
+    stream=True,
+)
+for chunk in r:
+    print(chunk.choices[0].delta.content or "", end="")`}</code></pre>
+                      <button onClick={() => { navigator.clipboard.writeText(`from openai import OpenAI\nclient = OpenAI(base_url="${integration.openai_base_url}", api_key="YOUR_API_KEY")\nr = client.chat.completions.create(\n    model="${integration.openai_model || ''}",\n    messages=[{"role": "user", "content": "hello"}],\n    stream=True,\n)\nfor chunk in r:\n    print(chunk.choices[0].delta.content or "", end="")`); toast.success('Copied'); }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-2 text-xs font-medium text-dash-body hover:bg-surface-hover"><Copy size={13} /></button>
+                    </div>
+                    <div className="mt-2 flex items-start gap-2">
+                      <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-app px-3 py-2.5 text-[12px] text-dash-body ring-1 ring-neutral-border"><code>{`curl ${integration.openai_base_url}/chat/completions \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "content-type: application/json" \\
+  -d '{"model":"${integration.openai_model || 'agt_…'}","messages":[{"role":"user","content":"hello"}]}'`}</code></pre>
+                      <button onClick={() => { navigator.clipboard.writeText(`curl ${integration.openai_base_url}/chat/completions -H "Authorization: Bearer YOUR_API_KEY" -H "content-type: application/json" -d '{"model":"${integration.openai_model || ''}","messages":[{"role":"user","content":"hello"}]}'`); toast.success('Copied'); }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-2 text-xs font-medium text-dash-body hover:bg-surface-hover"><Copy size={13} /></button>
                     </div>
                   </div>
 
@@ -483,14 +620,37 @@ export default function AgentBuilderPage() {
             </div>
 
             {shipResult && shipResult.mode === 'self_hosted' ? (
-              // Self-hosted export result
+              // Self-hosted (on-prem / BYOC) — runtime token, image, and recipe.
               <div className="overflow-auto p-5">
-                <div className="mb-3 flex items-center gap-2 rounded-xl border border-ok/30 bg-ok-bg px-4 py-3 text-sm text-ok"><Check size={16} /> Config exported — run it on your own backend.</div>
+                <div className="mb-3 flex items-center gap-2 rounded-xl border border-ok/30 bg-ok-bg px-4 py-3 text-sm text-ok"><Check size={16} /> Ready for {shipResult.recipe?.label ?? 'self-hosting'} — the agent phones home for its spec.</div>
+
+                {shipResult.runtime_token && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold text-amber-800"><KeyRound size={13} /> Runtime token — copy now, shown only once</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 overflow-x-auto rounded bg-surface-card px-2 py-1 text-[12px] text-dash-heading">{shipResult.runtime_token}</code>
+                      <button onClick={() => { navigator.clipboard.writeText(shipResult.runtime_token!); toast.success('Copied'); }} className="rounded-md border border-neutral-border px-2 py-1 text-xs text-dash-body hover:bg-surface-hover"><Copy size={12} /></button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-amber-700">Set as <code>RACHDEV_RUNTIME_TOKEN</code>. Pair it with your own <code>LLM_API_KEY</code> — conversation data never leaves your infrastructure.</p>
+                  </div>
+                )}
+
                 <ol className="mb-4 space-y-2">
                   {(shipResult.instructions?.steps ?? []).map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-[13px] text-dash-body"><span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-weak text-[10px] font-semibold text-accent">{i + 1}</span>{s}</li>
                   ))}
                 </ol>
+
+                {shipResult.recipe?.files?.map((f) => (
+                  <div key={f.name} className="mb-3">
+                    <p className="mb-1 text-[12px] font-medium text-dash-heading">{f.name}</p>
+                    <div className="flex items-start gap-2">
+                      <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-app px-3 py-2.5 text-[12px] text-dash-body ring-1 ring-neutral-border"><code>{f.content}</code></pre>
+                      <button onClick={() => { navigator.clipboard.writeText(f.content); toast.success('Copied'); }} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-3 py-2 text-xs font-medium text-dash-body hover:bg-surface-hover"><Copy size={13} /></button>
+                    </div>
+                  </div>
+                ))}
+
                 <div className="flex items-center gap-2">
                   <button onClick={downloadConfig} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-semibold text-white hover:opacity-90"><Download size={14} /> Download config (JSON)</button>
                   {shipResult.instructions?.docs_url && <a href={shipResult.instructions.docs_url} target="_blank" rel="noopener noreferrer" className="text-[13px] text-accent hover:underline">Setup guide →</a>}
@@ -520,6 +680,19 @@ export default function AgentBuilderPage() {
                 )}
               </div>
             ) : (
+              <>
+                {/* Readiness gate */}
+                {shipReadiness && (
+                  <div className={`mx-5 mt-5 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${shipReadiness.total === 0 ? 'border-neutral-border bg-surface-app text-dash-muted' : shipReadiness.readiness === 100 ? 'border-ok/30 bg-ok-bg text-ok' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                    <span className="flex items-center gap-2">
+                      {shipReadiness.total === 0 ? <FlaskConical size={16} /> : shipReadiness.readiness === 100 ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      {shipReadiness.total === 0
+                        ? 'No evals yet — add test cases to verify this agent before shipping.'
+                        : `Readiness ${shipReadiness.readiness}% — ${shipReadiness.passed}/${shipReadiness.total} checks passing${shipReadiness.ran < shipReadiness.total ? ' (some not run)' : ''}.`}
+                    </span>
+                    <button onClick={() => { setShipOpen(false); openEvals(); }} className="shrink-0 rounded-lg border border-current/30 px-2.5 py-1 text-xs font-semibold hover:opacity-80">Open evals</button>
+                  </div>
+                )}
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 {/* Managed */}
                 <div className={`flex flex-col rounded-xl border p-4 ${shipTarget === 'rachbase' ? 'border-accent' : 'border-neutral-border'}`}>
@@ -538,11 +711,20 @@ export default function AgentBuilderPage() {
                   <h4 className="text-sm font-semibold text-dash-heading">Bring your own backend</h4>
                   <p className="mt-0.5 text-[12px] text-dash-muted">Run it on infrastructure you already trust.</p>
                   <ul className="mt-3 flex-1 space-y-1.5 text-[12px] text-dash-body">
-                    {['Export config (JSON)', 'Setup guide', 'Same agent, same guardrails, same evals', 'You own the hosting'].map((f) => <li key={f} className="flex items-center gap-1.5"><Check size={13} className="text-ok" /> {f}</li>)}
+                    {['On-prem or your own cloud', 'Your LLM key — data stays with you', 'Same agent, guardrails & evals', 'Health & usage reported back'].map((f) => <li key={f} className="flex items-center gap-1.5"><Check size={13} className="text-ok" /> {f}</li>)}
                   </ul>
-                  <button onClick={() => ship('self_hosted')} disabled={busy === 'ship'} className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-neutral-border px-4 py-2.5 text-sm font-semibold text-dash-heading hover:bg-surface-hover disabled:opacity-50">{busy === 'ship' ? <Loader2 size={15} className="animate-spin" /> : <Server size={15} />} Export &amp; get instructions</button>
+                  <label className="mt-3 text-[11px] font-medium text-dash-muted">Where will it run?</label>
+                  <select value={placement} onChange={(e) => setPlacement(e.target.value as Placement)} className="mt-1 rounded-lg border border-neutral-border bg-surface-card px-3 py-2 text-[13px] text-dash-heading">
+                    <option value="onprem">On-prem (Docker)</option>
+                    <option value="k8s">Kubernetes</option>
+                    <option value="aws">AWS (ECS/Fargate)</option>
+                    <option value="gcp">Google Cloud Run</option>
+                    <option value="azure">Azure Container Instances</option>
+                  </select>
+                  <button onClick={() => ship('self_hosted')} disabled={busy === 'ship'} className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-neutral-border px-4 py-2.5 text-sm font-semibold text-dash-heading hover:bg-surface-hover disabled:opacity-50">{busy === 'ship' ? <Loader2 size={15} className="animate-spin" /> : <Server size={15} />} Get token &amp; recipe</button>
                 </div>
               </div>
+              </>
             )}
             {shipErr && <div className="mx-5 mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"><AlertCircle size={16} className="mt-0.5 shrink-0" /> {shipErr}</div>}
           </div>

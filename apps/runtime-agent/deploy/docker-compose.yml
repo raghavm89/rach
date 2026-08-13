@@ -1,0 +1,13 @@
+# On-prem: docker compose up -d
+# Set RACHDEV_RUNTIME_TOKEN and LLM_API_KEY in a .env file next to this one.
+services:
+  rachdev-agent:
+    image: ghcr.io/rachdev/runtime-agent:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      RACHDEV_CONTROL_URL: "https://api.rachdev.com"
+      RACHDEV_RUNTIME_TOKEN: "${RACHDEV_RUNTIME_TOKEN}"
+      LLM_PROVIDER: "anthropic"
+      LLM_API_KEY: "${LLM_API_KEY}"

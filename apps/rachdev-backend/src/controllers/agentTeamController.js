@@ -171,7 +171,7 @@ exports.run = async (req, res) => {
   if (balance <= 0) return res.status(402).json({ error: 'Insufficient credits', balance });
 
   try {
-    const out = await runTeam({ team, message, tenantId: req.user.tenant_id, userId: req.user.id });
+    const out = await runTeam({ team, message, tenantId: req.user.tenant_id, userId: req.user.id, log: { channel: 'test' } });
     const after = await credits.getOrCreateBalance(req.user.tenant_id);
     res.json({ ...out, balance: after });
   } catch (err) {

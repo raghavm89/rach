@@ -8,12 +8,13 @@
  */
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler } = require('@rach/core');
 const ctrl = require('../controllers/controlTowerController');
 
 const router = Router();
 router.use(authenticate);
-router.get('/', authorize('tenant_admin', 'admin', 'doctor'), asyncHandler(ctrl.overview));
+router.get('/', authorize(...HEALTHCARE.clinician), asyncHandler(ctrl.overview));
 
 module.exports = router;

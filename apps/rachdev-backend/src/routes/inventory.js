@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/inventoryController');
 
@@ -9,7 +10,7 @@ const router = Router();
 router.use(authenticate);
 
 // Pharmacy store surface — store managers + org/platform admins.
-const store = authorize('store_manager', 'tenant_admin', 'admin');
+const store = authorize(...HEALTHCARE.store);
 
 router.get ('/stock',    store, asyncHandler(ctrl.listStock));
 router.post('/stock',    store, asyncHandler(ctrl.upsertStock));

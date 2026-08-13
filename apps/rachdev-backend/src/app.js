@@ -49,6 +49,14 @@ app.use('/api/public/widget', require('./routes/publicWidget'));
 app.use('/api/public/agent', require('./routes/publicAgent'));
 app.use('/api/public/whatsapp', require('./routes/whatsappWebhook'));
 
+// OpenAI-compatible Developer API. Also CORS-open and API-key-authed, so it is
+// mounted here alongside the other public surfaces, ahead of origin-locked CORS.
+app.use('/v1', require('./routes/v1'));
+
+// Runtime phone-home API (on-prem / BYOC). CORS-open, runtime-token-authed;
+// the customer's runtime agent calls it outbound-only. Ahead of origin CORS.
+app.use('/api/runtime/v1', require('./routes/runtime'));
+
 // CORS (mirror the platform's manual preflight handling)
 app.use((req, res, next) => {
   const allowed = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);

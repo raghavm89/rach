@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, BookOpen, Plus, Upload, Trash2, RefreshCw, FileText } from 'lucide-react';
+import { Loader2, BookOpen, Plus, Upload, Trash2, RefreshCw, FileText, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { knowledgeBase, type KbDoc } from '@rach/ui/lib/api';
@@ -46,6 +46,17 @@ export default function KnowledgePage() {
     finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
   }
 
+  async function reindex() {
+    if (!token) return;
+    setBusy(true);
+    try {
+      const r = await knowledgeBase.reindex(token);
+      toast.success(r.embedded > 0 ? `Indexed ${r.embedded} chunk${r.embedded === 1 ? '' : 's'} for semantic search` : (r.pending > 0 ? 'Embeddings not configured on this server' : 'Everything already indexed'));
+      await load();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  }
+
   async function remove(d: KbDoc) {
     if (!token || !window.confirm(`Delete “${d.title}”? Agents will stop citing it.`)) return;
     try { await knowledgeBase.remove(d.id, token); toast.success('Deleted'); await load(); }
@@ -57,7 +68,12 @@ export default function KnowledgePage() {
       <PageHeader
         title="Knowledge"
         subtitle="Reference docs your agents answer from. Add a knowledge tool to an agent or team, and it searches these — citing sources, grounded in your content."
-        actions={<button onClick={() => { setLoading(true); load(); }} disabled={loading} className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-dash-muted hover:bg-surface-hover disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh</button>}
+        actions={
+          <div className="flex gap-2">
+            <button onClick={reindex} disabled={busy || docs.length === 0} title="Embed docs for semantic search" className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-dash-body hover:bg-surface-hover disabled:opacity-50"><Sparkles size={15} /> Reindex</button>
+            <button onClick={() => { setLoading(true); load(); }} disabled={loading} className="flex items-center gap-2 rounded-lg border border-neutral-border bg-surface-card px-4 py-2 text-sm font-medium text-dash-muted hover:bg-surface-hover disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh</button>
+          </div>
+        }
       />
 
       {/* Add / upload */}
@@ -97,7 +113,16 @@ export default function KnowledgePage() {
                     <p className="text-[11px] text-dash-muted">{d.chunk_count} chunk{d.chunk_count === 1 ? '' : 's'} · {(d.char_len ?? 0).toLocaleString()} chars{d.citation ? ` · ${d.citation}` : ''}</p>
                   </div>
                 </div>
-                <button onClick={() => remove(d)} title="Delete" className="flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-border px-2.5 py-1.5 text-[12px] font-medium text-dash-body hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {d.chunk_count > 0 && d.embedded_count === d.chunk_count ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent-weak px-2 py-0.5 text-[10px] font-semibold text-accent"><Sparkles size={10} /> Semantic</span>
+                  ) : d.embedded_count > 0 ? (
+                    <span className="rounded-full bg-wait-bg px-2 py-0.5 text-[10px] font-semibold text-wait">Partial</span>
+                  ) : (
+                    <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-medium text-dash-muted">Keyword</span>
+                  )}
+                  <button onClick={() => remove(d)} title="Delete" className="flex items-center gap-1.5 rounded-lg border border-neutral-border px-2.5 py-1.5 text-[12px] font-medium text-dash-body hover:bg-red-50 hover:text-red-600"><Trash2 size={13} /></button>
+                </div>
               </div>
             ))}
           </div>

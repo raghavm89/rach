@@ -1,0 +1,13 @@
+{
+  "name": "@rach/runtime-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RachDev on-prem / BYOC runtime agent — pulls its AgentSpec, runs locally against your own LLM key, and reports metadata-only telemetry.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

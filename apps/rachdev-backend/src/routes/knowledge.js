@@ -1,7 +1,8 @@
 'use strict';
 
 const { Router } = require('express');
-const { authenticate, authorize } = require('@rach/identity');
+const { authenticate, authorize, roles } = require('@rach/identity');
+const { HEALTHCARE } = roles;
 const { asyncHandler, parseId } = require('@rach/core');
 const ctrl = require('../controllers/knowledgeController');
 
@@ -9,8 +10,8 @@ const router = Router();
 router.use(authenticate);
 
 // Anyone in the workspace can ask; managing the approved library is gated tighter.
-const anyStaff = authorize('reception', 'doctor', 'store_manager', 'tenant_admin', 'admin');
-const librarian = authorize('doctor', 'tenant_admin', 'admin');
+const anyStaff = authorize(...HEALTHCARE.anyStaff);
+const librarian = authorize(...HEALTHCARE.clinician);
 
 router.get   ('/docs',      anyStaff,  asyncHandler(ctrl.listDocs));
 router.post  ('/docs',      librarian, asyncHandler(ctrl.createDoc));

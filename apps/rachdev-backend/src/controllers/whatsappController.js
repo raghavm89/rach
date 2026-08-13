@@ -51,7 +51,7 @@ exports.inbound = async (req, res) => {
 
   const graph = await AgentTeam.getPublishedGraph(ctx.team);
   try {
-    const out = await runTeam({ team: { ...ctx.team, graph }, message: parsed.text, tenantId: ctx.team.tenant_id, userId: null });
+    const out = await runTeam({ team: { ...ctx.team, graph }, message: parsed.text, tenantId: ctx.team.tenant_id, userId: null, log: { channel: 'whatsapp', conversationId: parsed.from || null } });
     await wa.sendReply(ctx.creds, { to: parsed.from, text: out.reply });
     return res.json({ ok: true });
   } catch (err) {

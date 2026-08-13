@@ -27,6 +27,15 @@ router.get ('/api-keys',                authorize('tenant_admin', 'admin'), asyn
 router.post('/api-keys',                authorize('tenant_admin'),          asyncHandler(ctrl.createApiKey));
 router.delete('/api-keys/:id',          authorize('tenant_admin'),          asyncHandler(ctrl.revokeApiKey));
 router.get ('/definitions/:id/integration', authorize('tenant_admin', 'admin'), asyncHandler(ctrl.getIntegration));
+
+// Agent evals + readiness gate
+const evals = require('../controllers/evalController');
+const evalGate = authorize('tenant_admin', 'admin');
+router.get   ('/definitions/:id/evals',     evalGate, asyncHandler(evals.list));
+router.post  ('/definitions/:id/evals',     evalGate, asyncHandler(evals.create));
+router.post  ('/definitions/:id/evals/run', evalGate, asyncHandler(evals.run));
+router.get   ('/definitions/:id/readiness', evalGate, asyncHandler(evals.readiness));
+router.delete('/evals/:evalId',             evalGate, asyncHandler(evals.remove));
 router.get ('/templates',               authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listTemplates));
 router.get ('/definitions',             authorize('tenant_admin', 'admin'), asyncHandler(ctrl.listDefinitions));
 router.post('/definitions/:id/test',    authorize('tenant_admin', 'admin'), asyncHandler(ctrl.testDefinition));
