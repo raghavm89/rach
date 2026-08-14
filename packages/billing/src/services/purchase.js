@@ -640,11 +640,85 @@ async function cancelAbandonedSubscriptions({ olderThanMinutes = 60, dryRun = fa
   return { examined: abandoned.length, cancelled };
 }
 
+/**
+ * Webhook backstop for one-time AGENT-CREDIT purchases.
+ *
+ * Credits are normally granted synchronously at /api/agent/credits/verify when
+ * the buyer's browser returns. If that call never runs (tab closed, network
+ * drop) Razorpay still captures the payment but the balance is never topped up.
+ * This grants the credits from the `payment.captured` webhook instead.
+ *
+ * Only acts on orders whose Razorpay `notes.kind === 'agent_credits'`, so
+ * subscription and other payments (which have their own handlers) are ignored.
+ * Every write is idempotent — Payment.capture / Order.updateStatus no-op once
+ * done, addCredits is keyed on the payment id, and the invoice is keyed on the
+ * payment id — so it is safe to run alongside a /verify call that also fires.
+ *
+ * @param {object} pmt  Razorpay payload.payment.entity
+ */
+async function fulfilCreditPaymentCaptured(pmt) {
+  if (!pmt || !pmt.order_id || !pmt.id) return { skipped: 'no_payment' };
+  if (pmt.status && pmt.status !== 'captured') return { skipped: `status_${pmt.status}` };
+
+  // Identify credit orders via the Razorpay order's notes (set at creation).
+  let rzOrder;
+  try { rzOrder = await razorpay.orders.fetch(pmt.order_id); }
+  catch { return { skipped: 'order_fetch_failed' }; }
+  const notes = (rzOrder && rzOrder.notes) || {};
+  if (notes.kind !== 'agent_credits') return { skipped: 'not_credits' };
+
+  const order = await Order.findByRazorpayId(pmt.order_id);
+  if (!order) return { skipped: 'order_not_local' };
+
+  const pack = credits.getCreditPack(notes.pack_id);
+  const creditAmount = pack ? pack.credits : Number(notes.credits) || 0;
+  const tenantId = Number(notes.tenant_id) || null;
+  const userId = Number(notes.user_id) || order.user_id;
+  if (!tenantId || creditAmount <= 0) return { skipped: 'insufficient_notes' };
+
+  // Record payment + mark the order paid (both idempotent).
+  const existing = await Payment.findByOrderId(pmt.order_id);
+  if (!existing) {
+    await Payment.create({
+      user_id: order.user_id, order_id: order.id, razorpay_order_id: pmt.order_id,
+      amount: order.amount, currency: order.currency, description: order.description,
+    });
+  }
+  await Payment.capture(pmt.order_id, pmt.id, pmt.method);
+  await Order.updateStatus(pmt.order_id, 'paid');
+
+  // Grant credits — idempotent on the payment id, so a later /verify (or a
+  // webhook retry) cannot double-credit.
+  const balance = await credits.addCredits(tenantId, userId, creditAmount, {
+    description: order.description,
+    razorpayOrderId: pmt.order_id,
+    razorpayPaymentId: pmt.id,
+  });
+
+  // Issue the tax invoice (idempotent on payment id; never throws). Buyer
+  // jurisdiction is derived from the saved user profile inside the invoice
+  // service, so it reconciles to what was charged even without a checkout form.
+  await issueInvoiceForPayment({
+    userId: order.user_id,
+    currency: order.currency,
+    lines: [{
+      description: order.description,
+      quantity: 1,
+      unit_price_minor: pack ? creditSubtotalMinor(pack, order.currency) : Number(order.amount),
+    }],
+    payment: { razorpay_order_id: pmt.order_id, razorpay_payment_id: pmt.id },
+  });
+
+  console.log(`[purchase] credit backstop fulfilled order ${pmt.order_id} (+${creditAmount} credits, tenant ${tenantId})`);
+  return { fulfilled: true, credits: creditAmount, tenantId, balance };
+}
+
 module.exports = {
   createSubscriptionPurchase,
   activateSubscriptionPurchase,
   createCreditPurchase,
   verifyCreditPurchase,
+  fulfilCreditPaymentCaptured,
   syncFulfilmentForSubscription,
   cancelAbandonedSubscriptions,
   resolveBilling,

@@ -1,11 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Coins, Check, Zap, RefreshCw } from 'lucide-react';
+import { Loader2, Coins, Check, Zap, RefreshCw, ReceiptText, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { agent, type CreditPack } from '@rach/ui/lib/api';
+import { agent, users, type CreditPack, type BillingAddress } from '@rach/ui/lib/api';
 import { PageHeader } from '@/components/dashboard/PageHeader';
+
+// Buyer's country drives currency + GST on credits; a full address + (optional)
+// GSTIN is what makes the tax invoice compliant. Kept minimal on purpose.
+const COUNTRIES = ['India', 'United States', 'United Kingdom', 'Singapore', 'Australia', 'Canada', 'Germany', 'UAE', 'Other'];
+const emptyAddress = (): BillingAddress => ({ line1: '', line2: '', city: '', state: '', pincode: '', country: 'India' });
+const addressComplete = (a: BillingAddress | null | undefined) =>
+  !!(a && a.line1?.trim() && a.city?.trim() && a.state?.trim() && a.pincode?.trim() && a.country?.trim());
 
 // Display-only INR rate (mirrors the backend USD_TO_INR default). The exact
 // charged amount comes from the purchase endpoint and shows in Razorpay.
@@ -26,13 +33,48 @@ function loadRazorpay(): Promise<void> {
 }
 
 export default function BillingPage() {
-  const { token, user } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const [balance, setBalance] = useState<number | null>(null);
   const [packs, setPacks] = useState<CreditPack[]>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<typeof agent.getCreditHistory>>['transactions']>([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  // Billing details (saved to the user profile — the source pricing + invoicing read).
+  const [bizName, setBizName] = useState('');
+  const [gstin, setGstin] = useState('');
+  const [addr, setAddr] = useState<BillingAddress>(emptyAddress());
+  const [savingBilling, setSavingBilling] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
+
+  // Hydrate the form from the signed-in user's saved profile.
+  useEffect(() => {
+    if (!user) return;
+    setBizName(user.business_name || '');
+    setGstin(user.gstin || '');
+    setAddr({ ...emptyAddress(), ...(user.billing_address || {}) });
+  }, [user]);
+
+  const billingReady = addressComplete(user?.billing_address);
+
+  async function saveBilling() {
+    if (!token) return;
+    if (!addressComplete(addr)) { toast.error('Fill address line 1, city, state, PIN/ZIP and country.'); return; }
+    setSavingBilling(true);
+    try {
+      const res = await users.updateMe(token, {
+        account_type: (bizName.trim() || gstin.trim()) ? 'business' : 'individual',
+        business_name: bizName.trim() || null,
+        gstin: gstin.trim() ? gstin.trim().toUpperCase() : null,
+        billing_address: addr,
+      });
+      updateUser(res.user);
+      setBillingOpen(false);
+      toast.success('Billing details saved');
+    } catch (e) { toast.error((e as Error).message || 'Could not save billing details'); }
+    finally { setSavingBilling(false); }
+  }
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -50,6 +92,14 @@ export default function BillingPage() {
 
   async function buy(pack: CreditPack) {
     if (!token) return;
+    // Require billing details first so the charge is priced correctly (currency +
+    // GST) and the tax invoice is compliant. Both are read from the saved profile.
+    if (!billingReady) {
+      toast.error('Add your billing details before purchasing.');
+      setBillingOpen(true);
+      if (typeof document !== 'undefined') document.getElementById('billing-details')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
     setBuying(pack.id); setError('');
     try {
       const order = await agent.purchaseCredits(token, pack.id);
@@ -120,6 +170,76 @@ export default function BillingPage() {
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
           Only the workspace owner can buy credits. Ask your admin to top up.
         </p>
+      )}
+
+      {/* Billing details — the source pricing (currency + GST) and the tax invoice read from. */}
+      {isAdmin && (
+        <div id="billing-details" className="mt-6 rounded-2xl border border-neutral-border bg-surface-card p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ReceiptText size={16} className="text-accent" />
+              <h3 className="text-sm font-semibold text-dash-heading">Billing details</h3>
+              {billingReady
+                ? <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[11px] font-medium text-ok">Complete</span>
+                : <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">Required before purchase</span>}
+            </div>
+            <button onClick={() => setBillingOpen((v) => !v)} className="text-[13px] font-medium text-accent hover:underline">
+              {billingOpen ? 'Close' : billingReady ? 'Edit' : 'Add details'}
+            </button>
+          </div>
+
+          {!billingOpen && billingReady && (
+            <p className="mt-2 text-[13px] text-dash-muted">
+              {[user?.business_name, user?.gstin && `GSTIN ${user.gstin}`, user?.billing_address?.city, user?.billing_address?.country].filter(Boolean).join(' · ')}
+            </p>
+          )}
+
+          {billingOpen && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-[12px] text-dash-muted">Business name (optional)
+                <input value={bizName} onChange={(e) => setBizName(e.target.value)} placeholder="Acme Pvt Ltd"
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted">GSTIN (optional — for GST invoice)
+                <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" maxLength={15}
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted sm:col-span-2">Address line 1
+                <input value={addr.line1} onChange={(e) => setAddr({ ...addr, line1: e.target.value })} placeholder="Street, building"
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted sm:col-span-2">Address line 2 (optional)
+                <input value={addr.line2 || ''} onChange={(e) => setAddr({ ...addr, line2: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted">City
+                <input value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted">State / Province
+                <input value={addr.state} onChange={(e) => setAddr({ ...addr, state: e.target.value })} placeholder="e.g. Karnataka"
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted">PIN / ZIP
+                <input value={addr.pincode} onChange={(e) => setAddr({ ...addr, pincode: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading" />
+              </label>
+              <label className="text-[12px] text-dash-muted">Country
+                <select value={addr.country} onChange={(e) => setAddr({ ...addr, country: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading">
+                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <div className="sm:col-span-2">
+                <button onClick={saveBilling} disabled={savingBilling}
+                  className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                  {savingBilling ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save billing details
+                </button>
+                <p className="mt-2 text-[11px] text-dash-muted">Indian buyers with a GSTIN get a GST tax invoice; the country sets the currency and tax. Used for every credit purchase.</p>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Packs */}

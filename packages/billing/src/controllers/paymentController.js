@@ -18,7 +18,7 @@ const WebhookEvent = require('@rach/core').WebhookEvent;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { paginated } = require('@rach/core').paginate;
 const issueInvoiceForPayment = require('../services/invoice/issueForPayment');
-const { syncFulfilmentForSubscription } = require('../services/purchase');
+const { syncFulfilmentForSubscription, fulfilCreditPaymentCaptured } = require('../services/purchase');
 const hooks = require('../hooks');
 
 // ─── Subscriptions (read + cancel) ───────────────────────────────────────────
@@ -242,6 +242,16 @@ async function webhook(req, res) {
       // The reason a customer whose card failed on renewal used to keep
       // reading 'active' in Rachbase indefinitely.
       await syncFulfilmentForSubscription(sub.id, { status: sub.status });
+      break;
+    }
+
+    case 'payment.captured': {
+      // Backstop for one-time AGENT-CREDIT purchases whose synchronous /verify
+      // never ran (tab closed mid-checkout). No-ops for subscription/other
+      // payments — it only acts on orders with notes.kind === 'agent_credits',
+      // and every write is idempotent (safe alongside /verify and webhook retries).
+      const pmt = payload.payment && payload.payment.entity;
+      if (pmt) await fulfilCreditPaymentCaptured(pmt);
       break;
     }
 
