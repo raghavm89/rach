@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import {
   LayoutTemplate,
   MessageSquare,
@@ -32,6 +31,9 @@ import { FeatureDetailCard } from "@rach/ui/components/ui/FeatureDetailCard";
 import { IndustryCard } from "@rach/ui/components/ui/IndustryCard";
 import { CTABanner } from "@rach/ui/components/sections/CTABanner";
 import { Hero } from "@rach/ui/components/home/Hero";
+import { AgentShowcase } from "@/components/home/AgentShowcase";
+import { CapabilityMarquee } from "@/components/home/CapabilityMarquee";
+import { AgentTypesMarquee } from "@/components/home/AgentTypesMarquee";
 import { features } from "@/data/features";
 import { industries } from "@/data/industries";
 
@@ -103,6 +105,16 @@ export default function AgentBuilderPage() {
       {/* Hero — agent-only variant of the shared home hero */}
       <Hero variant="agent" />
 
+      {/* Agent types — a scrolling strip of everything you can build */}
+      <SectionWrapper band>
+        <p className="text-center text-xs font-semibold uppercase tracking-wider text-ink-2">
+          One builder, every kind of agent
+        </p>
+        <div className="mt-5">
+          <AgentTypesMarquee />
+        </div>
+      </SectionWrapper>
+
       {/* Showcase — what you can do yourself at rachdev.com */}
       <SectionWrapper>
         <SectionHeader
@@ -110,36 +122,11 @@ export default function AgentBuilderPage() {
           title="Design your agent team, connect your tools"
           subtitle="No engineers required. Assemble a multi-agent team on a visual canvas, then plug in the channels and tools it uses — all from your own workspace."
         />
-        <div className="mt-10 grid gap-8 lg:grid-cols-2">
-          <AnimateIn>
-            <figure className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-lg ring-1 ring-black/5">
-              <Image
-                src="/images/showcase/team-canvas.png"
-                alt="Agent team canvas — a conductor routing a website channel to a specialist and human handoff"
-                width={2316}
-                height={1240}
-                className="h-auto w-full"
-              />
-              <figcaption className="border-t border-ink/10 bg-page px-5 py-3 text-sm text-ink-2">
-                <span className="font-semibold text-ink">Visual team canvas.</span> Drag in a conductor, specialists, tools, and human handoff — connect them into a flow.
-              </figcaption>
-            </figure>
-          </AnimateIn>
-          <AnimateIn delay={0.1}>
-            <figure className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-lg ring-1 ring-black/5">
-              <Image
-                src="/images/showcase/connections.png"
-                alt="Connections — channels (Website Widget, Slack, WhatsApp) and tools (Razorpay, Stripe, Shopify, Perplexity, Email, Knowledge Base, HTTP)"
-                width={2072}
-                height={1472}
-                className="h-auto w-full"
-              />
-              <figcaption className="border-t border-ink/10 bg-page px-5 py-3 text-sm text-ink-2">
-                <span className="font-semibold text-ink">Your channels &amp; tools.</span> Connect Slack, WhatsApp, Razorpay, Stripe, Shopify, and more — credentials encrypted at rest.
-              </figcaption>
-            </figure>
-          </AnimateIn>
-        </div>
+        <AnimateIn>
+          <div className="mt-10">
+            <AgentShowcase />
+          </div>
+        </AnimateIn>
       </SectionWrapper>
 
       {/* Capabilities — keyword-rich highlights of the agent stack */}
@@ -149,32 +136,18 @@ export default function AgentBuilderPage() {
           title="More than a chatbot"
           subtitle="Everything you need to build, ground, connect, and ship production agents — built in."
         />
-        <div className="mt-8 flex flex-wrap justify-center gap-2.5">
-          {[
+        <CapabilityMarquee
+          capabilities={[
             'Multi-agent teams', 'Conductor routing', 'RAG knowledge base', 'Semantic search',
             'Tool use', 'Bring your own model (Claude / GPT-4o)', 'Per-agent model picker',
             'Human handoff', 'Embeddable chat widget', 'REST API & webhooks', 'Streaming replies',
             'Guardrails', 'Decision traces', 'Pay-as-you-go credits', 'One-click deploy', 'Self-host option',
-          ].map((term) => (
-            <span key={term} className="rounded-full border border-ink/10 bg-page px-3.5 py-1.5 text-sm font-medium text-ink-2">
-              {term}
-            </span>
-          ))}
-        </div>
-
-        <p className="mt-10 text-center text-xs font-semibold uppercase tracking-wider text-ink-2">
-          Channels &amp; tools your agents can use
-        </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2.5">
-          {[
+          ]}
+          tools={[
             'Website widget', 'Slack', 'WhatsApp', 'Razorpay', 'Stripe', 'Shopify',
             'Perplexity (live web search)', 'Email', 'Knowledge base', 'HTTP action',
-          ].map((tool) => (
-            <span key={tool} className="rounded-full bg-accent-weak px-3.5 py-1.5 text-sm font-medium text-accent">
-              {tool}
-            </span>
-          ))}
-        </div>
+          ]}
+        />
       </SectionWrapper>
 
       {/* Workflow */}
