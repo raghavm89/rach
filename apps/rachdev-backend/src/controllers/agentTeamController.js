@@ -39,6 +39,9 @@ const noWorkspace = (req, res) => {
 
 exports.list = async (req, res) => {
   if (req.user.tenant_id == null) return res.json({ teams: [] });
+  // Seed the editable default team for this workspace's industry if it has none,
+  // so every org's AI flow is a real Agent Team from day one.
+  await AgentTeam.ensureDefaultForTenant(req.user.tenant_id, { userId: req.user.id }).catch(() => {});
   const teams = await AgentTeam.listForTenant(req.user.tenant_id);
   res.json({ teams });
 };

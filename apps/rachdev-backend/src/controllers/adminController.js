@@ -9,7 +9,7 @@
  * Users are handled by the shared @rach/identity /api/users routes.
  */
 
-const { pool, AgentDefinition, Settings } = require('@rach/core');
+const { pool, AgentDefinition, Settings, AgentTeam } = require('@rach/core');
 
 const { ALLOWED_INDUSTRIES } = require('../config/industries');
 
@@ -131,6 +131,9 @@ exports.createOrg = async (req, res) => {
        RETURNING id, name, industry, created_at`,
       [name, industry]
     );
+    // Seed the editable default agent team for this org's industry from the
+    // start, so its AI flow exists on the canvas immediately (best-effort).
+    await AgentTeam.ensureDefaultForTenant(rows[0].id).catch(() => {});
     res.status(201).json({ org: { ...rows[0], user_count: 0 } });
   } catch (err) {
     if (err.code === '23505') {
