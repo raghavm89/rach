@@ -88,12 +88,15 @@ function BedsTab({ token, onError }: { token: string; onError: (m: string) => vo
       {beds.length === 0 ? <p className="rounded-xl border border-dashed border-neutral-border px-4 py-10 text-center text-sm text-dash-muted">No beds yet — add wards/beds above.</p> : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {beds.map((b) => (
-            <div key={b.id} className={`rounded-xl border p-3 ${BED_STATUS_CLS[b.status]}`}>
-              <div className="flex items-center justify-between">
+            <div key={b.id} className="rounded-xl border border-neutral-border bg-surface-card p-3">
+              <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 font-semibold text-dash-heading"><BedDouble size={15} /> {b.ward} · {b.bed_number}</span>
-                <span className="rounded-full bg-surface-card px-2 py-0.5 text-[10px] font-semibold uppercase">{b.kind}</span>
+                <span className="shrink-0 rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold uppercase text-dash-muted">{b.kind}</span>
               </div>
-              <p className="mt-1 text-xs capitalize">{b.status}{b.patient_name ? ` · ${b.patient_name}` : ''}</p>
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-medium capitalize ${BED_STATUS_CLS[b.status]}`}>{b.status}</span>
+                {b.patient_name ? <span className="text-dash-body">{b.patient_name}</span> : null}
+              </p>
               <div className="mt-2">
                 {b.status === 'occupied' ? (
                   <button onClick={() => release(b)} className="rounded-lg border border-neutral-border bg-surface-card px-2 py-1 text-xs text-dash-body hover:bg-surface-hover">Release</button>

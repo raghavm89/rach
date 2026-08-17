@@ -55,6 +55,7 @@ export const platformNav: DashboardModule[] = [
   { label: 'Knowledge',       href: '/dashboard/knowledge',      icon: BookOpen,  roles: ['tenant_admin'] },
   { label: 'Conversations',   href: '/dashboard/conversations',  icon: MessagesSquare, roles: ['tenant_admin'] },
   { label: 'Agent Monitor',   href: '/dashboard/agent-monitor',  icon: Activity,  roles: ['tenant_admin'] },
+  { label: 'Members',         href: '/dashboard/members',        icon: Users,     roles: ['tenant_admin'] },
 ];
 
 // Industry-independent nav shown BELOW the industry workspace.
