@@ -130,21 +130,51 @@ async function createUser(req, res) {
 
 // ─── PATCH /api/users/:id/role ─────────────────────────────────────────────
 async function updateUserRole(req, res) {
-  const { id } = req.params;
+  const id = Number(req.params.id);
   const { role } = req.body;
   const caller = req.user;
+  const pool = require('@rach/core').pool;
 
   if (!ROLES.includes(role)) {
     return res.status(400).json({ error: `Invalid role. Must be one of: ${ROLES.join(', ')}` });
+  }
+
+  const target = await User.findById(id);
+  if (!target) return res.status(404).json({ error: 'User not found' });
+
+  // Authorization. Platform admin: unrestricted. Org Admin (tenant_admin): may
+  // only change roles of users in their OWN tenant, and only to Member or Org
+  // Admin — never to the platform 'admin' role or another tenant's users.
+  if (caller.role !== 'admin') {
+    if (caller.role !== 'tenant_admin' || target.tenant_id == null || target.tenant_id !== caller.tenant_id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    // Org Admins may assign any workspace role EXCEPT the platform 'admin' role
+    // (mirrors createUser). This covers Member/Org Admin plus the tenant's
+    // industry roles (e.g. Doctor, Reception) so staff get the right access.
+    if (role === 'admin') {
+      return res.status(403).json({ error: 'Org Admins cannot grant the platform admin role' });
+    }
   }
 
   if (caller.id === id && role !== caller.role) {
     return res.status(400).json({ error: 'You cannot change your own role' });
   }
 
-  // Never demote the last remaining admin — it would lock out the admin plane.
+  // Never demote the last remaining platform admin — it would lock out the admin plane.
   if (role !== 'admin' && await wouldRemoveLastAdmin(id)) {
     return res.status(400).json({ error: 'Cannot demote the last remaining admin' });
+  }
+
+  // Never demote the last Org Admin of a workspace — it would lock its admin plane.
+  if (target.role === 'tenant_admin' && role !== 'tenant_admin' && target.tenant_id != null) {
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM users WHERE tenant_id = $1 AND role = 'tenant_admin'",
+      [target.tenant_id]
+    );
+    if (rows[0].n <= 1) {
+      return res.status(400).json({ error: 'Cannot demote the last Org Admin of this workspace' });
+    }
   }
 
   const updated = await User.updateRole(id, role);

@@ -43,8 +43,10 @@ router.post('/', authorize('admin', 'tenant_admin'), createUser);
 // GET /api/users/:id — admin, tenant_admin (own tenant), or self
 router.get('/:id', parseId(), getUserById);
 
-// PATCH /api/users/:id/role   — admin only
-router.patch('/:id/role',   authorize('admin'), parseId(), updateUserRole);
+// PATCH /api/users/:id/role
+//   admin        → any role for any user
+//   tenant_admin → Member/Org Admin for users in their own tenant (enforced in controller)
+router.patch('/:id/role',   authorize('admin', 'tenant_admin'), parseId(), updateUserRole);
 
 // PATCH /api/users/:id/tenant — admin only
 router.patch('/:id/tenant', authorize('admin'), parseId(), updateUserTenant);

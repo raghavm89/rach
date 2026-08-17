@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { industryModules } from '@/config/dashboard/registry';
+import { industryModules, navForUser } from '@/config/dashboard/registry';
 
 /**
  * Dashboard index. `/dashboard` has no content — it routes the user to their
@@ -27,12 +27,16 @@ export default function DashboardIndex() {
     } else {
       const industry = user.tenant_industry ?? null;
       const mod = industry ? industryModules[industry] : undefined;
-      if (mod) {
-        // First module in this industry the user's role can see.
-        const first = mod.modules.find((m) => !m.roles || m.roles.includes(user.role)) ?? mod.modules[0];
-        dest = first?.href ?? '/dashboard/settings';
-      } else if (user.role === 'tenant_admin') {
-        dest = '/dashboard/agent-monitor';
+      // First industry module this role may see — do NOT fall back to modules[0]
+      // (that dumped members onto an admin-only page → "Forbidden").
+      const firstIndustry = mod?.modules.find((m) => !m.roles || m.roles.includes(user.role));
+      if (firstIndustry) {
+        dest = firstIndustry.href;
+      } else {
+        // No workspace page for this role → land on the first thing they can
+        // actually see (platform/footer nav), e.g. Agent Monitor or Support.
+        const nav = navForUser(user.role, industry);
+        dest = nav[0]?.href ?? '/dashboard/settings';
       }
     }
 
