@@ -1,19 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Users, UserPlus, Trash2, RefreshCw, AlertCircle, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { users as usersApi, type User, type UserRole } from '@rach/ui/lib/api';
+import { industryModules } from '@/config/dashboard/registry';
 import { PageHeader } from '@/components/dashboard/PageHeader';
 
-// Org Admins can add two kinds of member. (Platform/other roles are managed by
-// the RachDev admin, not here.)
-const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+const BASE_ROLES: { value: UserRole; label: string }[] = [
   { value: 'tenant_user', label: 'Member' },
   { value: 'tenant_admin', label: 'Org Admin' },
 ];
-const roleLabel = (r: string) => ROLE_OPTIONS.find((o) => o.value === r)?.label ?? r;
 
 const emptyForm = { name: '', email: '', phone_number: '', password: '', role: 'tenant_user' as UserRole };
 
@@ -25,6 +23,15 @@ export default function MembersPage() {
   const [form, setForm] = useState(emptyForm);
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Role options = Member/Org Admin + the tenant's industry roles (Doctor,
+  // Reception, …) so staff can be given the right workspace access.
+  const roleOptions = useMemo(() => {
+    const labels = (user?.tenant_industry && industryModules[user.tenant_industry]?.roleLabels) || {};
+    const industryRoles = Object.entries(labels).map(([value, label]) => ({ value: value as UserRole, label }));
+    return [...BASE_ROLES, ...industryRoles];
+  }, [user?.tenant_industry]);
+  const roleLabel = (r: string) => roleOptions.find((o) => o.value === r)?.label ?? r.replace(/_/g, ' ');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -59,6 +66,14 @@ export default function MembersPage() {
     catch (e) { toast.error((e as Error).message || 'Could not remove member'); }
   }
 
+  async function changeRole(u: User, role: UserRole) {
+    if (!token || role === u.role) return;
+    // Optimistic update; revert on failure.
+    setList((prev) => prev.map((m) => (m.id === u.id ? { ...m, role } : m)));
+    try { await usersApi.updateRole(token, u.id, role); toast.success(`${u.name} is now ${roleLabel(role)}`); }
+    catch (e) { toast.error((e as Error).message || 'Could not change role'); load(); }
+  }
+
   const inputCls = 'w-full rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading focus:border-accent focus:outline-none';
 
   return (
@@ -89,7 +104,7 @@ export default function MembersPage() {
             <input value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} placeholder="Phone (+91…)" className={inputCls} />
             <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Temporary password (8+ chars)" type="text" className={inputCls} />
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })} className={inputCls}>
-              {ROLE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {roleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <div className="flex items-center">
               <button onClick={addMember} disabled={adding} className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
@@ -119,9 +134,22 @@ export default function MembersPage() {
                   <div className="text-xs text-dash-muted">{u.email}</div>
                 </td>
                 <td className="px-3 py-3">
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${u.role === 'tenant_admin' ? 'bg-accent-weak text-accent' : 'bg-surface-hover text-dash-muted'}`}>
-                    {u.role === 'tenant_admin' && <Shield size={11} />} {roleLabel(u.role)}
-                  </span>
+                  {u.id === user?.id ? (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${u.role === 'tenant_admin' ? 'bg-accent-weak text-accent' : 'bg-surface-hover text-dash-muted'}`}>
+                      {u.role === 'tenant_admin' && <Shield size={11} />} {roleLabel(u.role)}
+                    </span>
+                  ) : (
+                    <select
+                      value={u.role}
+                      onChange={(e) => changeRole(u, e.target.value as UserRole)}
+                      className="rounded-lg border border-neutral-border bg-surface-app px-2 py-1 text-xs text-dash-heading focus:border-accent focus:outline-none"
+                      aria-label={`Role for ${u.name}`}
+                    >
+                      {roleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {/* Preserve an unknown current role as a selectable option so it isn't lost. */}
+                      {!roleOptions.some((o) => o.value === u.role) && <option value={u.role}>{u.role.replace(/_/g, ' ')}</option>}
+                    </select>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-right">
                   {u.id !== user?.id && (
