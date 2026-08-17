@@ -19,7 +19,12 @@ const edge = (s, t) => ({ id: `e-${s}-${t}`, source: s, target: t });
 const HEALTHCARE = g(
   [
     { id: 'ch', type: 'channel', position: { x: 40, y: 80 }, data: { channel: 'website', label: 'Website widget' } },
-    { id: 'c', type: 'conductor', position: { x: 300, y: 80 }, data: { label: 'Asha — Intake', role: 'Greets patients, understands the need, and routes to the right specialist', rules: [] } },
+    { id: 'c', type: 'conductor', position: { x: 300, y: 80 }, data: { label: 'Asha — Intake', role: 'Greets patients, understands the need, and routes to the right specialist', rules: [
+      // Deterministic routing (checked top-to-bottom, first match wins; else the model routes).
+      { when: 'emergency, ICU, OT, operation, surgery, admit, admission, bed, transfer', to: 's2' }, // → Kabir (Coordination)
+      { when: 'prescription, medicine, medication, dispense, pharmacy, drug, refill, dosage', to: 's3' }, // → Kiran (Pharmacy)
+      { when: 'note, document, documentation, SOAP, summary, scribe, visit', to: 's1' }, // → Naina (Scribe)
+    ] } },
     { id: 's1', type: 'specialist', position: { x: 600, y: -40 }, data: { label: 'Naina — Clinical Scribe', role: 'Documents visits into SOAP notes', prompt: 'You are Naina, a clinical scribe. Turn the consultation into a clear, structured SOAP note.', model_class: 'balanced' } },
     { id: 's2', type: 'specialist', position: { x: 600, y: 80 }, data: { label: 'Kabir — Coordination', role: 'Beds, referrals, discharge & follow-ups', prompt: 'You are Kabir, a care coordinator. Handle bed allocation, referrals, discharge summaries and follow-ups.', model_class: 'balanced' } },
     { id: 's3', type: 'specialist', position: { x: 600, y: 200 }, data: { label: 'Kiran — Pharmacy', role: 'Dispensing & stock shortage alerts', prompt: 'You are Kiran, pharmacy inventory. Handle dispensing and raise reorder alerts when stock is low.', model_class: 'balanced' } },

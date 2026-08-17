@@ -7,6 +7,21 @@ import { reception, opd, type Encounter, type IntakeData, type Patient } from '@
 import { DICTATION_LANGS as LANGS } from '@/config/languages';
 const EMPTY: IntakeData = { patient: { name: '', age: '', sex: '' }, reason: '', history: '', medications: [], allergies: [], vitals: '', triage_summary: '' };
 
+// When a patient is attached from search, that record is the source of truth for
+// identity — fill Name/Age/Sex from it (the AI only extracts what's in the
+// conversation, which usually omits these). Falls back to the AI values.
+function withPatientIdentity(intake: IntakeData, p: Patient | null): IntakeData {
+  if (!p) return intake;
+  return {
+    ...intake,
+    patient: {
+      name: p.name || intake.patient.name || '',
+      age: (p.age != null && String(p.age) !== '' ? String(p.age) : intake.patient.age) || '',
+      sex: p.sex || intake.patient.sex || '',
+    },
+  };
+}
+
 /** AI intake assist (Asha): conversation → structured intake → confirm. */
 export function ReceptionIntake({ token, onConfirmed }: { token: string; onConfirmed?: () => void }) {
   const [patientRef, setPatientRef] = useState('');
@@ -46,7 +61,11 @@ export function ReceptionIntake({ token, onConfirmed }: { token: string; onConfi
     try { const { patients } = await opd.searchPatients(token, q.trim()); setResults(patients); }
     catch (e) { setError((e as Error).message); } finally { setSearching(false); }
   };
-  const pick = (p: Patient) => { setPatient(p); setPatientRef(p.uhid || p.name); setResults([]); setQ(''); };
+  const pick = (p: Patient) => {
+    setPatient(p); setPatientRef(p.uhid || p.name); setResults([]); setQ('');
+    // If an intake was already structured, backfill identity from the newly attached patient.
+    if (enc) setIntake((s) => withPatientIdentity(s, p));
+  };
   const clearPatient = () => { setPatient(null); setPatientRef(''); };
 
   // A picked patient anchors the intake to an existing record; otherwise fall back
@@ -58,7 +77,7 @@ export function ReceptionIntake({ token, onConfirmed }: { token: string; onConfi
     setGenerating(true); setError('');
     try {
       const { encounter } = await reception.create(token, { transcript: transcript.trim(), patient_ref: refForCreate || undefined, source: listening ? 'dictation' : 'text', encounter_id: enc && enc.status === 'open' ? enc.id : undefined });
-      setEnc(encounter); setIntake(encounter.intake);
+      setEnc(encounter); setIntake(withPatientIdentity(encounter.intake, patient));
     } catch (e) { setError((e as Error).message); } finally { setGenerating(false); }
   };
   const confirm = async () => {
