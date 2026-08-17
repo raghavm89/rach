@@ -209,7 +209,7 @@ function Register({ token, onIssued, onError }: { token: string; onIssued: (v: V
         </div>
         <div className="mt-3 space-y-1">
           {results.map((p) => (
-            <button key={p.id} onClick={() => pickPatient(p)} className={'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ' + (selected?.id === p.id ? 'border-accent bg-accent-weak' : 'border-neutral-border hover:bg-surface-hover')}>
+            <button key={p.id} onClick={() => pickPatient(p)} className={'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ' + (selected?.id === p.id ? 'border-accent bg-surface-hover' : 'border-neutral-border hover:bg-surface-hover')}>
               <span><span className="font-medium text-dash-heading">{p.name}</span> <span className="text-xs text-dash-muted">{p.uhid}{p.phone ? ` · ${p.phone}` : ''}{p.sex ? ` · ${p.sex}` : ''}{p.age ? ` · ${p.age}` : ''}</span></span>
               {p.source_system !== 'local' && <span className="rounded bg-surface-hover px-1.5 py-0.5 text-[10px] uppercase text-dash-muted">{p.source_system}</span>}
             </button>

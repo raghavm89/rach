@@ -91,7 +91,7 @@ export function ReceptionIntake({ token, onConfirmed }: { token: string; onConfi
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="rounded-2xl border border-neutral-border bg-surface-card p-6">
         {patient ? (
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-accent bg-accent-weak px-3 py-2 text-sm">
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-accent bg-surface-app px-3 py-2 text-sm">
             <span><span className="font-medium text-dash-heading">{patient.name}</span> <span className="text-xs text-dash-muted">HID {patient.uhid}{patient.phone ? ` · ${patient.phone}` : ''}{patient.sex ? ` · ${patient.sex}` : ''}{patient.age ? ` · ${patient.age}` : ''}</span></span>
             <button type="button" onClick={clearPatient} title="Clear patient" className="rounded-md p-1 text-dash-muted hover:bg-surface-hover hover:text-dash-heading"><X size={14} /></button>
           </div>
