@@ -136,7 +136,7 @@ function ReferralsTab({ token, onError }: { token: string; onError: (m: string) 
       <div className="rounded-2xl border border-neutral-border bg-surface-card p-5">
         <h3 className="mb-3 text-sm font-semibold text-dash-heading">New referral</h3>
         {patient ? (
-          <div className="mb-2 flex items-center justify-between rounded-lg border border-accent bg-accent-weak px-3 py-1.5 text-sm"><span>{patient.name} <span className="text-xs text-dash-muted">{patient.uhid}</span></span><button onClick={() => setPatient(null)}><X size={14} /></button></div>
+          <div className="mb-2 flex items-center justify-between rounded-lg border border-accent bg-surface-app px-3 py-1.5 text-sm"><span className="text-dash-heading">{patient.name} <span className="text-xs text-dash-muted">{patient.uhid}</span></span><button onClick={() => setPatient(null)}><X size={14} /></button></div>
         ) : <div className="mb-2"><PatientPick token={token} onPick={setPatient} onError={onError} /></div>}
         <div className="space-y-2">
           <input value={f.to_dept} onChange={(e) => setF({ ...f, to_dept: e.target.value })} placeholder="Refer to department" className={inputCls} />
@@ -224,7 +224,7 @@ function DischargeTab({ token, onError }: { token: string; onError: (m: string) 
         {/* Follow-up */}
         <div className="rounded-2xl border border-neutral-border bg-surface-card p-5">
           <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-dash-heading"><CalendarClock size={15} /> Schedule follow-up</h3>
-          {fuPatient ? <div className="mb-2 flex items-center justify-between rounded-lg border border-accent bg-accent-weak px-3 py-1.5 text-sm"><span>{fuPatient.name} <span className="text-xs text-dash-muted">{fuPatient.uhid}</span></span><button onClick={() => setFuPatient(null)}><X size={14} /></button></div>
+          {fuPatient ? <div className="mb-2 flex items-center justify-between rounded-lg border border-accent bg-surface-app px-3 py-1.5 text-sm"><span className="text-dash-heading">{fuPatient.name} <span className="text-xs text-dash-muted">{fuPatient.uhid}</span></span><button onClick={() => setFuPatient(null)}><X size={14} /></button></div>
             : <div className="mb-2"><PatientPick token={token} onPick={setFuPatient} onError={onError} /></div>}
           <input type="datetime-local" value={fuDate} onChange={(e) => setFuDate(e.target.value)} className={`${inputCls} mb-2`} />
           <input value={fuReason} onChange={(e) => setFuReason(e.target.value)} placeholder="Reason (optional)" className={`${inputCls} mb-2`} />

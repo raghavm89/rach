@@ -113,7 +113,7 @@ export default function BillingPage() {
             {list.length === 0 ? <p className="text-xs text-dash-muted">No claims yet.</p> : (
               <div className="space-y-1">
                 {list.map((c) => (
-                  <button key={c.id} onClick={() => openClaim(c.id)} className={'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ' + (claim?.id === c.id ? 'border-accent bg-accent-weak' : 'border-neutral-border hover:bg-surface-hover')}>
+                  <button key={c.id} onClick={() => openClaim(c.id)} className={'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm ' + (claim?.id === c.id ? 'border-accent bg-surface-hover' : 'border-neutral-border hover:bg-surface-hover')}>
                     <span className="min-w-0 truncate"><span className="font-medium text-dash-heading">{c.patient_ref || 'Unnamed'}</span> <span className="text-xs text-dash-muted">{c.payer} · ₹{Number(c.total_amount)}</span></span>
                     <span className="flex shrink-0 items-center gap-1">
                       <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${RISK_CLS[c.denial_risk]}`}>{c.denial_risk}</span>

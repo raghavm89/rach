@@ -117,7 +117,7 @@ export default function IcuPage() {
               <button onClick={search} className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"><Search size={14} /></button>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-lg border border-accent bg-accent-weak px-3 py-2 text-sm">
+            <div className="flex items-center justify-between rounded-lg border border-accent bg-surface-app px-3 py-2 text-sm">
               <span><span className="font-medium text-dash-heading">{patient.name}</span> <span className="text-xs text-dash-muted">HID {patient.uhid}</span></span>
               <button onClick={() => { setPatient(null); setJustFired(null); }} className="rounded-md p-1 text-dash-muted hover:bg-surface-hover"><X size={14} /></button>
             </div>
