@@ -14,7 +14,9 @@ const ACUITY_CLS: Record<string, string> = {
 const ROUTES = ['ER', 'ICU', 'OPD', 'specialist'];
 
 export default function TriagePage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  // Assessing acuity is front-desk; acknowledging & routing is a clinician decision.
+  const canAcknowledge = !!user && ['doctor', 'tenant_admin', 'admin'].includes(user.role);
   const [presentation, setPresentation] = useState('');
   const [vitals, setVitals] = useState('');
   const [patientRef, setPatientRef] = useState('');
@@ -128,13 +130,18 @@ export default function TriagePage() {
 
               <p className="mt-3 text-xs text-dash-muted">Recommendation only — a clinician acknowledges and decides.</p>
 
-              {!acked && (
+              {!acked && canAcknowledge && (
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-border pt-4">
                   <button onClick={() => acknowledge()} disabled={ackBusy} className="inline-flex items-center gap-2 rounded-lg bg-ok px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">{ackBusy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Acknowledge &amp; route</button>
                   <span className="text-xs text-dash-muted">or override route:</span>
                   {ROUTES.filter((r) => r !== a.recommended_route).map((r) => (
                     <button key={r} onClick={() => acknowledge(r)} disabled={ackBusy} className="rounded-lg border border-neutral-border px-2.5 py-1 text-xs text-dash-body hover:bg-surface-hover">{r}</button>
                   ))}
+                </div>
+              )}
+              {!acked && !canAcknowledge && (
+                <div className="mt-4 rounded-lg border border-dashed border-neutral-border px-3 py-2.5 text-xs text-dash-muted">
+                  A clinician will acknowledge and route this assessment.
                 </div>
               )}
             </>

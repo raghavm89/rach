@@ -15,29 +15,34 @@ exports.create = async (req, res) => {
   const src = VALID_SOURCES.has(source) ? source : 'text';
   const ref = (patient_ref || '').trim() || null;
 
-  const { intake, model } = await reception.generateIntake({
-    tenantId: req.user.tenant_id,
-    userId:   req.user.id,
-    transcript,
-  });
-
-  // If an existing patient is attached (by ref), that record is the source of
-  // truth for identity — fill Name/Age/Sex from it (the AI only extracts what's
-  // actually said in the conversation, which usually omits these).
+  // Resolve the attached patient (if any) up front, so we can (a) give the model
+  // its demographics — it won't report them as "not collected" — and (b) fill
+  // identity into the result afterward.
+  let attached = null;
   if (ref) {
     const { rows: pm } = await pool.query(
       `SELECT name, age, sex FROM patients
          WHERE tenant_id = $1 AND (uhid = $2 OR phone = $2 OR lower(name) = lower($2)) LIMIT 1`,
       [req.user.tenant_id, ref]
     );
-    if (pm[0]) {
-      const cur = intake.patient || {};
-      intake.patient = {
-        name: pm[0].name || cur.name || '',
-        age: (pm[0].age != null && String(pm[0].age) !== '') ? String(pm[0].age) : (cur.age || ''),
-        sex: pm[0].sex || cur.sex || '',
-      };
-    }
+    attached = pm[0] || null;
+  }
+
+  const { intake, model } = await reception.generateIntake({
+    tenantId: req.user.tenant_id,
+    userId:   req.user.id,
+    transcript,
+    patient: attached ? { name: attached.name, age: attached.age, sex: attached.sex } : null,
+  });
+
+  // The attached record is the source of truth for identity — fill Name/Age/Sex.
+  if (attached) {
+    const cur = intake.patient || {};
+    intake.patient = {
+      name: attached.name || cur.name || '',
+      age: (attached.age != null && String(attached.age) !== '') ? String(attached.age) : (cur.age || ''),
+      sex: attached.sex || cur.sex || '',
+    };
   }
 
   const patientName = intake.patient?.name || null;
