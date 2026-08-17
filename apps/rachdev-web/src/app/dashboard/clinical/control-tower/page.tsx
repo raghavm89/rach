@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, RefreshCw, Radio, Stethoscope, ClipboardList, Package, ArrowRight, ShieldCheck, Activity, AlertCircle, ScrollText } from 'lucide-react';
+import { Loader2, RefreshCw, Radio, Stethoscope, ClipboardList, Package, ArrowRight, ShieldCheck, Activity, AlertCircle, ScrollText, UserCheck } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { controlTower, audit, type ControlTowerOverview, type ControlTowerAgent, type AuditEntry, type AuditSummary } from '@rach/ui/lib/api';
 import { PageHeader } from '@/components/dashboard/PageHeader';
@@ -61,12 +61,10 @@ export default function ControlTowerPage() {
     { label: 'Shortage alerts', value: ov?.health?.shortage_alerts ?? 0, icon: AlertCircle },
   ];
 
-  // Handoff pipeline (deck architecture): intake → scribe → coordination, with pharmacy alongside.
-  const PIPE = [
-    { name: 'Asha', role: 'Intake', icon: ClipboardList },
-    { name: 'Naina', role: 'Scribe', icon: Stethoscope },
-    { name: 'Kabir', role: 'Coordination', icon: Radio },
-  ];
+  // Handoff pipeline — reflects the org's live Agent Team graph (edit it on the
+  // Agent Teams canvas and it updates here).
+  const pipe = ov?.pipeline ?? [];
+  const stepIcon = (type: string) => (type === 'conductor' ? Radio : type === 'handoff' ? UserCheck : Stethoscope);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -92,24 +90,31 @@ export default function ControlTowerPage() {
             ))}
           </div>
 
-          {/* Handoff pipeline */}
+          {/* Handoff pipeline — live from the org's Agent Team graph */}
           <div className="rounded-2xl border border-neutral-border bg-surface-card p-5">
-            <h3 className="mb-4 text-sm font-semibold text-dash-heading">Handoff pipeline</h3>
-            <div className="flex flex-wrap items-center gap-2">
-              {PIPE.map((p, i) => (
-                <div key={p.name} className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-xl border border-neutral-border bg-surface-app px-3 py-2">
-                    <p.icon size={15} className="text-accent" />
-                    <div><div className="text-sm font-semibold text-dash-heading">{p.name}</div><div className="text-[11px] text-dash-muted">{p.role}</div></div>
-                  </div>
-                  {i < PIPE.length - 1 && <ArrowRight size={16} className="text-dash-muted" />}
-                </div>
-              ))}
-              <div className="ml-2 flex items-center gap-2 rounded-xl border border-dashed border-neutral-border px-3 py-2">
-                <Package size={15} className="text-dash-muted" />
-                <div><div className="text-sm font-semibold text-dash-heading">Kiran</div><div className="text-[11px] text-dash-muted">Pharmacy · alongside</div></div>
-              </div>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-dash-heading">Handoff pipeline{ov?.team ? <span className="ml-2 font-normal text-dash-muted">· {ov.team.name}</span> : null}</h3>
+              {ov?.team && <Link href={`/dashboard/agent-teams/${ov.team.id}`} className="text-[12px] font-medium text-accent hover:underline">Edit on canvas →</Link>}
             </div>
+            {pipe.length === 0 ? (
+              <p className="text-sm text-dash-muted">No agent team yet. <Link href="/dashboard/agent-teams" className="text-accent hover:underline">Design one →</Link></p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                {pipe.map((p, i) => {
+                  const Icon = stepIcon(p.type);
+                  const isHandoff = p.type === 'handoff';
+                  return (
+                    <div key={`${p.label}-${i}`} className="flex items-center gap-2">
+                      <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isHandoff ? 'border-dashed border-neutral-border' : 'border-neutral-border bg-surface-app'}`}>
+                        <Icon size={15} className={isHandoff ? 'text-dash-muted' : 'text-accent'} />
+                        <div><div className="text-sm font-semibold text-dash-heading">{p.label}</div>{p.role ? <div className="text-[11px] text-dash-muted">{p.role}</div> : null}</div>
+                      </div>
+                      {i < pipe.length - 1 && !isHandoff && <ArrowRight size={16} className="text-dash-muted" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Agent roster */}

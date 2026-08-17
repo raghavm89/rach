@@ -1717,6 +1717,9 @@ export interface ControlTowerOverview {
   } | null;
   agents: ControlTowerAgent[];
   recent: ControlTowerActivity[];
+  /** Handoff pipeline derived from the org's live Agent Team graph. */
+  pipeline?: { label: string; role: string; type: 'conductor' | 'specialist' | 'handoff' | string }[];
+  team?: { id: number; name: string; key: string } | null;
   health: { models: string[]; drafts_pending: number; shortage_alerts?: number; disabled: string[] };
 }
 

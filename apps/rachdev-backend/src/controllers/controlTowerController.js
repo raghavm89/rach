@@ -9,7 +9,30 @@
  * and agent_definitions.
  */
 
-const { pool, AgentDefinition } = require('@rach/core');
+const { pool, AgentDefinition, AgentTeam } = require('@rach/core');
+
+// Turn a team's canvas graph into an ordered handoff pipeline: conductor →
+// specialists (in edge order) → human handoff. Keeps Control Tower's pipeline in
+// lock-step with whatever the org has on the Agent Teams canvas.
+function pipelineFromGraph(graph) {
+  const nodes = Array.isArray(graph && graph.nodes) ? graph.nodes : [];
+  const edges = Array.isArray(graph && graph.edges) ? graph.edges : [];
+  const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
+  const steps = [];
+  const step = (n, kind) => n && steps.push({ label: (n.data && n.data.label) || kind, role: (n.data && n.data.role) || '', type: n.type });
+  const conductor = nodes.find((n) => n.type === 'conductor');
+  if (conductor) {
+    step(conductor, 'conductor');
+    const outs = edges.filter((e) => e.source === conductor.id).map((e) => byId[e.target]).filter(Boolean);
+    outs.filter((n) => n.type === 'specialist').forEach((n) => step(n, 'specialist'));
+    step(outs.find((n) => n.type === 'handoff') || nodes.find((n) => n.type === 'handoff'), 'handoff');
+  } else {
+    nodes.filter((n) => n.type === 'specialist').forEach((n) => step(n, 'specialist'));
+    step(nodes.find((n) => n.type === 'handoff'), 'handoff');
+  }
+  return steps;
+}
+const DEFAULT_TEAM_KEYS = ['care-team', 'people-team', 'my-first-team'];
 
 // The RachDev agent roster (display names). Scribe + Reception have real data;
 // the rest report from their definitions until their flows land.
@@ -35,8 +58,15 @@ function isEnabled(def) {
 exports.overview = async (req, res) => {
   const tid = req.user.tenant_id;
   if (!tid) {
-    return res.json({ summary: null, agents: [], recent: [], health: { models: [], drafts_pending: 0, disabled: [] } });
+    return res.json({ summary: null, agents: [], recent: [], pipeline: [], team: null, health: { models: [], drafts_pending: 0, disabled: [] } });
   }
+
+  // The handoff pipeline reflects the org's live Agent Team graph, so edits on
+  // the canvas show here too. Seed the default first if the org has none.
+  await AgentTeam.ensureDefaultForTenant(tid).catch(() => {});
+  const teams = await AgentTeam.listForTenant(tid).catch(() => []);
+  const primaryTeam = teams.find((t) => DEFAULT_TEAM_KEYS.includes(t.key)) || teams[0] || null;
+  const pipeline = primaryTeam ? pipelineFromGraph(primaryTeam.graph) : [];
 
   // ── Summary ──
   const [notesAgg, chatAgg, defs] = await Promise.all([
@@ -275,6 +305,8 @@ exports.overview = async (req, res) => {
     },
     agents,
     recent,
+    pipeline,
+    team: primaryTeam ? { id: primaryTeam.id, name: primaryTeam.name, key: primaryTeam.key } : null,
     health: { models, drafts_pending: notes.drafts, shortage_alerts: openAlerts, disabled },
   });
 };

@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const pool = require('../config/db');
+const { defaultTeamFor } = require('../config/teamTemplates');
 
 /**
  * AgentTeam — the multi-agent "canvas" unit (migration 082). A team owns a
@@ -36,6 +37,31 @@ const AgentTeam = {
       [tenantId]
     );
     return rows;
+  },
+
+  /**
+   * Ensure a workspace has at least one team. If it has none, seed the editable
+   * default that matches its industry (or a generic starter) so its AI flow is
+   * always a real Agent Team. Idempotent — a no-op once any team exists.
+   */
+  async ensureDefaultForTenant(tenantId, { userId = null } = {}) {
+    if (tenantId == null) return { created: false };
+    const existing = await pool.query('SELECT id FROM agent_teams WHERE tenant_id = $1 LIMIT 1', [tenantId]);
+    if (existing.rows[0]) return { created: false };
+
+    const t = await pool.query('SELECT industry FROM tenants WHERE id = $1', [tenantId]);
+    const industry = t.rows[0] ? t.rows[0].industry : null;
+    const tpl = defaultTeamFor(industry);
+    try {
+      const team = await this.create({
+        tenant_id: tenantId, key: tpl.key, name: tpl.name, description: tpl.description,
+        industry, graph: tpl.graph, created_by: userId,
+      });
+      return { created: true, team };
+    } catch {
+      // Lost a race (UNIQUE tenant_id,key) — another request seeded it. Fine.
+      return { created: false };
+    }
   },
 
   async findById(id) {
