@@ -150,7 +150,7 @@ export function ReceptionIntake({ token, onConfirmed }: { token: string; onConfi
             <div className="mt-3 space-y-3">
               {([['reason', 'Reason for visit'], ['triage_summary', 'Triage summary']] as const).map(([k, label]) => (
                 <div key={k}><label className="mb-1 block text-xs uppercase text-dash-muted">{label}</label>
-                  <textarea value={intake[k]} readOnly={confirmed} rows={2} onChange={(e) => patch({ [k]: e.target.value } as Partial<IntakeData>)} className="w-full resize-y rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading focus:border-accent focus:outline-none" /></div>
+                  <textarea value={intake[k]} readOnly={confirmed} rows={k === 'triage_summary' ? 6 : 2} onChange={(e) => patch({ [k]: e.target.value } as Partial<IntakeData>)} className="w-full resize-y rounded-lg border border-neutral-border bg-surface-app px-3 py-2 text-sm text-dash-heading focus:border-accent focus:outline-none" /></div>
               ))}
             </div>
             {!confirmed && <button onClick={confirm} disabled={confirming} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-ok px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">{confirming ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Confirm intake</button>}

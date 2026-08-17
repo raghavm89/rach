@@ -86,7 +86,7 @@ function parseIntake(text) {
  * Generate a structured intake from a reception transcript.
  * @returns {Promise<{intake, model, totalTokens, creditsUsed}>}
  */
-async function generateIntake({ tenantId, userId, transcript }) {
+async function generateIntake({ tenantId, userId, transcript, patient = null }) {
   if (!transcript || !String(transcript).trim()) throw new Error('Transcript is required');
 
   // Correct ASR mishears (drug names, homophones) before structuring. Best-effort.
@@ -98,7 +98,12 @@ async function generateIntake({ tenantId, userId, transcript }) {
   const system = buildSystemPrompt(def?.prompt);
   const model = (await getTenantModel(tenantId)) || def?.model || undefined;
 
-  const baseMessages = [{ role: 'user', content: `Reception conversation:\n${clean}` }];
+  // If a patient is already attached, tell the model — so it uses those
+  // demographics and does NOT report name/age/sex as "not yet collected".
+  const known = patient && (patient.name || patient.age || patient.sex)
+    ? `Known patient (already on record — treat name/age/sex as provided, never list them as missing): ${[patient.name, patient.age && `age ${patient.age}`, patient.sex && `sex ${patient.sex}`].filter(Boolean).join(', ')}.\n\n`
+    : '';
+  const baseMessages = [{ role: 'user', content: `${known}Reception conversation:\n${clean}` }];
   // Models occasionally answer in prose instead of JSON. Try once; if the output
   // can't be parsed, retry once with a hard JSON-only reminder before failing.
   const attempts = [
