@@ -89,7 +89,7 @@ export default function InventoryPage() {
 
       {/* Shortage alerts */}
       {openAlerts.length > 0 && (
-        <div className="mb-6 rounded-xl border border-wait-line bg-wait-bg/60 p-4">
+        <div className="mb-6 rounded-xl border border-wait-line bg-surface-app p-4">
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-wait"><AlertTriangle size={15} /> Shortage alerts ({openAlerts.length})</h3>
           <div className="space-y-2">
             {openAlerts.map((a) => (
