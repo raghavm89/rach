@@ -12,6 +12,7 @@
 const { gateway } = require('@rach/llm');
 const { AgentDefinition } = require('@rach/core');
 const { getTenantModel } = require('./tenantLlm');
+const { cleanupClinicalTranscript } = require('./transcriptCleanup');
 
 const DEFAULT_PERSONA = `You are a reception intake assistant for a clinic. From a reception conversation, collect the patient's details and presenting complaint and draft a concise triage summary.
 
@@ -88,28 +89,40 @@ function parseIntake(text) {
 async function generateIntake({ tenantId, userId, transcript }) {
   if (!transcript || !String(transcript).trim()) throw new Error('Transcript is required');
 
+  // Correct ASR mishears (drug names, homophones) before structuring. Best-effort.
+  const clean = await cleanupClinicalTranscript({ tenantId, userId, text: transcript, kind: 'reception intake' });
+
   let def = null;
   try { def = await AgentDefinition.findByKey(tenantId, 'reception'); } catch { /* optional */ }
 
   const system = buildSystemPrompt(def?.prompt);
   const model = (await getTenantModel(tenantId)) || def?.model || undefined;
 
-  const result = await gateway.chat({
-    tenantId,
-    userId,
-    model,
-    system,
-    messages: [{ role: 'user', content: `Reception conversation:\n${transcript}` }],
-    description: 'Reception: structure patient intake',
-    mock: buildMockIntake(transcript),
-  });
+  const baseMessages = [{ role: 'user', content: `Reception conversation:\n${clean}` }];
+  // Models occasionally answer in prose instead of JSON. Try once; if the output
+  // can't be parsed, retry once with a hard JSON-only reminder before failing.
+  const attempts = [
+    baseMessages,
+    [...baseMessages, { role: 'user', content: 'Your response must be ONLY the JSON object described in the system prompt — no explanation, no prose, starting with "{" and ending with "}".' }],
+  ];
 
-  return {
-    intake: parseIntake(result.text),
-    model: result.model,
-    totalTokens: result.totalTokens,
-    creditsUsed: result.creditsUsed,
-  };
+  let lastErr = null;
+  for (const messages of attempts) {
+    const result = await gateway.chat({
+      tenantId, userId, model, system, messages,
+      description: 'Reception: structure patient intake',
+      mock: buildMockIntake(clean),
+    });
+    try {
+      return {
+        intake: parseIntake(result.text),
+        model: result.model,
+        totalTokens: result.totalTokens,
+        creditsUsed: result.creditsUsed,
+      };
+    } catch (err) { lastErr = err; }
+  }
+  throw lastErr || new Error('Failed to structure intake');
 }
 
 module.exports = { buildSystemPrompt, parseIntake, generateIntake, DEFAULT_SYSTEM_PROMPT };

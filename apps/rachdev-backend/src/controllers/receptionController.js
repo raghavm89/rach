@@ -20,6 +20,26 @@ exports.create = async (req, res) => {
     userId:   req.user.id,
     transcript,
   });
+
+  // If an existing patient is attached (by ref), that record is the source of
+  // truth for identity — fill Name/Age/Sex from it (the AI only extracts what's
+  // actually said in the conversation, which usually omits these).
+  if (ref) {
+    const { rows: pm } = await pool.query(
+      `SELECT name, age, sex FROM patients
+         WHERE tenant_id = $1 AND (uhid = $2 OR phone = $2 OR lower(name) = lower($2)) LIMIT 1`,
+      [req.user.tenant_id, ref]
+    );
+    if (pm[0]) {
+      const cur = intake.patient || {};
+      intake.patient = {
+        name: pm[0].name || cur.name || '',
+        age: (pm[0].age != null && String(pm[0].age) !== '') ? String(pm[0].age) : (cur.age || ''),
+        sex: pm[0].sex || cur.sex || '',
+      };
+    }
+  }
+
   const patientName = intake.patient?.name || null;
   const reason = intake.reason || null;
 

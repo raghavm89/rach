@@ -12,6 +12,7 @@
 const { gateway } = require('@rach/llm');
 const { AgentDefinition } = require('@rach/core');
 const { getTenantModel } = require('./tenantLlm');
+const { cleanupClinicalTranscript } = require('./transcriptCleanup');
 
 const DEFAULT_PERSONA = `You are a clinical documentation assistant for a hospital. You convert a raw doctor–patient visit transcript into a concise, structured SOAP note.
 
@@ -129,6 +130,9 @@ async function generateNote({ tenantId, userId, transcript }) {
     throw new Error('Transcript is required');
   }
 
+  // Correct ASR mishears (drug names, homophones) before writing the note. Best-effort.
+  const clean = await cleanupClinicalTranscript({ tenantId, userId, text: transcript, kind: 'consultation' });
+
   let def = null;
   try {
     def = await AgentDefinition.findByKey(tenantId, 'scribe');
@@ -138,7 +142,7 @@ async function generateNote({ tenantId, userId, transcript }) {
   // Prefer the org's admin-configured model, then the agent's, then the default.
   const model = (await getTenantModel(tenantId)) || def?.model || undefined;
 
-  const baseMessages = [{ role: 'user', content: `Transcript:\n${transcript}` }];
+  const baseMessages = [{ role: 'user', content: `Transcript:\n${clean}` }];
 
   // Some models (esp. terse transcripts or on-prem models) occasionally answer in
   // prose instead of JSON. Try once, and if the output can't be parsed, retry once
