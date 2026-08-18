@@ -21,9 +21,12 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: React.Re
   cancel_at_period_end: { label: 'Cancels at cycle end', cls: 'bg-orange-50 text-orange-700 border border-orange-200',   icon: <Ban size={11} /> },
 };
 
-function usd(cents: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency', currency: 'INR', minimumFractionDigits: 0,
+// Format an amount in the order's own currency (catalog is USD; INR orders exist too).
+// Previously this hardcoded INR, so USD orders wrongly rendered as ₹.
+function money(cents: number, currency?: string | null) {
+  const cur = currency || 'USD';
+  return new Intl.NumberFormat(cur === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency', currency: cur, minimumFractionDigits: 0,
   }).format(cents / 100);
 }
 
@@ -51,10 +54,7 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
       hour: '2-digit', minute: '2-digit',
     }) : null;
 
-  const amountDisplay =
-    r.amount_paid > 0
-      ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: r.currency ?? 'INR' }).format(r.amount_paid / 100)
-      : null;
+  const amountDisplay = r.amount_paid > 0 ? money(r.amount_paid, r.currency) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
@@ -482,7 +482,7 @@ export default function OrdersPage() {
                       {/* Amount */}
                       <td className="px-6 py-4">
                         <span className="font-semibold font-mono text-text-primary">
-                          {order.amount_paid ? usd(order.amount_paid) : '—'}
+                          {order.amount_paid ? money(order.amount_paid, order.currency) : '—'}
                         </span>
                         {order.razorpay_subscription_id && (
                           <span className="text-xs text-text-muted ml-1">/mo</span>
