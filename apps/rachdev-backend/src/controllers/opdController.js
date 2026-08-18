@@ -8,6 +8,7 @@
 
 const { pool } = require('@rach/core');
 const dhanvantri = require('../services/dhanvantri');
+const { assignUhid } = require('../services/patientId');
 const doctorAssign = require('../services/doctorAssign');
 const audit = require('../services/audit');
 
@@ -85,11 +86,9 @@ exports.upsertPatient = async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb) RETURNING *`,
     [req.user.tenant_id, String(name).trim(), dob || null, age || null, sex || null, phone || null, address || null, mil]
   );
-  // Assign a UHID/CR number from the row id.
-  const { rows: upd } = await pool.query(
-    `UPDATE patients SET uhid = $1 WHERE id = $2 RETURNING *`,
-    ['UH' + String(rows[0].id).padStart(6, '0'), rows[0].id]
-  );
+  // Assign a UHID/CR number using the tenant's configured prefix.
+  await assignUhid(pool, req.user.tenant_id, rows[0].id);
+  const { rows: upd } = await pool.query('SELECT * FROM patients WHERE id = $1', [rows[0].id]);
   res.status(201).json({ patient: upd[0] });
 };
 

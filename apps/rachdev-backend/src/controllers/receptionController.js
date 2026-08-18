@@ -3,6 +3,7 @@
 const { pool } = require('@rach/core');
 const reception = require('../services/reception');
 const audit = require('../services/audit');
+const { assignUhid } = require('../services/patientId');
 
 const VALID_SOURCES = new Set(['text', 'dictation', 'asr']);
 
@@ -174,7 +175,7 @@ exports.confirm = async (req, res) => {
           [tenantId, name, p.age || null, p.sex || null]
         );
         patientId = ins[0].id;
-        await client.query(`UPDATE patients SET uhid = $1 WHERE id = $2`, ['UH' + String(patientId).padStart(6, '0'), patientId]);
+        await assignUhid(client, tenantId, patientId);
       }
 
       // Per-tenant, per-day token serial → a waiting OPD visit.

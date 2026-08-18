@@ -16,7 +16,7 @@
  */
 
 require('dotenv').config();
-const { pool } = require('@rach/core');
+const { pool, Settings } = require('@rach/core');
 
 // ── Demo content ──────────────────────────────────────────────────────────────
 const PATIENTS = [
@@ -97,6 +97,9 @@ async function main() {
   if (t.rows[0].industry !== 'healthcare') {
     console.log('  ⚠  industry is not "healthcare" — the workspace screens will stay hidden until it is set to healthcare.');
   }
+
+  // Brand this hospital's patient IDs (app-created patients will use the same prefix).
+  await Settings.set(tid, 'uhid_prefix', { prefix: 'MH' }).catch(() => {});
 
   const counts = { patients: 0, visits: 0, drugs: 0, alerts: 0, beds: 0, referrals: 0 };
   const idByUhid = {};

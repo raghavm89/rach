@@ -173,7 +173,7 @@ function TicketDetail({ id, token, isAdmin, onBack }: { id: number; token: strin
           <div className="rounded-xl border border-neutral-border bg-surface-hover/50 px-4 py-3 text-sm text-dash-heading">{ticket.body}</div>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={`rounded-xl border px-4 py-3 text-sm ${m.author_type === 'support' ? 'border-accent-line bg-accent-weak' : 'border-neutral-border bg-surface-card'}`}>
+          <div key={m.id} className={`rounded-xl border px-4 py-3 text-sm ${m.author_type === 'support' ? 'border-accent-line bg-accent-weak/40' : 'border-neutral-border bg-surface-card'}`}>
             <p className="mb-1 text-xs font-semibold text-dash-muted">{m.author_type === 'support' ? 'Support' : (m.author_name || 'You')} · {new Date(m.created_at).toLocaleString()}</p>
             <p className="whitespace-pre-wrap text-dash-heading">{m.body}</p>
           </div>

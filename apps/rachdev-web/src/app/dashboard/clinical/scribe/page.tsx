@@ -440,7 +440,7 @@ export default function ScribePage() {
                     const active = note?.id === h.id;
                     return (
                       <div key={h.id}
-                        className={'group flex items-center gap-3 rounded-lg px-2.5 py-2.5 ' + (active ? 'bg-accent-weak' : 'hover:bg-surface-hover/50')}>
+                        className={'group flex items-center gap-3 rounded-lg px-2.5 py-2.5 ' + (active ? 'bg-accent-weak/40 ring-1 ring-accent/30' : 'hover:bg-surface-hover/50')}>
                         <span className={'h-2 w-2 shrink-0 rounded-full ' + (isSigned ? 'bg-ok' : 'bg-wait')} />
                         <button onClick={() => openNote(h.id)} className="flex min-w-0 flex-1 flex-col items-start text-left">
                           <span className="flex items-center gap-2">
