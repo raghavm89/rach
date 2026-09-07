@@ -11,7 +11,7 @@ import { pricingFAQs } from "@/data/pricing";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Transparent, predictable pricing for RachBase. Backend infrastructure and AI agents bundled in one bill. Starter, Growth, and Scale plans with no hidden fees.",
+    "Transparent, predictable pricing for RachBase. Pay-per-container on Pro, dedicated infrastructure on Max, and custom Enterprise plans — no hidden fees.",
 };
 
 export default function PricingPage() {
@@ -28,6 +28,7 @@ export default function PricingPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/pricing.png"
+              unoptimized
               alt="Three pricing plans side by side with the recommended plan highlighted"
               fill
               className="object-contain p-6"

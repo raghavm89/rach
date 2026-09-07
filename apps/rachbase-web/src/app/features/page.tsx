@@ -77,6 +77,7 @@ export default function FeaturesPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/features-overview.png"
+              unoptimized
               alt="RachBase platform modules — database, authentication, storage, APIs, and an agent node — connected into one system"
               fill
               className="object-contain p-6"

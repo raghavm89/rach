@@ -171,6 +171,7 @@ export default function IntegrationsPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/integrations-ecosystem.png"
+              unoptimized
               alt="A central RachBase platform node connected to surrounding third-party services"
               fill
               className="object-contain p-6"

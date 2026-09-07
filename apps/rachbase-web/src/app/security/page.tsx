@@ -153,6 +153,7 @@ export default function SecurityPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/security-compliance.png"
+              unoptimized
               alt="A security shield with a checkmark, flanked by a compliance checklist and a locked audit log"
               fill
               className="object-contain p-6"

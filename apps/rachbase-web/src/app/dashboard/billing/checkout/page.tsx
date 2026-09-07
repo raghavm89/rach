@@ -10,8 +10,8 @@ import {
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { useCart } from '@rach/ui/contexts/CartContext';
-import { expansion, invoices as invoicesApi, CustomOrderItem, type TaxQuote } from '@rach/ui/lib/api';
-import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
+import { expansion, invoices as invoicesApi, site, projects, CustomOrderItem, type TaxQuote } from '@rach/ui/lib/api';
+import { SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES, PRO } from '@rach/ui/lib/catalog';
 import { TaxSummary } from '@rach/ui/components/billing/TaxSummary';
 import { cn } from '@rach/ui/lib/utils';
 
@@ -89,13 +89,13 @@ function getBillingDates() {
   return { startLabel: fmt(now), nextLabel: fmt(next) };
 }
 
-function usd(dollars: number) {
-  const isWhole = Number.isInteger(dollars);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: 'USD',
+function fmtMoney(amount: number, currency = 'USD') {
+  const isWhole = Number.isInteger(amount);
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency', currency,
     minimumFractionDigits: isWhole ? 0 : 2,
     maximumFractionDigits: 2,
-  }).format(dollars);
+  }).format(amount);
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -113,9 +113,57 @@ interface Cart {
   bundleId?: string;
   originalDollars?: number;   // retail total before bundle discount
   saving?: number;            // amount saved
+  /** Display currency (Pro can be INR). Defaults to USD. */
+  currency?: string;
+  /** Pro carts only: the canonical USD amount (minor units), for reactive currency conversion. */
+  usdMinor?: number;
+  /** Present for a Pro product: base subscription, a container, or a BaaS backend resize. */
+  pro?: { kind: 'base' | 'container' | 'baas'; tier?: 'starter' | 'pro'; serviceId?: number; projectId?: number; size?: string };
 }
 
 function buildCart(params: URLSearchParams): Cart | null {
+  // Pro products (`?pro=base` / `?pro=container`) — amount + currency are quoted server-
+  // side and passed in for DISPLAY; the server re-prices at pay, so a tampered amount
+  // cannot change the charge.
+  const pro = params.get('pro');
+  // Pro/BaaS amounts are GEO-NATIVE: the amount + currency were quoted server-side (from the
+  // tenant's billing region) and are shown as-is. The server re-prices at pay, so a tampered
+  // amount can't change the charge; GST (India) is added by the server tax quote at review.
+  if (pro === 'baas') {
+    const amountMinor = parseInt(params.get('amount') ?? '0', 10);
+    const currency = (params.get('currency') ?? 'USD').toUpperCase();
+    const size = params.get('size') ?? 'nano';
+    const name = params.get('name') ?? '';
+    const label = `Backend compute upgrade${name ? `: ${name}` : ''} (${size})`;
+    return {
+      lines: [{ label, qty: 1, unitPrice: amountMinor / 100 }],
+      items: [],
+      description: label,
+      totalDollars: amountMinor / 100,
+      totalCents: amountMinor,
+      currency,
+      pro: { kind: 'baas', projectId: Number(params.get('project')) || undefined, size },
+    };
+  }
+  if (pro === 'base' || pro === 'container') {
+    const amountMinor = parseInt(params.get('amount') ?? '0', 10);
+    const currency = (params.get('currency') ?? 'USD').toUpperCase();
+    const size = params.get('size') ?? 'nano';
+    const name = params.get('name') ?? '';
+    const tier = (params.get('tier') === 'pro' ? 'pro' : 'starter') as 'starter' | 'pro';
+    const tierLabel = PRO.tiers[tier]?.label ?? 'Starter';
+    const label = pro === 'base' ? `RachBase ${tierLabel} — monthly base` : `Container: ${name || 'service'} (${size})`;
+    return {
+      lines: [{ label, qty: 1, unitPrice: amountMinor / 100 }],
+      items: [],
+      description: label,
+      totalDollars: amountMinor / 100,
+      totalCents: amountMinor,
+      currency,
+      pro: { kind: pro, tier, serviceId: Number(params.get('service')) || undefined, projectId: Number(params.get('project')) || undefined, size },
+    };
+  }
+
   // `?bundle=` is what the pricing page links with; `?plan=` is the older
   // dashboard link. Accept both.
   const planId = params.get('bundle') ?? params.get('plan');
@@ -210,6 +258,16 @@ function dialCodeForCountry(country: string) {
   return DIAL_CODES.find((d) => d.country === country) ?? DIAL_CODES[0];
 }
 
+// Format the national number for display. US/Canada (+1) uses (XXX) XXX-XXXX; other
+// countries are left as typed.
+function formatNationalNumber(input: string, dialCode: string): string {
+  if (dialCode !== '+1') return input;
+  const d = input.replace(/\D/g, '').slice(0, 10);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 // ── Phone field with dial code picker ────────────────────────────────────────
 
 function PhoneField({
@@ -230,13 +288,18 @@ function PhoneField({
     setSelected(dialCodeForCountry(country));
   }, [country]);
 
+  // Re-apply the national format whenever the dial code changes (e.g. → +1 US).
+  React.useEffect(() => {
+    setNumber((n) => formatNationalNumber(n, selected.code));
+  }, [selected.code]);
+
   // Parse existing value (e.g. saved phone "+91 98765") into parts
   React.useEffect(() => {
     if (!value) return;
     const match = DIAL_CODES.find((d) => value.startsWith(d.code));
     if (match) {
       setSelected(match);
-      setNumber(value.slice(match.code.length).trimStart());
+      setNumber(formatNationalNumber(value.slice(match.code.length).trimStart(), match.code));
     } else {
       setNumber(value);
     }
@@ -297,10 +360,10 @@ function PhoneField({
       <input
         type="tel"
         value={number}
-        onChange={(e) => setNumber(e.target.value)}
+        onChange={(e) => setNumber(formatNationalNumber(e.target.value, selected.code))}
         placeholder={
           selected.code === '+91'  ? '98765 43210' :
-          selected.code === '+1'   ? '415 555 0100' :
+          selected.code === '+1'   ? '(415) 555-0100' :
           selected.code === '+44'  ? '7700 900000' :
           selected.code === '+65'  ? '9123 4567' :
           selected.code === '+61'  ? '412 345 678' :
@@ -362,10 +425,11 @@ const STATES_BY_COUNTRY: Record<string, string[]> = {
 type Step = 'billing' | 'review' | 'processing' | 'success' | 'error';
 
 function CheckoutInner() {
-  const { user, token } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const { clear: clearCart } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
+  // ISO country from GeoIP (where the user physically is) — gates the GSTIN field.
 
   const [step, setStep] = useState<Step>('billing');
   const [errMsg, setErr] = useState('');
@@ -387,10 +451,12 @@ function CheckoutInner() {
     country: savedAddr?.country || 'India',
   });
 
-  // If no saved address, prefill country/city/state/pincode from IP geolocation
+  // GeoIP is a PREFILL convenience only — it no longer gates anything (the GSTIN field and
+  // all tax/currency decisions key on the BILLING country the customer confirms). Skip the
+  // lookup entirely when a saved billing address already provides the prefill.
   useEffect(() => {
-    if (savedAddr?.country) return; // already have saved address — skip
     let cancelled = false;
+    if (savedAddr?.country) return () => { cancelled = true; }; // saved address wins — no lookup needed
     fetch('https://ipapi.co/json/')
       .then((r) => r.json())
       .then((geo) => {
@@ -445,7 +511,34 @@ function CheckoutInner() {
     setStep('review');
   }, [billing]);
 
-  const cart = buildCart(searchParams);
+  const rawCart = buildCart(searchParams);
+
+  // Pro/BaaS carts are geo-native (amount already in the tenant's region currency), so they
+  // are shown as-is — GST for India is added by the server tax quote at review. Legacy carts
+  // that still carry a USD-pegged `usdMinor` follow the typed billing address for display.
+  const cart: Cart | null = (() => {
+    if (!rawCart || !rawCart.pro || rawCart.usdMinor == null) return rawCart;
+    const displayCurrency = billing.country === 'India' ? 'INR' : 'USD';
+    const minor = displayCurrency === 'INR' ? rawCart.usdMinor * PRO.inr_per_usd : rawCart.usdMinor;
+    return {
+      ...rawCart,
+      currency: displayCurrency,
+      totalCents: minor,
+      totalDollars: minor / 100,
+      lines: rawCart.lines.map((l) => ({ ...l, unitPrice: minor / 100 })),
+    };
+  })();
+
+  // Currency-aware money formatter (Pro India carts are INR; everything else USD).
+  const money = (amount: number) => fmtMoney(amount, cart?.currency ?? 'USD');
+
+  // "Back" returns where the user came from: a container checkout came from its service
+  // page; everything else came from the Plans page.
+  const back = (cart?.pro?.kind === 'container' && cart.pro.projectId && cart.pro.serviceId)
+    ? { href: `/dashboard/projects/${cart.pro.projectId}/services/${cart.pro.serviceId}`, label: 'Back to service' }
+    : (cart?.pro?.kind === 'baas' && cart.pro.projectId)
+    ? { href: `/dashboard/projects/${cart.pro.projectId}`, label: 'Back to project' }
+    : { href: '/dashboard/billing', label: 'Back to Plans' };
 
   useEffect(() => {
     if (!cart) router.replace('/dashboard/billing');
@@ -473,7 +566,7 @@ function CheckoutInner() {
     (async () => {
       try {
         const quote = await invoicesApi.quote(token, {
-          currency: 'USD',
+          currency: cart.currency ?? 'USD',
           lines: cart.lines.map((l) => ({
             description: l.label,
             quantity: l.qty,
@@ -509,6 +602,119 @@ function CheckoutInner() {
     if (!token || !cart) return;
     setStep('processing');
     setErr('');
+
+    // ── Pro products (base subscription / container) go through the site API. A
+    //    resize / free / already-active case completes with no Razorpay modal. ──
+    if (cart.pro) {
+      try {
+        const p = cart.pro;
+
+        // Send the typed billing details WITH the checkout call — the server persists them
+        // onto the profile before pricing, so currency + GST resolve from what the customer
+        // just entered (an Indian buyer pays GST with or without a GSTIN; previously this
+        // form was collected but never saved, and a new Indian user priced as tax-free RoW).
+        const billingPayload = {
+          line1: billing.line1, line2: billing.line2, city: billing.city, state: billing.state,
+          pincode: billing.pincode, country: billing.country, company: billing.company, gstin: billing.gstin,
+        };
+
+        // ── BaaS backend compute resize: a one-time DELTA order, then baasVerifyCompute. ──
+        if (p.kind === 'baas') {
+          const co = await projects.baasSetCompute(token, p.projectId!, p.size ?? 'nano', billingPayload);
+          if (co.unchanged || co.resized) { setStep('success'); return; } // free / downsize — applied
+          if (co.resize_checkout) {
+            const orderId = co.order_id;
+            const keyId = co.razorpay_key_id;
+            if (!orderId) throw new Error('Could not start the upgrade payment.');
+            if (!(await loadRazorpay())) throw new Error('Failed to load Razorpay checkout. Please try again.');
+            const payment = await new Promise<Record<string, string>>((resolve, reject) => {
+              const rzp = new window.Razorpay({
+                key: keyId, order_id: orderId, name: 'Rach Dev LLP', description: cart.description,
+                prefill: { email: billing.email, name: billing.name, contact: billing.phone },
+                theme: { color: '#2563EB' },
+                handler: (resp: Record<string, string>) => resolve(resp),
+                modal: { ondismiss: () => { setStep('review'); reject(new Error('dismissed')); } },
+              });
+              rzp.open();
+            });
+            await projects.baasVerifyCompute(token, p.projectId!, {
+              razorpay_order_id: payment.razorpay_order_id,
+              razorpay_payment_id: payment.razorpay_payment_id,
+              razorpay_signature: payment.razorpay_signature,
+            });
+            setStep('success');
+            return;
+          }
+          setStep('success');
+          return;
+        }
+
+        const co = p.kind === 'base'
+          ? await site.subscribePro(token, p.tier ?? 'starter', billingPayload)
+          : await projects.checkoutContainer(token, p.projectId!, p.serviceId!, (p.size ?? 'nano') as 'nano' | 'micro' | 'small', billingPayload);
+
+        // Trust the SERVER's plan, not the cart's requested tier — `already` used to flip the
+        // local user to the requested tier while the backend kept the old one (audit H4).
+        if (p.kind === 'base' && (('already' in co && co.already) || ('upgraded' in co && (co as { upgraded?: boolean }).upgraded))) {
+          updateUser({ plan: (co.plan as 'starter' | 'pro' | undefined) ?? p.tier ?? 'starter' });
+          setStep('success');
+          return;
+        }
+        if (p.kind === 'container' && (('resized' in co && co.resized) || ('free' in co && co.free))) { setStep('success'); return; }
+
+        // UPSIZE: a one-time DELTA payment via a Razorpay ORDER (not a subscription), then
+        // verifyResize applies the bigger size. Gated on the payment completing.
+        if (p.kind === 'container' && 'resize_checkout' in co && co.resize_checkout) {
+          const orderId = co.order_id;
+          const keyId = co.razorpay_key_id;
+          if (!orderId) throw new Error('Could not start the upgrade payment.');
+          if (!(await loadRazorpay())) throw new Error('Failed to load Razorpay checkout. Please try again.');
+          const payment = await new Promise<Record<string, string>>((resolve, reject) => {
+            const rzp = new window.Razorpay({
+              key: keyId, order_id: orderId, name: 'Rach Dev LLP', description: cart.description,
+              prefill: { email: billing.email, name: billing.name, contact: billing.phone },
+              theme: { color: '#2563EB' },
+              handler: (resp: Record<string, string>) => resolve(resp),
+              modal: { ondismiss: () => { setStep('review'); reject(new Error('dismissed')); } },
+            });
+            rzp.open();
+          });
+          await projects.verifyResize(token, p.projectId!, p.serviceId!, {
+            razorpay_order_id: payment.razorpay_order_id,
+            razorpay_payment_id: payment.razorpay_payment_id,
+            razorpay_signature: payment.razorpay_signature,
+          });
+          setStep('success');
+          return;
+        }
+
+        const subscriptionId = 'subscription_id' in co ? co.subscription_id : undefined;
+        const keyId = 'razorpay_key_id' in co ? co.razorpay_key_id : undefined;
+        if (!subscriptionId) throw new Error('Could not start the subscription.');
+        if (!(await loadRazorpay())) throw new Error('Failed to load Razorpay checkout. Please try again.');
+
+        const payment = await new Promise<Record<string, string>>((resolve, reject) => {
+          const rzp = new window.Razorpay({
+            key: keyId, subscription_id: subscriptionId, name: 'Rach Dev LLP', description: cart.description,
+            prefill: { email: billing.email, name: billing.name, contact: billing.phone },
+            theme: { color: '#2563EB' },
+            handler: (resp: Record<string, string>) => resolve(resp),
+            modal: { ondismiss: () => { setStep('review'); reject(new Error('dismissed')); } },
+          });
+          rzp.open();
+        });
+
+        if (p.kind === 'base') { await site.verifyProSubscription(token, payment as { razorpay_subscription_id: string; razorpay_payment_id: string; razorpay_signature: string }); updateUser({ plan: p.tier ?? 'starter' }); }
+        else await projects.verifyContainer(token, p.projectId!, p.serviceId!, payment as { razorpay_subscription_id: string; razorpay_payment_id: string; razorpay_signature: string });
+        setStep('success');
+      } catch (err) {
+        const msg = (err as Error).message;
+        if (msg === 'dismissed') return;
+        setErr(msg || 'Something went wrong. Please try again.');
+        setStep('error');
+      }
+      return;
+    }
 
     try {
       // Step 1: create plan + subscription on backend
@@ -565,7 +771,7 @@ function CheckoutInner() {
       setErr(msg || 'Something went wrong. Please try again.');
       setStep('error');
     }
-  }, [token, cart, billing.email, billing.name, billing.phone, billing.country, clearCart]);
+  }, [token, cart, billing.email, billing.name, billing.phone, billing.country, billing.line1, billing.line2, billing.city, billing.state, billing.pincode, billing.company, billing.gstin, clearCart, updateUser]);
 
   if (!cart) return null;
 
@@ -594,7 +800,7 @@ function CheckoutInner() {
             </div>
             <div className="flex justify-between text-sm border-t border-neutral-border pt-2">
               <span className="font-semibold text-text-primary">Total</span>
-              <span className="font-bold text-text-primary font-mono">{usd(totalWithTax)}/mo</span>
+              <span className="font-bold text-text-primary font-mono">{money(totalWithTax)}/mo</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-text-muted">Status</span>
@@ -605,18 +811,32 @@ function CheckoutInner() {
           </div>
 
           <div className="mt-6 flex gap-3">
-            <Link
-              href="/dashboard/orders"
-              className="flex-1 rounded-lg border border-neutral-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors text-center"
-            >
-              View Orders
-            </Link>
-            <Link
-              href="/dashboard/vm-monitor"
-              className="flex-1 rounded-lg bg-gradient-to-r from-primary-blue to-primary-purple px-4 py-2.5 text-sm font-semibold text-white text-center hover:opacity-90 transition-opacity"
-            >
-              VM Monitor
-            </Link>
+            {cart.pro ? (
+              <>
+                <Link href="/dashboard/billing"
+                  className="flex-1 rounded-lg border border-neutral-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors text-center">
+                  Billing
+                </Link>
+                <Link
+                  href={cart.pro.kind === 'container' && cart.pro.projectId && cart.pro.serviceId
+                    ? `/dashboard/projects/${cart.pro.projectId}/services/${cart.pro.serviceId}`
+                    : '/dashboard/projects'}
+                  className="flex-1 rounded-lg bg-gradient-to-r from-primary-blue to-primary-purple px-4 py-2.5 text-sm font-semibold text-white text-center hover:opacity-90 transition-opacity">
+                  {cart.pro.kind === 'container' ? 'Back to container' : 'Deploy a container'}
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/dashboard/orders"
+                  className="flex-1 rounded-lg border border-neutral-border px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-bg-secondary transition-colors text-center">
+                  View Orders
+                </Link>
+                <Link href="/dashboard/vm-monitor"
+                  className="flex-1 rounded-lg bg-gradient-to-r from-primary-blue to-primary-purple px-4 py-2.5 text-sm font-semibold text-white text-center hover:opacity-90 transition-opacity">
+                  VM Monitor
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -640,8 +860,8 @@ function CheckoutInner() {
   if (step === 'billing') {
     return (
       <div className="max-w-2xl space-y-6">
-        <Link href="/dashboard/billing" className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors">
-          <ArrowLeft size={14} /> Back to Plans
+        <Link href={back.href} className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors">
+          <ArrowLeft size={14} /> {back.label}
         </Link>
 
         {/* Progress */}
@@ -693,8 +913,12 @@ function CheckoutInner() {
                 <input className={inputCls} value={billing.company} onChange={setField('company')} placeholder="Acme Pvt Ltd" />
               </div>
               <div className="sm:col-span-2">
+                {/* Gate on the BILLING country, not GeoIP: an Indian business checking out from
+                    abroad must still be able to enter its GSTIN, and a traveller in India with a
+                    foreign billing address shouldn't see it. GSTIN is optional either way — GST
+                    is charged for an India billing address regardless. */}
                 {billing.country === 'India' && <>
-                  <label className={labelCls}>GSTIN <span className="text-xs text-text-muted font-normal">(optional — for GST invoice)</span></label>
+                  <label className={labelCls}>GSTIN <span className="text-xs text-text-muted font-normal">(optional — GST applies either way; add it to claim input credit)</span></label>
                   <input className={inputCls} value={billing.gstin} onChange={setField('gstin')} placeholder="22AAAAA0000A1Z5" maxLength={15} style={{ textTransform: 'uppercase' }} />
                 </>}
               </div>
@@ -781,10 +1005,10 @@ function CheckoutInner() {
   return (
     <div className="max-w-4xl space-y-6">
       <Link
-        href="/dashboard/billing"
+        href={back.href}
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors"
       >
-        <ArrowLeft size={14} /> Back to Plans
+        <ArrowLeft size={14} /> {back.label}
       </Link>
 
       {/* Progress */}
@@ -883,10 +1107,10 @@ function CheckoutInner() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold font-mono text-text-primary">
-                        {usd(line.unitPrice * line.qty)}
+                        {money(line.unitPrice * line.qty)}
                       </p>
                       {line.qty > 1 && (
-                        <p className="text-xs text-text-muted">{line.qty} × {usd(line.unitPrice)}</p>
+                        <p className="text-xs text-text-muted">{line.qty} × {money(line.unitPrice)}</p>
                       )}
                     </div>
                   </div>
@@ -897,14 +1121,14 @@ function CheckoutInner() {
               <div className="flex items-center justify-between px-6 py-3 bg-emerald-50 border-t border-emerald-100">
                 <span className="text-sm font-medium text-emerald-700">Bundle discount</span>
                 <div className="text-right">
-                  <span className="text-sm font-bold text-emerald-700">−{usd(cart.saving)}</span>
-                  <span className="ml-2 text-xs text-emerald-600 line-through">{usd(cart.originalDollars!)}</span>
+                  <span className="text-sm font-bold text-emerald-700">−{money(cart.saving)}</span>
+                  <span className="ml-2 text-xs text-emerald-600 line-through">{money(cart.originalDollars!)}</span>
                 </div>
               </div>
             )}
             <div className="border-t-2 border-neutral-border px-6 py-4 flex justify-between items-center">
               <span className="font-semibold text-text-primary">Monthly Total</span>
-              <span className="text-2xl font-bold font-mono text-text-primary">{usd(totalWithTax)}<span className="text-sm font-normal text-text-muted">/mo</span></span>
+              <span className="text-2xl font-bold font-mono text-text-primary">{money(totalWithTax)}<span className="text-sm font-normal text-text-muted">/mo</span></span>
             </div>
           </div>
 
@@ -932,13 +1156,13 @@ function CheckoutInner() {
               {cart.lines.map((l) => (
                 <div key={l.label} className="flex justify-between text-sm">
                   <span className="text-text-muted">{l.qty > 1 ? `${l.qty}× ` : ''}{l.label}</span>
-                  <span className="font-medium font-mono">{usd(l.unitPrice * l.qty)}</span>
+                  <span className="font-medium font-mono">{money(l.unitPrice * l.qty)}</span>
                 </div>
               ))}
               {cart.saving && (
                 <div className="flex justify-between text-sm font-semibold text-emerald-600 border-t border-neutral-border pt-2">
                   <span>Bundle discount</span>
-                  <span>−{usd(cart.saving)}</span>
+                  <span>−{money(cart.saving)}</span>
                 </div>
               )}
 
@@ -947,7 +1171,7 @@ function CheckoutInner() {
                 <TaxSummary
                   quote={taxQuote}
                   loading={taxLoading}
-                  currency="USD"
+                  currency={cart.currency ?? 'USD'} // fallback while the quote loads/fails — an INR cart must never render "$500.00" (audit H4)
                   fallbackSubtotalMinor={cart.totalCents}
                 />
                 <p className="mt-2 text-xs text-text-muted">Recurring · auto-renews monthly</p>
@@ -959,7 +1183,7 @@ function CheckoutInner() {
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-blue to-primary-purple px-5 py-4 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
             >
               <Lock size={14} />
-              Subscribe — {usd(totalWithTax)}/mo
+              Subscribe — {money(totalWithTax)}/mo
             </button>
 
             <p className="mt-3 text-center text-xs text-text-muted flex items-center justify-center gap-1">
@@ -997,7 +1221,7 @@ function CheckoutInner() {
                   </div>
                   <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                     <strong>Recurring payment:</strong> You will be auto-charged{' '}
-                    <strong>{usd(totalWithTax)}/mo</strong> every month at 12:00 AM IST on the same date.
+                    <strong>{money(totalWithTax)}/mo</strong> every month at 12:00 AM IST on the same date.
                     Cancel before <strong>{nextLabel}</strong> to avoid the next charge.
                   </div>
                 </div>

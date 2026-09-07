@@ -13,6 +13,7 @@ import {
   Users,
   LogOut,
   ChevronRight,
+  ChevronDown,
   Rocket,
   Menu,
   X,
@@ -22,7 +23,8 @@ import {
   ShoppingCart,
   Sun,
   Moon,
-  // FolderGit2,  // unused while Projects nav item is hidden
+  FolderGit2,
+  Boxes,
 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { CartProvider, useCart } from '@rach/ui/contexts/CartContext';
@@ -35,23 +37,28 @@ import { BrandLogo } from '@/components/BrandLogo';
 
 interface NavItem {
   label: string;
-  href: string;
+  href?: string;            // leaf: a link. group: omitted (its children are the links).
   icon: React.ReactNode;
   roles?: string[];
   desktopOnly?: boolean;
+  children?: NavItem[];     // present → a collapsible group ("Deployment").
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',   href: '/dashboard',             icon: <LayoutDashboard size={18} /> },
-  // Projects hidden for now — dashboard projects feature not implemented yet.
-  // { label: 'Projects',   href: '/dashboard/projects',    icon: <FolderGit2 size={18} /> },
+  // Deployment groups the two placement surfaces. They are independent — Projects =
+  // Pro container services; VM Deployment = the dedicated VM services — no cross-over.
+  { label: 'Deployment', icon: <Rocket size={18} />, children: [
+    { label: 'Projects',      href: '/dashboard/projects',   icon: <FolderGit2 size={16} /> },
+    { label: 'VM Deployment', href: '/dashboard/deployment', icon: <Rocket size={16} />, roles: ['tenant_admin'], desktopOnly: true },
+  ] },
+  { label: 'Backend',    href: '/dashboard/backend',     icon: <Boxes size={18} />, roles: ['admin', 'tenant_admin', 'developer'] },
   { label: 'Monitoring', href: '/dashboard/monitoring',  icon: <Monitor size={18} />,   roles: ['admin'] },
   { label: 'VM Monitor', href: '/dashboard/vm-monitor',  icon: <Monitor size={18} />,   roles: ['tenant_admin'] },
   { label: 'My VMs',     href: '/dashboard/my-vms',      icon: <Monitor size={18} />,   roles: ['tenant_user', 'developer'] },
   { label: 'Users',      href: '/dashboard/users',       icon: <Users size={18} />,     roles: ['admin', 'tenant_admin'] },
   { label: 'Tenants',    href: '/dashboard/tenants',     icon: <Users size={18} />,     roles: ['admin'] },
   { label: 'Orders',     href: '/dashboard/orders',      icon: <ShoppingBag size={18} />, roles: ['admin', 'tenant_admin', 'tenant_user'] },
-  { label: 'VM Deployment',   href: '/dashboard/deployment',      icon: <Rocket size={18} />,  roles: ['tenant_admin'], desktopOnly: true },
   { label: 'Infrastructure',  href: '/dashboard/infrastructure',  icon: <Network size={18} />, roles: ['admin'] },
   { label: 'Billing',      href: '/dashboard/billing',       icon: <CreditCard size={18} />, roles: ['tenant_admin', 'tenant_user'] },
   { label: 'Credit Usage', href: '/dashboard/credit-usage',  icon: <Coins size={18} />,      roles: ['tenant_admin'] },
@@ -59,11 +66,26 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Profile',    href: '/dashboard/profile',     icon: <User size={18} /> },
 ];
 
+// Active-route test. The Overview root (`/dashboard`) must match EXACTLY, otherwise its
+// `startsWith('/dashboard/')` lights up on every sub-page (the "both highlighted" bug).
+function isActiveHref(pathname: string, href: string) {
+  return href === '/dashboard' ? pathname === '/dashboard' : (pathname === href || pathname.startsWith(href + '/'));
+}
+
+// A visible nav item's role filter (children filtered too). Groups survive if any child does.
+function filterByRole(items: NavItem[], role: string): NavItem[] {
+  return items
+    .filter((i) => !i.roles || i.roles.includes(role))
+    .map((i) => (i.children ? { ...i, children: filterByRole(i.children, role) } : i))
+    .filter((i) => !i.children || i.children.length > 0);
+}
+
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, token, loading, logout } = useAuth();
   const router   = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   // Close sidebar on route change
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
@@ -81,14 +103,11 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const visibleItems = NAV_ITEMS.filter((item) => {
-    if (item.roles && !item.roles.includes(user.role)) return false;
-    return true;
-  });
+  const visibleItems = filterByRole(NAV_ITEMS, user.role);
 
-  const currentLabel = visibleItems.find(
-    (i) => pathname === i.href || pathname.startsWith(i.href + '/')
-  )?.label ?? 'Dashboard';
+  // Flatten leaves (including group children) for the top-bar current-page label.
+  const allLeaves = visibleItems.flatMap((i) => (i.children ? i.children : i.href ? [i] : []));
+  const currentLabel = allLeaves.find((i) => i.href && isActiveHref(pathname, i.href))?.label ?? 'Dashboard';
 
   const SidebarContent = () => (
     <>
@@ -120,11 +139,57 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {visibleItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          // ── Collapsible group (e.g. "Deployment" → Projects / VM Deployment) ──
+          if (item.children) {
+            const childActive = item.children.some((c) => c.href && isActiveHref(pathname, c.href));
+            const open = openGroups[item.label] ?? childActive; // auto-open when a child is active
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() => setOpenGroups((g) => ({ ...g, [item.label]: !open }))}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                    childActive ? 'text-primary-blue' : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary',
+                  )}
+                >
+                  {item.icon}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  <ChevronDown size={14} className={cn('transition-transform duration-150', open && 'rotate-180')} />
+                </button>
+                {open && (
+                  <div className="mt-1 space-y-1 pl-4">
+                    {item.children.map((c) => {
+                      const active = c.href ? isActiveHref(pathname, c.href) : false;
+                      return (
+                        <Link
+                          key={c.href}
+                          href={c.href!}
+                          className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
+                            active
+                              ? 'bg-gradient-to-r from-primary-blue/10 to-primary-purple/10 text-primary-blue border-l-2 border-primary-blue'
+                              : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary',
+                            c.desktopOnly && 'hidden md:flex',
+                          )}
+                        >
+                          {c.icon}
+                          <span className="flex-1">{c.label}</span>
+                          {active && <ChevronRight size={14} className="text-primary-blue" />}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // ── Leaf link ──
+          const isActive = item.href ? isActiveHref(pathname, item.href) : false;
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href!}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
                 isActive

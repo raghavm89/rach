@@ -49,7 +49,17 @@ const submitCls = cn(
 function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { login, register, setSession } = useAuth();
+  const { login, register, setSession, user } = useAuth();
+
+  // Post-login destination — only a same-origin app path is honoured (never an
+  // external URL). Defaults to the dashboard.
+  const nextParam = searchParams.get('next');
+  const nextPath = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/dashboard';
+
+  // Already signed in (e.g. followed a "Start with Pro" link) → go straight there.
+  useEffect(() => {
+    if (user) router.replace(nextPath);
+  }, [user, nextPath, router]);
 
   const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'signup' ? 'signup' : 'login');
 
@@ -92,7 +102,7 @@ function LoginForm() {
     setNoAccount(false);
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, nextPath);
     } catch (err) {
       const e2 = err as AuthApiError;
       if (e2.pending_id) {
@@ -132,8 +142,8 @@ function LoginForm() {
 
   const handleVerified = useCallback((token: string, user: User, expiresIn?: number) => {
     setSession(token, user, expiresIn);
-    router.push('/dashboard');
-  }, [setSession, router]);
+    router.push(nextPath);
+  }, [setSession, router, nextPath]);
 
   if (pending) {
     return (

@@ -38,6 +38,8 @@ export const footerColumns = [
     links: [
       { label: "Documentation", href: "/docs" },
       { label: "Security", href: "/security" },
+      { label: "System Status", href: "/status" },
+      { label: "Uptime SLA", href: "/legal/sla" },
     ],
   },
   {
