@@ -1,0 +1,18 @@
+{
+  "name": "@rach/baas-auth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase BaaS Auth service (Phase 3). Native, project-scoped signup/login/user over the project's Postgres; issues per-project end-user JWTs. Sits behind the per-project gateway at /auth/v1/*.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@rach/baas": "*",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.0.0",
+    "pg": "^8.11.0"
+  }
+}

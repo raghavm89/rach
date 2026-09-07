@@ -1,0 +1,10 @@
+{
+  "name": "@rach/baas-storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase BaaS Storage service (Phase 3). Native policy + signed-URL layer over SeaweedFS; bucket metadata in the project DB. Behind the per-project gateway at /storage/v1/*.",
+  "main": "index.js",
+  "scripts": { "start": "node index.js", "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "dotenv": "^16.0.0", "pg": "^8.11.0" }
+}

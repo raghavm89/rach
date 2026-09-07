@@ -1,0 +1,10 @@
+{
+  "name": "@rach/baas-functions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase BaaS Functions control plane (Phase 3). Deploy/list/delete/invoke-dispatch for project edge functions; code + secrets in the project DB; execution in the adopted Deno runner. Behind the per-project gateway at /functions/v1/*.",
+  "main": "index.js",
+  "scripts": { "start": "node index.js", "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "dotenv": "^16.0.0", "pg": "^8.11.0" }
+}
