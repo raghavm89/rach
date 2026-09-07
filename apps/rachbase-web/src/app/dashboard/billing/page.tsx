@@ -1248,11 +1248,18 @@ function BillingPageInner() {
         className="flex items-center gap-4 rounded-xl px-5 py-3 shadow-sm"
         style={{ background: 'linear-gradient(135deg, rgba(71,126,247,0.08) 0%, rgba(130,96,246,0.08) 100%)', border: '1px solid rgba(130,96,246,0.2)' }}
       >
-        <span
-            className="flex-shrink-0 whitespace-nowrap text-base font-bold tracking-tight text-text-primary"
-          >
-            ARKA <span className="font-semibold text-primary-purple">MicroStacks</span>
-          </span>
+        {/* Real ARKA logo (same asset as the marketing site). The navy lockup needs a light
+            ground, so dark mode gives it a white chip. */}
+        <span className="flex-shrink-0 rounded-lg dark:bg-white dark:px-3 dark:py-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static partner asset */}
+          <img
+            src="/images/partners/arka-microstacks.png"
+            alt="ARKA MicroStacks"
+            className="h-8 w-auto"
+            width={900}
+            height={402}
+          />
+        </span>
         <div className="h-8 w-px flex-shrink-0" style={{ background: 'rgba(130,96,246,0.25)' }} />
         <p className="text-sm text-text-secondary leading-snug">
           Partnered with{' '}
