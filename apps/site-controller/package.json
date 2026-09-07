@@ -1,0 +1,21 @@
+{
+  "name": "@rach/site-controller",
+  "version": "1.0.4",
+  "private": true,
+  "description": "RachBase site-controller — runs at each SpaceArk (ARKA) site. One image, four startup profiles (api|tenant|workload|build); does ALL cluster/ARKA activity via the private Kubernetes API. The RachBase BFF connects to it over the site HTTPS API; the BFF never holds a kubeconfig.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js run",
+    "health": "node index.js health",
+    "provision-demo": "node index.js provision-demo",
+    "teardown-demo": "node index.js teardown-demo",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.22.3",
+    "@rach/site-contracts": "*",
+    "dotenv": "^16.0.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
