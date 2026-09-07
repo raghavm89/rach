@@ -90,6 +90,20 @@ Watch **Build Logs** for `npm run build -w rachbase-web` succeeding and
 
 ## Troubleshooting
 
+- **`sh: 1: pnpm: not found` / `pnpm --filter rachbase-web build` (exit 127)** →
+  Railway is using **Nixpacks**, not your Dockerfile. It auto-detected pnpm from
+  the repo's `pnpm-workspace.yaml` (the repo actually uses npm). Fix:
+  1. A `apps/rachbase-web/railway.json` is now committed that forces the
+     Dockerfile builder. In the service → **Settings → Config-as-code**, set the
+     **config file path** to `apps/rachbase-web/railway.json` (and keep **Root
+     Directory** empty = repo root).
+  2. Or purely in the UI: **Settings → Build** → Builder = **Dockerfile**,
+     Dockerfile Path = `apps/rachbase-web/Dockerfile`, and **clear any custom
+     Build Command** (delete `pnpm --filter rachbase-web build`) and custom Start
+     Command.
+  Then redeploy — the build log should show `npm install` / `npm run build -w
+  rachbase-web`, not pnpm.
+
 - **API calls hit `localhost:8080` in production** → `NEXT_PUBLIC_API_URL` wasn't
   present at build time. Confirm it's a service Variable and re-deploy (it's a
   build arg, not runtime).
