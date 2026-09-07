@@ -54,8 +54,13 @@ async function resolveVmAccess(user, vmId) {
   return null;
 }
 
-function createTerminalServer(httpServer) {
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws/terminal' });
+// `noServer`: server.js owns the single shared 'upgrade' router that dispatches
+// /ws/terminal here and /realtime/v1 to the realtime WSS. Two path-scoped WSS on one HTTP
+// server each try to handle EVERY upgrade in ws@8 — the realtime WSS's 400 corrupted this
+// terminal's freshly-accepted sockets, and this WSS 400'd every realtime handshake
+// (realtime audit finding #1). The `httpServer` arg is retained for compatibility but unused.
+function createTerminalServer(httpServer) { // eslint-disable-line no-unused-vars
+  const wss = new WebSocketServer({ noServer: true });
 
   wss.on('connection', (ws, req) => {
     let ssh        = null;

@@ -3,6 +3,9 @@
 const pool = require('@rach/core').pool;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { sendTenantTeardownEmail } = require('@rach/core').brevo;
+const { razorpay } = require('@rach/billing');
+const proSubscription = require('../services/proSubscription');
+const siteTeardown = require('../services/siteTeardown');
 
 const VMID_RE = /^(qemu|lxc)\/\d+$/;
 
@@ -170,6 +173,14 @@ async function deleteTenant(req, res) {
   );
   const vmIds = vmRows.map((r) => r.vm_id);
 
+  // Capture the tenant's live legacy (VM) Razorpay subscriptions BEFORE we detach its users —
+  // otherwise a deleted tenant keeps being charged for up to 10 years with no one left to cancel.
+  const { rows: legacySubs } = await pool.query(
+    `SELECT s.razorpay_sub_id
+       FROM subscriptions s JOIN users u ON u.id = s.user_id
+      WHERE u.tenant_id = $1 AND s.status = 'active' AND s.razorpay_sub_id IS NOT NULL`, [id]
+  ).catch(() => ({ rows: [] }));
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -189,13 +200,34 @@ async function deleteTenant(req, res) {
     client.release();
   }
 
+  // Stop the money: cancel the tenant's Pro subscriptions (base + containers) and any legacy VM
+  // subscriptions, and stop its workloads on the site. All best-effort — a Razorpay hiccup must
+  // not fail the delete, and the soft-delete above already revoked access.
+  let cancelledSubs = 0;
+  try { cancelledSubs = await proSubscription.cancelAllForTenant(id); }
+  catch (e) { console.error('[tenants] Pro subscription cancel failed:', e.message); }
+  const legacySubIds = legacySubs.map((s) => s.razorpay_sub_id);
+  for (const subId of legacySubIds) {
+    try { await razorpay.subscriptions.cancel(subId); cancelledSubs++; }
+    catch (e) { console.warn(`[tenants] legacy sub ${subId} cancel failed:`, e?.error?.description || e.message); }
+  }
+  if (legacySubIds.length) {
+    // Reconcile local status by the captured sub ids (users are already detached, so a tenant
+    // join would no longer match).
+    await pool.query(
+      `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE razorpay_sub_id = ANY($1)`,
+      [legacySubIds]
+    ).catch(() => {});
+  }
+  await siteTeardown.enqueueTenantStop(id, 'tenant_deleted');
+
   // Notify ARKA to de-provision the VMs (fire-and-forget).
   if (vmIds.length) {
     sendTenantTeardownEmail({ tenantName: tenant.name, tenantId: tenant.id, vmIds })
       .catch((e) => console.error('[tenants] teardown email failed:', e.message));
   }
 
-  res.json({ message: 'Tenant deleted (soft). VM keys revoked; ARKA notified to de-provision.', vmCount: vmIds.length });
+  res.json({ message: 'Tenant deleted (soft). Subscriptions cancelled, VM keys revoked; ARKA notified to de-provision.', vmCount: vmIds.length, cancelledSubscriptions: cancelledSubs });
 }
 
 // ─── Tenant VM Pool ────────────────────────────────────────────────────────

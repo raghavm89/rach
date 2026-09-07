@@ -12,6 +12,7 @@
 
 const pool = require('@rach/core').pool;
 const { sendAlertEmail } = require('@rach/core').brevo;
+const { assertPublicTarget } = require('../lib/ssrfGuard');
 
 const TICK_MS      = 30 * 1000;        // scan for due endpoints every 30s
 const TIMEOUT_MS   = 10 * 1000;        // per-probe timeout
@@ -40,8 +41,13 @@ async function probe(ep) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    // Re-vet the target on EVERY probe (not just at creation): DNS answers change, and old
+    // rows may predate the guard. Also coerce the method — health checks observe, never
+    // mutate; legacy rows could hold POST/PUT/DELETE (go-live audit H3).
+    await assertPublicTarget(ep.url);
+    const method = ep.method === 'HEAD' ? 'HEAD' : 'GET';
     const resp = await fetch(ep.url, {
-      method: ep.method || 'GET',
+      method,
       redirect: 'manual',
       signal: controller.signal,
       headers: { 'User-Agent': 'RachBase-Monitor/1.0' },

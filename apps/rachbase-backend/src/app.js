@@ -35,18 +35,34 @@ const vmKeyRoutes      = require('./routes/vmKeys');     // per-VM SSH keypair a
 const agentRoutes      = require('./routes/agent');      // agent credits + usage (billing half)
 const endpointRoutes   = require('./routes/endpoints');  // Application Workload Monitoring (HTTP checks)
 const supportRoutes    = require('./routes/support');    // support tickets
+const siteRoutes       = require('./routes/site');       // SpaceArk site integration (Pro, flagged)
+const geoRoutes        = require('./routes/geo');         // caller IP → country (hide India-only fields)
+const statusRoutes     = require('./routes/status');      // public status page + incidents (SLA)
 
 const app = express();
+
+// Behind a reverse proxy (Railway/nginx), req.ip is the PROXY's address unless Express is
+// told how many hops to trust. Without this, every IP-keyed rate limiter shared one bucket:
+// 5 signups/hour PLATFORM-WIDE, and the login limiter degenerated to per-email — 5 wrong
+// passwords locked any targeted user out (go-live audit M1/F13's coupling). TRUST_PROXY is
+// the hop count (Railway = 1); unset/0 = direct, which is also what keeps XFF unspoofable
+// when there is NO proxy. Never hardcode `true` — that trusts a client-supplied XFF chain.
+const trustProxy = Number(process.env.TRUST_PROXY);
+if (Number.isInteger(trustProxy) && trustProxy > 0) app.set('trust proxy', trustProxy);
 
 // CORS
 app.use((req, res, next) => {
   const allowed = (process.env.CORS_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
   const origin = req.headers.origin || '';
   const allowAll = allowed.includes('*');
-  const allow = allowAll ? (origin || '*') : (allowed.includes(origin) ? origin : false);
+  const allow = allowAll ? '*' : (allowed.includes(origin) ? origin : false);
   if (allow) {
     res.setHeader('Access-Control-Allow-Origin', allow);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    // NEVER pair credentials with a wildcard/reflected origin: `CORS_ORIGINS=*` used to
+    // reflect the caller's origin WITH Allow-Credentials, letting any website ride the
+    // victim's refresh-token cookie (go-live audit M5). Credentials only for exact-listed
+    // origins; wildcard mode serves literal `*` (credentialed requests then fail, by design).
+    if (!allowAll) res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   }
@@ -112,6 +128,12 @@ require('@rach/billing').hooks.onSubscriptionCharged(({ razorpaySubId, paymentId
   require('./controllers/expansionController').ensureSubscriptionFulfilment(razorpaySubId, { paymentId, amountMinor, currency })
 );
 
+// Pro container lifecycle: keep containers online on renewal, take them offline on
+// halt/cancel/expire. No-ops for non-Pro subscriptions; idempotent under webhook retries.
+require('@rach/billing').hooks.onSubscriptionEvent((ctx) =>
+  require('./services/proSubscription').handleWebhook(ctx)
+);
+
 // Shared identity + billing
 app.use('/api/auth',     authRoutes);
 app.use('/api/auth',     oauthRoutes);
@@ -119,6 +141,8 @@ app.use('/api/users',    userRoutes);
 app.use('/api/users',    vmAssignmentRoutes);   // /:id/vms
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/geo',      geoRoutes);
+app.use('/api/status',   statusRoutes);   // public health + admin incidents
 
 // Cloud vertical
 app.use('/api/deployment', deploymentRoutes);
@@ -132,6 +156,7 @@ app.use('/api/plans',      planRoutes);
 app.use('/api/projects',   projectRoutes);
 app.use('/api/endpoints',  endpointRoutes);
 app.use('/api/support',    supportRoutes);
+app.use('/api/site',       siteRoutes);
 
 // Internal service API (protected by service token, not user auth)
 app.use('/internal', internalRoutes);
