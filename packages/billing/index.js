@@ -22,6 +22,7 @@ const razorpay         = require('./src/services/razorpay');
 const credits          = require('./src/services/credits');
 
 const catalogModule    = require('./src/catalog');
+const proPricing       = require('./src/proPricing');
 const paymentSecurity  = require('./src/services/paymentSecurity');
 const purchase         = require('./src/services/purchase');
 const hooks            = require('./src/hooks');
@@ -46,6 +47,7 @@ module.exports = {
   // services
   razorpay,
   catalog: catalogModule,   // THE pricing authority — { priceOrder, priceCart, priceBundle, ... }
+  proPricing,               // Pro container pricing — { monthlyChargeCents, deployChargeCents, quote, currencyForCountry }
   paymentSecurity,          // { verifyOrderPayment, verifySubscriptionPayment, assertPaymentMatches }
   purchase,                 // THE money path — every purchase flows through this
   hooks,                    // { onSubscriptionCharged } — host app registers fulfilment

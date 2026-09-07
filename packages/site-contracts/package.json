@@ -1,0 +1,10 @@
+{
+  "name": "@rach/site-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared SpaceArk site-API contract: canonical request hashing, id generation, and DTO builders. Imported by BOTH the RachBase BFF and the site-controller so both sides compute identical request hashes (idempotency).",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

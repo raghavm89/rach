@@ -1,0 +1,13 @@
+{
+  "name": "@rach/baas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase BaaS (Phase 3) shared primitives: per-project JWT keys (anon/service_role) + end-user session tokens, all signed by the per-project secret. Imported by the BFF control plane and the per-project gateway so both mint/verify identically.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}

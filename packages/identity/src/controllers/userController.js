@@ -401,7 +401,46 @@ async function changePassword(req, res) {
   return res.json({ message: 'Password changed successfully' });
 }
 
+// ── Data-principal rights (DPDP / GDPR) — self-service ──────────────────────────
+const EXPORT_REDACT = new Set(['password_hash', 'password', 'otp', 'otp_hash', 'otp_expires', 'reset_token']);
+function redactUserForExport(u) {
+  const out = {};
+  for (const k of Object.keys(u || {})) if (!EXPORT_REDACT.has(k)) out[k] = u[k];
+  return out;
+}
+
+// GET /api/users/me/export — right to access: download the personal data on file.
+async function exportMe(req, res) {
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  res.setHeader('Content-Disposition', `attachment; filename="rachbase-data-${req.user.id}.json"`);
+  res.json({
+    exported_at: new Date().toISOString(),
+    account: redactUserForExport(user),
+    note: 'Your account profile. Project, service, and billing/invoice data are available in the dashboard and on your downloadable invoices.',
+  });
+}
+
+// DELETE /api/users/me — right to erasure: anonymize PII + revoke sessions. Invoices are retained
+// (with your identity removed) as required by tax/accounting law. Irreversible → requires confirm.
+async function deleteMe(req, res) {
+  const confirm = (req.body && req.body.confirm) || req.query.confirm;
+  if (confirm !== 'DELETE') {
+    return res.status(400).json({ error: 'confirmation_required', message: 'Send { "confirm": "DELETE" } to erase your account. This cannot be undone.' });
+  }
+  if (await wouldRemoveLastAdmin(req.user.id)) {
+    return res.status(409).json({ error: 'last_admin', message: 'You are the last admin. Assign another admin before deleting your account.' });
+  }
+  const erased = await User.anonymize(req.user.id);
+  if (!erased) return res.status(410).json({ error: 'already_deleted' });
+  try { await RefreshToken.revokeAll(req.user.id); } catch { /* best-effort */ }
+  res.json({ erased: true, message: 'Your personal data has been erased. Financial records (invoices) are retained as legally required, with your identity removed.' });
+}
+
 module.exports = {
+  redactUserForExport,
+  exportMe:          asyncHandler(exportMe),
+  deleteMe:          asyncHandler(deleteMe),
   getAllUsers:       asyncHandler(getAllUsers),
   getUserById:      asyncHandler(getUserById),
   createUser:       asyncHandler(createUser),

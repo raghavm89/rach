@@ -5,6 +5,9 @@
   "main": "index.js",
   "license": "UNLICENSED",
   "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "dependencies": {
     "@rach/core": "*",
     "bcryptjs": "^2.4.3",

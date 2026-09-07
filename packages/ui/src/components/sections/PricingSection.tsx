@@ -1,16 +1,18 @@
 "use client";
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AnimateIn } from '../ui/AnimateIn';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import { useAuth } from '../../contexts/AuthContext';
 import {
-  Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Layers, Box,
-  FileText, LineChart,
+  Server, HardDrive, Globe, Database, BarChart2, Activity, Copy, Check, Box,
+  FileText, LineChart, Boxes, Building2,
 } from "lucide-react";
 import {
-  VISIBLE_SERVICES, BUNDLES, USAGE_BASED, INCLUDED, FOOTNOTES, formatCents,
+  VISIBLE_SERVICES, USAGE_BASED, INCLUDED, FOOTNOTES, formatCents, PRO, COMPUTE_SIZES,
+  proBaseCents, proContainerCents, computeDeltaCents, type BillingCurrency,
 } from '../../lib/catalog';
+import { geo } from '../../lib/api';
 
 /**
  * Pricing is read from the shared catalog — the same catalog.json the server
@@ -65,124 +67,219 @@ const usageBased = USAGE_BASED.map((u) => ({
 const included = INCLUDED;
 const footnotes = FOOTNOTES;
 
-const bundles = BUNDLES.map((b) => ({
-  id: b.id,
-  name: b.name,
-  price: b.price_cents / 100,
-  originalPrice: b.listPriceCents / 100,
-  saving: b.savingCents / 100,
-  badge: b.badge,
-  highlight: b.highlight,
-  items: b.lines.map((l) => {
-    const style = SERVICE_STYLE[l.id] ?? { icon: Box, color: "text-blue-600" };
-    return { icon: style.icon, color: style.color, label: `${l.qty}× ${l.name}` };
-  }),
-}));
+// Plans (Starter / Pro / Enterprise) — the shared tiers come from the catalog `pro.regions`
+// block, so marketing can't drift from what's charged. Prices are GEO-NATIVE: `cur` picks
+// the region (USD = International, INR = India, ex-GST). India adds 18% GST at checkout.
+function buildPlans(cur: BillingCurrency) {
+  const perContainer = formatCents(proContainerCents(cur), cur);
+  const micro = formatCents(computeDeltaCents('micro', cur), cur);
+  const small = formatCents(computeDeltaCents('small', cur), cur);
+  const twoContainers = formatCents(proContainerCents(cur) * 2, cur); // a backend = 3 containers; Starter includes 1
+  const computeLine = `Compute upgrades: micro (+${micro}) · small (+${small})`;
+  const gst = cur === 'INR' ? ' + GST' : '';
+  return [
+    {
+      id: 'starter', name: PRO.tiers.starter.label, icon: Boxes,
+      tagline: 'Launch a single service on shared, auto-scaling infrastructure.',
+      price: formatCents(proBaseCents('starter', cur), cur), unit: `/mo${gst}`,
+      priceNote: `Includes ${PRO.tiers.starter.base_includes_containers} container · +${perContainer}/container`,
+      features: [
+        `${PRO.tiers.starter.base_includes_containers} nano container included`,
+        `${perContainer}/mo per additional container`,
+        `Backend (Auth · Data · Storage · Functions): 3 containers — +${twoContainers}/mo here`,
+        computeLine,
+        'Deploy from GitHub or a container image',
+      ],
+      cta: { label: 'Start with Starter →', href: '/dashboard/projects' },
+    },
+    {
+      id: 'pro', name: PRO.tiers.pro.label, icon: Boxes,
+      tagline: 'Run a full backend on shared, auto-scaling infrastructure.',
+      price: formatCents(proBaseCents('pro', cur), cur), unit: `/mo${gst}`,
+      priceNote: `Includes ${PRO.tiers.pro.base_includes_containers} containers · +${perContainer}/container`,
+      features: [
+        `${PRO.tiers.pro.base_includes_containers} nano containers included`,
+        'Backend (Auth · Data · Storage · Functions): 3 containers, included',
+        'Observability: metrics, query performance & logs',
+        `${perContainer}/mo per additional container`,
+        computeLine,
+        'Deploy from GitHub or a container image',
+      ],
+      cta: { label: 'Start with Pro →', href: '/dashboard/projects' },
+    },
+    {
+      id: 'enterprise', name: 'Enterprise', icon: Building2,
+      tagline: 'For large-scale applications running internet-scale workloads.',
+      price: 'Custom', unit: '', priceNote: null as string | null,
+      features: [
+        'Designated support manager',
+        'Uptime SLAs',
+        'BYO Cloud supported',
+        '24×7×365 premium enterprise support',
+        'Private Slack channel',
+        'Custom security questionnaires',
+      ],
+      cta: { label: 'Contact us →', href: '/contact' },
+    },
+  ];
+}
+
+// Explicit compute-size breakdown (per container, on top of the container fee).
+function buildComputeRows(cur: BillingCurrency) {
+  return COMPUTE_SIZES.map((size) => {
+    const delta = computeDeltaCents(size, cur);
+    return {
+      size,
+      specs: PRO.compute_sizes[size].specs,
+      delta: delta === 0 ? 'Included' : `+${formatCents(delta, cur)}/mo`,
+      isDefault: size === PRO.default_compute_size,
+    };
+  });
+}
+
+// Fallback region used only when IP geo can't resolve (loopback/private IP in dev):
+// India timezone → INR, else USD. In production the IP country decides.
+function fallbackRegion(): BillingCurrency {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    return tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta' ? 'INR' : 'USD';
+  } catch { return 'USD'; }
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PricingSection() {
+  const { user, loading } = useAuth();
+  // Region for plan pricing — auto-detected from the visitor's IP (India → INR, else USD).
+  // Falls back to timezone only when IP geo can't resolve (dev/loopback). The server
+  // re-resolves region from the billing address at pay, so this is display-only.
+  const [cur, setCur] = useState<BillingCurrency>('USD');
+  useEffect(() => {
+    let alive = true;
+    geo.country()
+      .then((r) => { if (alive) setCur(r.country === 'IN' ? 'INR' : r.country ? 'USD' : fallbackRegion()); })
+      .catch(() => { if (alive) setCur(fallbackRegion()); });
+    return () => { alive = false; };
+  }, []);
+  const plans = buildPlans(cur);
+  const COMPUTE_ROWS = buildComputeRows(cur);
+  const isShared = (id: string) => id === 'starter' || id === 'pro';
+  // Shared-tier CTAs are auth-aware: signed in → dashboard billing; signed out → sign in,
+  // then back to billing. Enterprise uses its static href.
+  const ctaHref = (plan: { id: string; cta: { href: string } }) =>
+    isShared(plan.id) ? (user ? '/dashboard/billing' : '/login?next=/dashboard/billing') : plan.cta.href;
+
   return (
     <section className="py-10 lg:py-16">
       <div className="mx-auto max-w-[1200px] px-6 space-y-16">
 
-        {/* Bundle Plans */}
+        {/* Plans */}
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[color:var(--text-muted)]">
-            Bundle Plans
+            Plans
           </p>
           <p className="mb-8 text-sm text-[color:var(--text-secondary)]">
-            Pre-configured packages at a discount. Save compared to buying individually.
+            Start on Starter or Pro and pay per container, or talk to us for Enterprise.
+            {cur === 'INR' && <span className="text-[color:var(--text-muted)]"> Prices in ₹ (exclusive of GST).</span>}
           </p>
-          <div className="grid gap-6 sm:grid-cols-3">
-            {bundles.map((bundle, i) => (
-              <AnimateIn key={bundle.name} delay={i * 0.08}>
+          <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
+            {plans.map((plan, i) => (
+              <AnimateIn key={plan.id} delay={i * 0.08}>
                 <div
                   className={[
                     "relative flex flex-col h-full rounded-2xl border-2 bg-white p-6",
                     "transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
-                    bundle.highlight
-                      ? "border-[color:var(--primary-purple)]/40"
-                      : "border-[color:var(--neutral-border)]",
+                    "border-[color:var(--neutral-border)]",
                   ].join(" ")}
                 >
-                  {/* Badge */}
-                  {bundle.badge && (
-                    <span className={[
-                      "absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-0.5 text-xs font-bold whitespace-nowrap text-white",
-                      bundle.badge === "Most Popular"
-                        ? "bg-gradient-to-r from-[var(--primary-blue)] to-[var(--primary-purple)]"
-                        : "bg-gradient-to-r from-amber-400 to-orange-500",
-                    ].join(" ")}>
-                      {bundle.badge}
-                    </span>
-                  )}
-
-                  {/* Icon + name */}
+                  {/* Icon + name + tagline */}
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--primary-blue)]/10 to-[var(--primary-purple)]/10">
-                    <Layers size={20} className="text-[color:var(--primary-blue)]" />
+                    <plan.icon size={20} className="text-[color:var(--primary-blue)]" />
                   </div>
                   <h3 className="font-display text-base font-bold text-[color:var(--text-primary)]">
-                    {bundle.name}
+                    {plan.name}
                   </h3>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)] leading-relaxed">
+                    {plan.tagline}
+                  </p>
 
-                  {/* Included items */}
-                  <ul className="mt-4 space-y-2 flex-1">
-                    {bundle.items.map((item) => (
-                      <li key={item.label} className="flex items-center gap-2 text-xs text-[color:var(--text-secondary)]">
-                        <item.icon size={12} className={item.color} />
-                        {item.label}
+                  {/* Price */}
+                  <div className="mt-5">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-display text-2xl font-bold text-[color:var(--text-primary)]">
+                        {plan.price}
+                      </span>
+                      {plan.unit && <span className="text-xs text-[color:var(--text-muted)]">{plan.unit}</span>}
+                    </div>
+                    {plan.priceNote && (
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">{plan.priceNote}</p>
+                    )}
+                  </div>
+
+                  {/* Features */}
+                  <ul className="mt-5 space-y-2.5 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-xs text-[color:var(--text-secondary)]">
+                        <Check size={13} strokeWidth={3} className="mt-0.5 shrink-0 text-emerald-500" />
+                        {f}
                       </li>
                     ))}
                   </ul>
 
-                  {/* Price */}
-                  <div className="mt-6 border-t border-[color:var(--neutral-border)] pt-4">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-display text-2xl font-bold text-[color:var(--text-primary)]">
-                        ${bundle.price.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-[color:var(--text-muted)]">/mo</span>
-                    </div>
-                    {bundle.saving > 0 && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-[color:var(--text-muted)] line-through">
-                          ${bundle.originalPrice.toLocaleString()}
-                        </span>
-                        <span className="text-xs font-semibold text-emerald-600">
-                          Save ${bundle.saving.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* The bundle cards previously had no CTA at all — the only
-                        conversion path on /pricing was "Contact Sales". */}
+                  {/* CTA — the Pro link waits for auth to resolve so it never points
+                       at the wrong place during hydration. */}
+                  {isShared(plan.id) && loading ? (
+                    <span
+                      aria-disabled="true"
+                      className="mt-6 flex w-full cursor-default items-center justify-center rounded-lg border border-[color:var(--neutral-border)] px-4 py-2.5 text-sm font-semibold text-[color:var(--text-muted)] opacity-70"
+                    >
+                      {plan.cta.label}
+                    </span>
+                  ) : (
                     <Link
-                      href={`/dashboard/billing/checkout?bundle=${bundle.id}`}
+                      href={ctaHref(plan)}
                       className={[
-                        "mt-4 flex w-full items-center justify-center rounded-lg px-4 py-2.5",
-                        "text-sm font-semibold transition-opacity hover:opacity-90",
-                        bundle.highlight
-                          ? "bg-gradient-to-r from-[var(--primary-blue)] to-[var(--primary-purple)] text-white"
-                          : "border border-[color:var(--neutral-border)] text-[color:var(--text-primary)] hover:bg-[color:var(--bg-secondary)]",
+                        "mt-6 flex w-full items-center justify-center rounded-lg px-4 py-2.5",
+                        "text-sm font-semibold transition-colors",
+                        "border border-[color:var(--neutral-border)] text-[color:var(--text-primary)] hover:bg-[color:var(--bg-secondary)]",
                       ].join(" ")}
                     >
-                      Get started →
+                      {plan.cta.label}
                     </Link>
-                  </div>
+                  )}
                 </div>
               </AnimateIn>
             ))}
+          </div>
+
+          {/* Compute sizes — per container, on top of the container fee */}
+          <div className="mx-auto mt-6 max-w-4xl">
+            <p className="mb-3 text-xs font-medium text-[color:var(--text-muted)]">
+              Compute sizes — chosen per container, on top of the container fee:
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {COMPUTE_ROWS.map((c) => (
+                <div key={c.size} className="rounded-xl border border-[color:var(--neutral-border)] bg-white p-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-display text-sm font-bold capitalize text-[color:var(--text-primary)]">
+                      {c.size}{c.isDefault && <span className="ml-1.5 text-[10px] font-medium uppercase tracking-wide text-[color:var(--text-muted)]">default</span>}
+                    </span>
+                    <span className="text-xs font-semibold text-[color:var(--primary-blue)]">{c.delta}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">{c.specs}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Core services */}
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[color:var(--text-muted)]">
-            Core Services
+            Individual Services
           </p>
           <p className="mb-8 text-sm text-[color:var(--text-secondary)]">
-            All prices in USD, billed monthly.
+            À la carte resources — dedicated VMs and add-ons, no plan required. All prices in USD, billed monthly.
           </p>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {coreServices.map((s, i) => (
@@ -275,24 +372,6 @@ export function PricingSection() {
             <li key={i} className="text-xs text-[color:var(--text-muted)] leading-relaxed">{note}</li>
           ))}
         </ol>
-
-        {/* Custom / Enterprise callout */}
-        <AnimateIn>
-          <Card hoverLift={false} gradientBorder className="text-center">
-            <div className="py-6">
-              <h3 className="font-display text-2xl font-bold text-[color:var(--text-primary)]">
-                Need a custom plan?
-              </h3>
-              <p className="mx-auto mt-2 max-w-lg text-[color:var(--text-secondary)]">
-                Custom VM counts, higher storage quotas, dedicated SLAs, and white-glove
-                onboarding. Talk to us and we&apos;ll build the right package for your workload.
-              </p>
-              <div className="mt-6">
-                <Button href="/contact">Contact Sales →</Button>
-              </div>
-            </div>
-          </Card>
-        </AnimateIn>
 
       </div>
     </section>
