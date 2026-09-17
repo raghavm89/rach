@@ -62,7 +62,9 @@ exports.listServices = async (req, res) => {
 };
 
 // Creating a service is free — it starts as a DRAFT. Source is a GitHub repo (repo
-// required), a Docker image (image required), or Postgres (managed, no source).
+// required) or Postgres (managed, no source). Bring-your-own Docker images are NOT accepted:
+// images are built by the platform from source (ARKA scans/signs them), so an arbitrary
+// external image never enters the supply chain.
 exports.createService = async (req, res) => {
   const project = await Project.findScoped(req.params.id, req.user.tenant_id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -70,12 +72,18 @@ exports.createService = async (req, res) => {
   const { name, source_type, repo_full_name, branch, image, compute_target, vm_id } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'Service name is required' });
 
+  // Bring-your-own container images are not supported — the UI only offers GitHub / Postgres, and
+  // the API enforces the same so a direct call can't smuggle an unbuilt/unsigned external image.
+  if (source_type === 'docker_image') {
+    return res.status(400).json({
+      error: 'Bring-your-own container images aren’t supported. Deploy from a GitHub repo (the platform builds the image) or use managed Postgres.',
+      code: 'byo_image_not_supported',
+    });
+  }
+
   // Source-specific required inputs (mirrors the create-service form).
   if (source_type === 'github_repo' && !(repo_full_name && String(repo_full_name).trim())) {
     return res.status(400).json({ error: 'A GitHub repository (owner/repo) is required for a GitHub-repo service.' });
-  }
-  if (source_type === 'docker_image' && !(image && String(image).trim())) {
-    return res.status(400).json({ error: 'A container image is required for a Docker-image service.' });
   }
   // Container path has no persistent storage yet — refuse database/stateful images that would
   // silently lose their data on restart (go-live audit P0 #1). VM path + managed Postgres are fine.

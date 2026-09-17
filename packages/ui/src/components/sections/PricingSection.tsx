@@ -74,7 +74,6 @@ function buildPlans(cur: BillingCurrency) {
   const perContainer = formatCents(proContainerCents(cur), cur);
   const micro = formatCents(computeDeltaCents('micro', cur), cur);
   const small = formatCents(computeDeltaCents('small', cur), cur);
-  const twoContainers = formatCents(proContainerCents(cur) * 2, cur); // a backend = 3 containers; Starter includes 1
   const computeLine = `Compute upgrades: micro (+${micro}) · small (+${small})`;
   const gst = cur === 'INR' ? ' + GST' : '';
   return [
@@ -86,9 +85,8 @@ function buildPlans(cur: BillingCurrency) {
       features: [
         `${PRO.tiers.starter.base_includes_containers} nano container included`,
         `${perContainer}/mo per additional container`,
-        `Backend (Auth · Data · Storage · Functions): 3 containers — +${twoContainers}/mo here`,
         computeLine,
-        'Deploy from GitHub or a container image',
+        'Deploy from a GitHub repo',
       ],
       cta: { label: 'Start with Starter →', href: '/dashboard/projects' },
     },
@@ -103,7 +101,7 @@ function buildPlans(cur: BillingCurrency) {
         'Observability: metrics, query performance & logs',
         `${perContainer}/mo per additional container`,
         computeLine,
-        'Deploy from GitHub or a container image',
+        'Deploy from a GitHub repo',
       ],
       cta: { label: 'Start with Pro →', href: '/dashboard/projects' },
     },

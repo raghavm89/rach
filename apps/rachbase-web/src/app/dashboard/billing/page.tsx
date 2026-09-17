@@ -708,7 +708,6 @@ function BillingPageInner() {
               const micro = formatCents(computeDeltaCents('micro', cur), cur);
               const small = formatCents(computeDeltaCents('small', cur), cur);
               const perContainer = formatCents(proContainerCents(cur), cur);
-              const twoContainers = formatCents(proContainerCents(cur) * 2, cur); // a backend = 3 containers; Starter includes 1
               const sharedTiers = [
                 {
                   id: 'starter' as const, label: PRO.tiers.starter.label, icon: <Boxes size={16} />,
@@ -717,9 +716,8 @@ function BillingPageInner() {
                   features: [
                     `${PRO.tiers.starter.base_includes_containers} nano container included`,
                     `+${perContainer}/mo per additional container`,
-                    `Backend (Auth · Data · Storage · Functions): 3 containers — +${twoContainers}/mo here`,
                     `Compute upgrades: micro (+${micro}) · small (+${small})`,
-                    'Deploy from GitHub or a Docker image',
+                    'Deploy from a GitHub repo',
                   ],
                 },
                 {
@@ -732,7 +730,7 @@ function BillingPageInner() {
                     'Observability: metrics, query performance & logs',
                     `+${perContainer}/mo per additional container`,
                     `Compute upgrades: micro (+${micro}) · small (+${small})`,
-                    'Deploy from GitHub or a Docker image',
+                    'Deploy from a GitHub repo',
                   ],
                 },
               ];
