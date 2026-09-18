@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   User, Mail, Phone, Shield, Building2,
   Save, KeyRound, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff,
   Globe, Briefcase, MapPin, CreditCard, Lock, ChevronRight, UserCheck,
+  Download, Trash2, ShieldCheck, X,
 } from 'lucide-react';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { users } from '@rach/ui/lib/api';
+import { users, geo } from '@rach/ui/lib/api';
 import { cn } from '@rach/ui/lib/utils';
 import type { UserRole, BillingAddress } from '@rach/ui/lib/api';
 
@@ -130,7 +131,7 @@ const SaveBtn = ({ saving, label }: { saving: boolean; label?: string }) => (
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const { user, token, updateUser } = useAuth();
+  const { user, token, updateUser, logout } = useAuth();
 
   // ── Personal info ─────────────────────────────────────────────────────────
   const [name,  setName]  = useState(user?.name         ?? '');
@@ -157,6 +158,17 @@ export default function ProfilePage() {
   const [gstin,       setGstin]       = useState(user?.gstin             ?? '');
   const [bizSaving, setBizSaving] = useState(false);
   const [bizNotice, setBizNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // GSTIN is India-only. Hide it for clearly-non-India visitors (GeoIP), unless they
+  // already have a GSTIN or a saved India billing address. null geo (dev/proxy) → show.
+  const [geoCountry, setGeoCountry] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!token) return;
+    geo.country(token).then((r) => setGeoCountry(r.country)).catch(() => setGeoCountry(null));
+  }, [token]);
+  const savedCountry = user?.billing_address?.country;
+  const nonIndiaByGeo = geoCountry != null && geoCountry !== 'IN';
+  const showGstin = !nonIndiaByGeo || savedCountry === 'India' || Boolean(user?.gstin);
 
   // ── Billing address ───────────────────────────────────────────────────────
   const saved = user?.billing_address;
@@ -250,6 +262,51 @@ export default function ProfilePage() {
       setAddrSaving(false);
     }
   }, [token, addrLine1, addrLine2, addrCity, addrState, addrPincode, addrCountry, updateUser]);
+
+  // ── Privacy & Data (DPDP data-principal rights) ────────────────────────────
+  const [exporting, setExporting] = useState(false);
+  const [privacyNotice, setPrivacyNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleExport = useCallback(async () => {
+    if (!token) return;
+    setExporting(true);
+    setPrivacyNotice(null);
+    try {
+      const data = await users.exportMe(token);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rachbase-my-data-${user?.id ?? 'account'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setPrivacyNotice({ type: 'success', msg: 'Your data has been downloaded as a JSON file.' });
+    } catch (err) {
+      setPrivacyNotice({ type: 'error', msg: (err as Error).message || 'Failed to export your data.' });
+    } finally {
+      setExporting(false);
+    }
+  }, [token, user?.id]);
+
+  const handleDelete = useCallback(async () => {
+    if (!token || deleteConfirm !== 'DELETE') return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await users.deleteMe(token);
+      await logout();
+      // logout redirects; nothing more to do.
+    } catch (err) {
+      setDeleteError((err as Error).message || 'Failed to delete your account.');
+      setDeleting(false);
+    }
+  }, [token, deleteConfirm, logout]);
 
   if (!user) return null;
 
@@ -403,17 +460,19 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* GSTIN — visible for both individual (for sole proprietors) and business */}
-          <Field label="GST Identification Number" hint="optional">
-            <div className="relative">
-              <Shield size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input type="text" value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                maxLength={15} className={inputCls} placeholder="22AAAAA0000A1Z5" />
-            </div>
-            <p className="mt-1 text-xs text-text-muted">
-              GSTIN will appear on your tax invoices. Leave blank if not applicable.
-            </p>
-          </Field>
+          {/* GSTIN — India only (hidden for non-India visitors by GeoIP) */}
+          {showGstin && (
+            <Field label="GST Identification Number" hint="optional">
+              <div className="relative">
+                <Shield size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input type="text" value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                  maxLength={15} className={inputCls} placeholder="22AAAAA0000A1Z5" />
+              </div>
+              <p className="mt-1 text-xs text-text-muted">
+                GSTIN will appear on your tax invoices. Leave blank if not applicable.
+              </p>
+            </Field>
+          )}
 
           <div className="pt-1 flex justify-end">
             <SaveBtn saving={bizSaving} label="Save Business Info" />
@@ -588,6 +647,124 @@ export default function ProfilePage() {
           </div>
         </form>
       </div>
+
+      {/* ── Privacy & Data (DPDP rights) ─────────────────────────────────────── */}
+      <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
+        <SectionHeader
+          title="Privacy & Data"
+          subtitle="Exercise your rights under India's DPDP Act — download or erase the personal data we hold."
+        />
+        <div className="p-6 space-y-5">
+          {privacyNotice && <Notice {...privacyNotice} />}
+
+          {/* Export my data */}
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-neutral-border/60 bg-bg-secondary/50 p-4">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                <ShieldCheck size={15} className="text-primary-blue" /> Export my data
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Download a copy of the account profile we store, as a JSON file. Project, service and
+                invoice data remain available in your dashboard.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-neutral-border bg-bg-secondary px-4 py-2.5 text-sm font-medium text-text-primary hover:border-primary-blue/40 transition-colors disabled:opacity-60"
+            >
+              {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Export
+            </button>
+          </div>
+
+          {/* Delete my account */}
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50/50 p-4">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold text-red-600">
+                <Trash2 size={15} /> Delete my account
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Permanently erases your personal information and signs you out everywhere. This cannot
+                be undone. Invoices are retained as legally required, with your identity removed.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setDeleteConfirm(''); setDeleteError(null); setShowDeleteModal(true); }}
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </div>
+
+          <p className="text-xs text-text-muted">
+            Questions about your data? Contact our Grievance Officer at{' '}
+            <a href="mailto:grievance@rachdev.com" className="text-primary-blue hover:underline">grievance@rachdev.com</a>.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Delete-account confirmation modal ────────────────────────────────── */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-border bg-surface-card shadow-xl">
+            <div className="flex items-start justify-between border-b border-neutral-border px-6 py-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
+                  <Trash2 size={16} className="text-red-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-text-primary">Delete your account?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="text-text-muted hover:text-text-primary disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {deleteError && <Notice type="error" msg={deleteError} />}
+              <p className="text-sm text-text-secondary">
+                This permanently erases your personal data and ends every session. It <strong>cannot be undone</strong>.
+                Your invoices are kept for tax/accounting purposes with your identity removed.
+              </p>
+              <Field label={'Type DELETE to confirm'}>
+                <input
+                  type="text"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  autoFocus
+                  className="w-full rounded-lg border border-neutral-border bg-bg-secondary px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-200"
+                  placeholder="DELETE"
+                />
+              </Field>
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  className="rounded-lg border border-neutral-border bg-bg-secondary px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting || deleteConfirm !== 'DELETE'}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  Delete account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -16,11 +16,11 @@ const { renderInvoicePdf, pdfFilename } = require('../services/invoice/pdf');
 const { calculateTax } = require('../services/tax');
 const geoip = require('geoip-lite');
 
-// Resolve the client IP behind proxies (ngrok, Railway, etc.).
+// Resolve the client IP. `req.ip` applies the host app's `trust proxy` hop count — never
+// parse x-forwarded-for directly here: that trusted a client-supplied header and let a
+// caller spoof the country feeding this quote's tax fallback (go-live audit M5).
 function clientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return req.socket?.remoteAddress || req.ip || '';
+  return req.ip || req.socket?.remoteAddress || '';
 }
 
 /** ISO country for the request IP, or null (loopback/private ranges → null). */

@@ -14,6 +14,11 @@ router.use(serviceAuth('RACHBASE_SERVICE_TOKEN'));
 router.post('/deploy',      asyncHandler(ctrl.deploy));
 router.post('/run-command', asyncHandler(ctrl.runCommand));
 
+// BaaS gateway key introspection (opaque publishable/secret keys → role).
+router.post('/baas/introspect', asyncHandler(ctrl.baasIntrospect));
+// BaaS Observability metrics ingest (gateway + site controller push samples).
+router.post('/baas/metrics', asyncHandler(ctrl.baasMetricsIngest));
+
 // Service usage metrics + sustained-usage alerting (Step 5)
 router.post('/usage',            asyncHandler(ctrl.recordUsage));
 router.post('/alerts/evaluate',  asyncHandler(ctrl.evaluateAlerts));

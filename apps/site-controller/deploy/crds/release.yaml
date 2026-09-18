@@ -1,0 +1,46 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: releases.rachbase.io
+# A release (contract §7.2): exact commitSha (built by SpaceArk) or an approved image
+# digest (BYO / our registry). The build reconciler resolves it to a digest.
+spec:
+  group: rachbase.io
+  names: { kind: Release, plural: releases, singular: release, shortNames: [rel] }
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources: { status: {} }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [tenantId, appId, operationId]
+              properties:
+                tenantId: { type: string }
+                appId: { type: string }
+                deploymentId: { type: string }
+                applicationGeneration: { type: integer }
+                image: { type: string }          # already-approved digest (rollback / our registry)
+                externalImage: { type: string }  # prebuilt customer image → ARKA ingests (scan/sign)
+                operationId: { type: string }
+                desiredState: { type: string }
+                source:
+                  type: object
+                  properties:
+                    provider: { type: string }
+                    installationRef: { type: string }
+                    repositoryRef: { type: string }
+                    commitSha: { type: string }
+                    baseImage: { type: string }   # optional base image to build the repo ON (mode 2b)
+            status:
+              type: object
+              properties:
+                state: { type: string }   # BUILD_PENDING|INGEST_PENDING|RESOLVED|DEPLOYED|FAILED
+                digest: { type: string }
+                reason: { type: string }
+                updatedAt: { type: string }

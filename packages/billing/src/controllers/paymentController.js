@@ -117,6 +117,25 @@ async function webhook(req, res) {
     return res.json({ received: true, duplicate: true });
   }
 
+  // Claim-then-process, with the claim RELEASED on failure: if any handler below throws
+  // mid-way, we give the claim back and answer 500 so Razorpay's retry reprocesses the
+  // event instead of being told `duplicate`. Before this, a crash between claim and
+  // commit dropped the event permanently — e.g. a `charged` that should keep a container
+  // online, or a `cancelled` that should stop one (go-live audit finding M4).
+  // Handlers are already idempotent per payment/order id, so a partial first attempt
+  // followed by a full retry is safe.
+  try {
+    await processWebhookEvent(event, payload);
+  } catch (err) {
+    console.error(`[webhook] ${event} handler failed — releasing claim for retry:`, err.message);
+    await WebhookEvent.release(signature);
+    return res.status(500).json({ error: 'Webhook processing failed; will retry' });
+  }
+
+  return res.json({ received: true });
+}
+
+async function processWebhookEvent(event, payload) {
   switch (event) {
     case 'subscription.activated':
     case 'subscription.authenticated': {
@@ -151,6 +170,13 @@ async function webhook(req, res) {
       // Keeps the fulfilment record's status and next_charge_at current.
       // `next_charge_at` previously had no writer at all.
       await syncFulfilmentForSubscription(sub.id, { status: 'active', nextChargeAt: currentEnd });
+
+      // Unconditional per-event hook — fires for subscriptions this package doesn't
+      // own a row for (RachBase Pro subs), so their container lifecycle stays in sync.
+      await hooks.fireSubscriptionEvent({
+        razorpaySubId: sub.id, event: 'charged', status: 'active',
+        paymentId: pmt.id, amountMinor: Number(pmt.amount), currency: pmt.currency,
+      });
 
       const dbSub = await Subscription.findByRazorpayId(sub.id);
       if (dbSub) {
@@ -242,6 +268,9 @@ async function webhook(req, res) {
       // The reason a customer whose card failed on renewal used to keep
       // reading 'active' in Rachbase indefinitely.
       await syncFulfilmentForSubscription(sub.id, { status: sub.status });
+
+      // Pro container lifecycle: halt/cancel takes the associated container(s) offline.
+      await hooks.fireSubscriptionEvent({ razorpaySubId: sub.id, event: sub.status, status: sub.status });
       break;
     }
 
@@ -267,8 +296,6 @@ async function webhook(req, res) {
     default:
       break;
   }
-
-  return res.json({ received: true });
 }
 
 // jsonb columns arrive already parsed from pg, but tolerate a string too.

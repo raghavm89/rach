@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import {
   Database,
   ShieldCheck,
@@ -241,13 +240,18 @@ export default function BaaSPage() {
           className="flex items-center justify-center gap-5 rounded-2xl px-8 py-4 shadow-sm mx-auto max-w-2xl"
           style={{ background: 'linear-gradient(135deg, rgba(71,126,247,0.08) 0%, rgba(130,96,246,0.08) 100%)', border: '1px solid rgba(130,96,246,0.2)' }}
         >
-          <Image
-            src="/arka-microstacks.png"
-            alt="Arka Microstacks"
-            width={120}
-            height={48}
-            className="h-12 w-auto object-contain flex-shrink-0"
-          />
+          {/* Real ARKA logo (web-sized copy in /images/partners/). The lockup's navy text
+              needs a light ground, so dark mode gives it a white chip. */}
+          <span className="flex-shrink-0 rounded-lg dark:bg-white dark:px-3 dark:py-1.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static partner asset */}
+            <img
+              src="/images/partners/arka-microstacks.png"
+              alt="ARKA MicroStacks"
+              className="h-10 w-auto"
+              width={900}
+              height={402}
+            />
+          </span>
           <div className="h-10 w-px flex-shrink-0" style={{ background: 'rgba(130,96,246,0.25)' }} />
           <p className="text-sm text-text-secondary leading-snug">
             Partnered with{' '}

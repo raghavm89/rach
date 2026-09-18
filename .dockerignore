@@ -1,0 +1,18 @@
+# Repo-root ignore (build context = repo root for the app Dockerfiles). Keeps secrets,
+# local deps, and VCS/cruft OUT of every image. .env.example is intentionally NOT ignored.
+**/node_modules
+**/.git
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.log
+**/.DS_Store
+**/.next
+**/coverage
+
+# Secrets & credentials — must never be copied into an image layer.
+secrets/
+**/secrets/
+**/*.key
+**/*.pem
+apps/rachbase-backend/scripts/invoice-input.json

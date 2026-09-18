@@ -29,6 +29,7 @@ export default function ContactPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/contact-support.png"
+              unoptimized
               alt="A chat window, an email envelope, and a support specialist with a headset connected together"
               fill
               className="object-contain p-6"

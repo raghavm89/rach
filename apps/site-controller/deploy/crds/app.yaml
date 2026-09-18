@@ -1,0 +1,64 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: apps.rachbase.io
+# App runtime spec (contract §7.1). The workload reconciler renders a hardened
+# Deployment + Service from spec.image (an approved digest). SpaceArk installs CRDs.
+spec:
+  group: rachbase.io
+  names: { kind: App, plural: apps, singular: app, shortNames: [rapp] }
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources: { status: {} }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [tenantId, appId, operationId]
+              properties:
+                tenantId: { type: string }
+                appId: { type: string }
+                runtime: { type: string }        # §7.1 runtime id (e.g. nodejs-22); image comes from a release
+                image: { type: string }          # approved digest (null until a release resolves it)
+                port: { type: integer }
+                generation: { type: integer }
+                operationId: { type: string }
+                replicas: { type: integer }
+                owner: { type: string }          # creating user's name → rachbase.io/created-by annotation
+                host: { type: string }           # public hostname (edge routes it) → status.url
+                desiredState: { type: string, enum: [ACTIVE, DELETED] }   # DELETED → workload reconciler tears it down
+                reason: { type: string }
+                command:                         # user run command (exec form); absent → image default CMD runs
+                  type: array
+                  items: { type: string }
+                env:                             # user env vars → container.env
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string }
+                      value: { type: string }
+                resources:
+                  type: object
+                  properties:
+                    cpuRequestM: { type: integer }
+                    cpuLimitM: { type: integer }
+                    memRequestMiB: { type: integer }
+                    memLimitMiB: { type: integer }
+            status:
+              type: object
+              properties:
+                state: { type: string }
+                url: { type: string }
+                observedGeneration: { type: integer }
+                reason: { type: string }
+                updatedAt: { type: string }
+      additionalPrinterColumns:
+        - { name: Image, type: string, jsonPath: .spec.image }
+        - { name: State, type: string, jsonPath: .status.state }

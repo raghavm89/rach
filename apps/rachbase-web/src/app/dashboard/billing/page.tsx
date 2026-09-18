@@ -1,21 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Server, Database, Globe, CheckCircle2, AlertCircle,
   ArrowLeft, ShieldCheck, Zap, History, Plus, Minus, Layers, Package,
-  HardDrive, BarChart2, Activity, GitCompare, Users,
+  HardDrive, BarChart2, Activity, Boxes, Building2,
   Check, X as XIcon, CreditCard, Calendar, ChevronRight,
   Clock, RefreshCw, Coins, Bot, Receipt, FileText, LineChart,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
 import { useCart } from '@rach/ui/contexts/CartContext';
-import { expansion, ExpansionRequest, agent, invoices as invoicesApi, type TaxQuote } from '@rach/ui/lib/api';
+import { expansion, ExpansionRequest, agent, invoices as invoicesApi, site, type TaxQuote } from '@rach/ui/lib/api';
 import { TaxSummary } from '@rach/ui/components/billing/TaxSummary';
-import { VISIBLE_SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES } from '@rach/ui/lib/catalog';
+import { VISIBLE_SERVICES as CATALOG_SERVICES, BUNDLES as CATALOG_BUNDLES, PRO, formatCents, proBaseCents, proContainerCents, computeDeltaCents, type BillingCurrency } from '@rach/ui/lib/catalog';
 import { InvoiceList } from '@rach/ui/components/billing/InvoiceList';
 import { cn } from '@rach/ui/lib/utils';
 
@@ -81,13 +80,6 @@ const EMPTY_QTY: Record<ServiceId, number> = Object.fromEntries(
   CATALOG_SERVICES.map((s) => [s.id, 0]),
 ) as Record<ServiceId, number>;
 
-// Badge colours are presentation, so they stay here; the copy itself
-// (tagline / best_for) lives with the bundle in the catalog.
-const BADGE_CLASS: Record<string, string> = {
-  'Most Popular': 'bg-gradient-to-r from-primary-blue to-primary-purple text-white',
-  'Best Value'  : 'bg-gradient-to-r from-amber-400 to-orange-500 text-white',
-};
-
 interface BundleDef {
   id: string;
   name: string;
@@ -97,9 +89,6 @@ interface BundleDef {
   priceCents: number;
   originalPrice: number;
   saving: number;
-  badge?: string;
-  badgeClass?: string;
-  highlight?: boolean;
   items: Partial<Record<ServiceId, number>>;
 }
 
@@ -114,9 +103,6 @@ const BUNDLES: BundleDef[] = CATALOG_BUNDLES.map((b) => ({
   // $100 (Scale), overstating savings as $80/$130 when the real figure is $30.
   originalPrice: b.listPriceCents / 100,
   saving: b.savingCents / 100,
-  badge: b.badge ?? undefined,
-  badgeClass: b.badge ? BADGE_CLASS[b.badge] : undefined,
-  highlight: b.highlight,
   items: b.items as Partial<Record<ServiceId, number>>,
 }));
 
@@ -154,11 +140,15 @@ function OrderDetailModal({ request: r, onClose }: { request: ExpansionRequest; 
         })
       : null;
 
+  // Currency-aware, defaulting to USD like the Orders page's copy of this modal — the
+  // "fix currency symbol" commit fixed only that copy; this one still rendered a USD
+  // order with null currency as ₹ (go-live audit H5). TODO: extract ONE shared modal.
+  const modalCur = r.currency ?? 'USD';
   const amountDisplay =
     r.amount_paid > 0
-      ? new Intl.NumberFormat('en-IN', {
+      ? new Intl.NumberFormat(modalCur === 'INR' ? 'en-IN' : 'en-US', {
           style: 'currency',
-          currency: r.currency ?? 'INR',
+          currency: modalCur,
         }).format(r.amount_paid / 100)
       : null;
 
@@ -390,7 +380,7 @@ function OrderHistory({ token }: { token: string }) {
 
 // -- Main page ----------------------------------------------------------------
 
-type Tab = 'starter' | 'custom' | 'bundles' | 'compare' | 'credits' | 'usage' | 'invoices';
+type Tab = 'custom' | 'bundles' | 'credits' | 'usage' | 'invoices';
 
 // -- Agent Credit Packs --------------------------------------------------------
 
@@ -401,18 +391,60 @@ const CREDIT_PACKS = [
   { id: 'max',     label: 'Max',     price_usd: 50, credits: 3500, bonus: '+133%' },
 ];
 
-export default function BillingPage() {
+function BillingPageInner() {
   const { user, token } = useAuth();
   const router       = useRouter();
   const searchParams = useSearchParams();
+  const [proRouting, setProRouting] = useState<null | 'starter' | 'pro'>(null);
+  // Billing region for display (server is authoritative). Resolved from a no-side-effect
+  // quote so India tenants see native ₹ plan prices, not USD.
+  const [billingCurrency, setBillingCurrency] = useState<BillingCurrency>('USD');
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    site.proQuote(token, 'starter')
+      .then((q) => { if (alive && (q.currency === 'INR' || q.currency === 'USD')) setBillingCurrency(q.currency); })
+      .catch(() => { /* keep USD default */ });
+    return () => { alive = false; };
+  }, [token]);
+
+  // Subscribe to a tier → price it server-side (no side effects), then hand off to the
+  // shared checkout page (review + GST/tax + Razorpay) with the tier, amount + currency.
+  async function startProCheckout(tier: 'starter' | 'pro') {
+    if (!token) return;
+    setProRouting(tier);
+    try {
+      const q = await site.proQuote(token, tier);
+      const qs = new URLSearchParams({ pro: 'base', tier, amount: String(q.amount), currency: q.currency });
+      router.push(`/dashboard/billing/checkout?${qs.toString()}`);
+    } catch { setProRouting(null); }
+  }
 
   const [tab, setTab]                       = useState<Tab>(() => {
     const t = searchParams.get('tab');
-    const valid: Tab[] = ['starter', 'custom', 'bundles', 'compare', 'credits', 'usage', 'invoices'];
-    return (valid as string[]).includes(t ?? '') ? (t as Tab) : 'starter';
+    const valid: Tab[] = ['custom', 'bundles', 'credits', 'usage', 'invoices'];
+    return (valid as string[]).includes(t ?? '') ? (t as Tab) : 'bundles';
   });
   const [quantities, setQuantities]         = useState<Record<ServiceId, number>>(EMPTY_QTY);
   const [selectedBundle, setSelectedBundle] = useState<BundleDef | null>(null);
+
+  // Cancel Pro (unsubscribe): stops shared containers + cancels active subscriptions.
+  const [unsubscribing, setUnsubscribing] = useState(false);
+  const [unsubNotice, setUnsubNotice] = useState<string | null>(null);
+  async function handleCancelPro() {
+    if (!token) return;
+    if (!window.confirm('Cancel your Pro plan? This stops all your shared containers and cancels active subscriptions. This cannot be undone.')) return;
+    setUnsubscribing(true);
+    setUnsubNotice(null);
+    try {
+      const r = await site.unsubscribe(token);
+      setUnsubNotice(`${r.message} (${r.stopped_containers} container(s) stopped, ${r.cancelled_subscriptions} subscription(s) cancelled)`);
+    } catch (e) {
+      setUnsubNotice((e as Error).message);
+    } finally {
+      setUnsubscribing(false);
+    }
+  }
 
   // Persistent cart — restores the user's picked services (across devices) and
   // keeps the order summary populated.
@@ -512,17 +544,23 @@ export default function BillingPage() {
     }).catch(() => {}).finally(() => setUsageLoading(false));
   }, [tab, token]);
 
-  // Handle credit purchase via Razorpay
+  // Handle credit purchase via Razorpay.
+  // Two failure modes used to be silent (go-live audit H6): a checkout-script load failure
+  // hung the button forever (no onerror), and a verify failure after Razorpay had COLLECTED
+  // THE MONEY was swallowed — paid, no credits, no message. Both now surface to the customer.
+  const [creditError, setCreditError] = useState<string | null>(null);
   const handleCreditPurchase = async () => {
     if (!token || !selectedPack) return;
     setCreditPurchasing(true);
+    setCreditError(null);
     try {
       const orderData = await agent.purchaseCredits(token, selectedPack);
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         if ((window as unknown as RazorpayWindow).Razorpay) { resolve(); return; }
         const s = document.createElement('script');
         s.src = 'https://checkout.razorpay.com/v1/checkout.js';
         s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Could not load the Razorpay checkout (a network issue or ad-blocker?). You have not been charged — please try again.'));
         document.head.appendChild(s);
       });
       const pack = CREDIT_PACKS.find((p) => p.id === selectedPack)!;
@@ -544,11 +582,18 @@ export default function BillingPage() {
             });
             setCreditBalance(result.balance);
             setCreditSuccess(true);
-          } catch { /* ignore */ }
+          } catch {
+            // Money has moved; the credits will be applied once verification goes through.
+            setCreditError(
+              `Payment received, but we couldn't confirm your credits yet. They usually appear within a few minutes — ` +
+              `if not, contact support quoting payment id ${response.razorpay_payment_id}. You have NOT been charged twice.`,
+            );
+          }
         },
       }).open();
     } catch (err) {
       console.error(err);
+      setCreditError((err as Error).message || 'Could not start the purchase. Please try again.');
     } finally {
       setCreditPurchasing(false);
     }
@@ -564,15 +609,8 @@ export default function BillingPage() {
     if (delta > 0 && selectedBundle) setSelectedBundle(null);
   };
 
-  const selectBundle = (b: BundleDef | null) => {
-    setSelectedBundle(b);
-    if (b) setQuantities(EMPTY_QTY);
-  };
-
   const customTotal = SERVICES.reduce((s, svc) => s + svc.price * (quantities[svc.id] ?? 0), 0);
 
-  const vmSvc = SERVICES.find((s) => s.id === 'vm')!;
-  const starterQty = quantities['vm'] ?? 0;
 
   // The Order Summary reflects the persistent cart on every plan tab (not just
   // the active tab), so switching tabs never blanks a non-empty cart.
@@ -639,9 +677,7 @@ export default function BillingPage() {
       {/* Tab switcher */}
       <div className="flex rounded-xl border border-neutral-border bg-bg-secondary p-1 w-fit flex-wrap gap-0.5">
         {([
-          { id: 'starter' as Tab, label: 'Starter',             icon: <Server size={14} /> },
-          { id: 'bundles' as Tab, label: 'Bundle Plans',        icon: <Layers size={14} /> },
-          { id: 'compare' as Tab, label: 'Compare Plans',       icon: <GitCompare size={14} /> },
+          { id: 'bundles' as Tab, label: 'Plans',               icon: <Layers size={14} /> },
           { id: 'custom'  as Tab, label: 'Individual Services', icon: <Package size={14} /> },
           { id: 'credits' as Tab, label: 'Agent Credits',       icon: <Coins size={14} /> },
           { id: 'invoices' as Tab, label: 'Invoices',           icon: <Receipt size={14} /> },
@@ -661,311 +697,104 @@ export default function BillingPage() {
         ))}
       </div>
 
-      {/* ---- Compare Plans (full-width) ---- */}
-      {tab === 'compare' && (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {BUNDLES.map((bundle) => {
-              const save = bundle.originalPrice - bundle.price;
-              const savePct = Math.round((save / bundle.originalPrice) * 100);
-              return (
-                <div
-                  key={bundle.id}
-                  className={cn(
-                    'rounded-2xl border-2 p-5 text-center',
-                    bundle.highlight
-                      ? 'border-primary-purple/40 bg-gradient-to-br from-primary-blue/5 to-primary-purple/5'
-                      : 'border-neutral-border bg-surface-card',
-                  )}
-                >
-                  {bundle.badge && (
-                    <span className={cn('inline-block mb-2 rounded-full px-3 py-0.5 text-xs font-bold', bundle.badgeClass)}>
-                      {bundle.badge}
-                    </span>
-                  )}
-                  <h3 className="font-bold text-text-primary">{bundle.name}</h3>
-                  <p className="text-xs text-text-muted mt-0.5 mb-3">{bundle.tagline}</p>
-                  <div className="text-2xl font-bold font-mono text-text-primary">
-                    {usd(bundle.price)}<span className="text-sm font-normal text-text-muted">/mo</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 mt-1">
-                    <span className="text-xs text-text-muted line-through">{usd(bundle.originalPrice)}</span>
-                    <span className="text-xs font-semibold text-emerald-600">Save {savePct}%</span>
-                  </div>
-                  <p className="mt-3 text-xs text-primary-blue font-medium">{bundle.bestFor}</p>
-                  <button
-                    onClick={() => { selectBundle(bundle); setTab('bundles'); }}
-                    className={cn(
-                      'mt-4 w-full rounded-xl py-2.5 text-sm font-semibold transition-all',
-                      bundle.highlight
-                        ? 'bg-gradient-to-r from-primary-blue to-primary-purple text-white hover:opacity-90'
-                        : 'border border-primary-blue text-primary-blue hover:bg-primary-blue/5',
-                    )}
-                  >
-                    Select Plan
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rounded-2xl border border-neutral-border bg-surface-card overflow-hidden">
-            <div className="px-6 py-4 border-b border-neutral-border">
-              <h3 className="font-semibold text-text-primary">What&apos;s included</h3>
-              <p className="text-xs text-text-muted mt-0.5">Exact specs and pricing per service, per bundle.</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px]">
-                <thead>
-                  <tr className="border-b border-neutral-border bg-bg-secondary">
-                    <th className="py-3 px-6 text-left text-xs font-semibold text-text-secondary w-[40%]">Service</th>
-                    {BUNDLES.map((b) => (
-                      <th key={b.id} className={cn('py-3 px-4 text-center text-xs font-semibold', b.highlight ? 'text-primary-blue' : 'text-text-secondary')}>
-                        {b.name.replace(' Bundle', '')}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SERVICES.map((svc, i) => (
-                    <tr key={svc.id} className={cn('border-b border-neutral-border last:border-0', i % 2 === 0 ? 'bg-surface-card' : 'bg-bg-secondary/50')}>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg shrink-0', svc.iconBg)}>
-                            <svc.Icon size={13} className={svc.iconColor} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-text-primary">{svc.name}</p>
-                            <p className="text-xs text-text-muted">{usd(svc.price)} {svc.unit}</p>
-                          </div>
-                        </div>
-                      </td>
-                      {BUNDLES.map((bundle) => {
-                        const qty = bundle.items[svc.id] ?? 0;
-                        const linePrice = svc.price * qty;
-                        return (
-                          <td key={bundle.id} className="py-4 px-4 text-center">
-                            {qty > 0 ? (
-                              <div>
-                                <p className="text-sm font-semibold text-text-primary">{qty}x</p>
-                                <p className="text-xs text-text-muted font-mono">{usd(linePrice)}/mo</p>
-                              </div>
-                            ) : (
-                              <XIcon size={15} className="mx-auto text-neutral-300" />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-
-                  <tr className="border-t-2 border-neutral-border bg-emerald-50/40">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 shrink-0">
-                          <ShieldCheck size={13} className="text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-text-primary">Security &amp; Anti-DDoS</p>
-                          <p className="text-xs text-text-muted">Bundled with every plan</p>
-                        </div>
-                      </div>
-                    </td>
-                    {BUNDLES.map((b) => (
-                      <td key={b.id} className="py-4 px-4 text-center">
-                        <Check size={15} className="mx-auto text-emerald-500" />
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="bg-emerald-50/40">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 shrink-0">
-                          <Zap size={13} className="text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-text-primary">24/7 Provisioning Support</p>
-                          <p className="text-xs text-text-muted">Dedicated dev support</p>
-                        </div>
-                      </div>
-                    </td>
-                    {BUNDLES.map((b) => (
-                      <td key={b.id} className="py-4 px-4 text-center">
-                        <Check size={15} className="mx-auto text-emerald-500" />
-                      </td>
-                    ))}
-                  </tr>
-
-                  <tr className="border-t-2 border-neutral-border bg-bg-secondary">
-                    <td className="py-4 px-6 text-xs font-semibold text-text-secondary">A la carte total</td>
-                    {BUNDLES.map((bundle) => {
-                      const retail = (Object.entries(bundle.items) as [ServiceId, number][])
-                        .reduce((sum, [id, qty]) => sum + SERVICES.find((s) => s.id === id)!.price * qty, 0);
-                      return (
-                        <td key={bundle.id} className="py-4 px-4 text-center">
-                          <span className="text-xs text-text-muted line-through font-mono">{usd(retail)}</span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  <tr className="bg-gradient-to-r from-primary-blue/5 to-primary-purple/5">
-                    <td className="py-4 px-6 font-bold text-sm text-text-primary">Bundle Price</td>
-                    {BUNDLES.map((bundle) => (
-                      <td key={bundle.id} className="py-4 px-4 text-center">
-                        <p className="text-base font-bold font-mono text-text-primary">
-                          {usd(bundle.price)}<span className="text-xs font-normal text-text-muted">/mo</span>
-                        </p>
-                        <p className="text-xs font-semibold text-emerald-600">
-                          Save {usd(bundle.originalPrice - bundle.price)}
-                        </p>
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---- Bundle Plans + Individual Services ---- */}
-      {tab !== 'compare' && tab !== 'credits' && tab !== 'usage' && (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      {/* ---- Plans + Individual Services ---- */}
+      {tab !== 'credits' && tab !== 'usage' && (
+        <div className={cn('grid gap-6', tab === 'custom' && 'lg:grid-cols-[1fr_320px]')}>
 
           <div className="space-y-4">
 
-            {tab === 'starter' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-text-primary">Virtual Machine</h3>
-                  <p className="text-xs text-text-muted mt-0.5">Get started with a single VM — perfect for small projects and testing.</p>
-                </div>
-                <div className={cn(
-                  'flex items-center gap-4 rounded-2xl border-2 bg-surface-card px-6 py-5 transition-all duration-200',
-                  starterQty > 0 ? 'border-primary-blue shadow-sm' : 'border-neutral-border',
-                )}>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 shrink-0">
-                    <Server size={20} className="text-primary-blue" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-text-primary">{vmSvc.name}</p>
-                    <p className="text-xs text-text-muted mt-0.5">{vmSvc.specs}</p>
-                  </div>
-                  <div className="text-right shrink-0 hidden sm:block">
-                    <p className="font-bold font-mono text-text-primary">{usd(vmSvc.price)}</p>
-                    <p className="text-xs text-text-muted">{vmSvc.unit}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => adjustQty('vm', -1)}
-                      disabled={starterQty === 0}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-border text-text-secondary hover:bg-bg-secondary hover:border-primary-blue/40 disabled:opacity-30 transition-all"
-                    >
-                      <Minus size={13} />
-                    </button>
-                    <span className="w-8 text-center text-sm font-bold font-mono text-text-primary">{starterQty}</span>
-                    <button
-                      onClick={() => adjustQty('vm', +1)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-border text-text-secondary hover:bg-bg-secondary hover:border-primary-blue/40 transition-all"
-                    >
-                      <Plus size={13} />
-                    </button>
-                  </div>
-                  <div className="w-20 text-right shrink-0">
-                    {starterQty > 0
-                      ? <p className="font-semibold font-mono text-primary-blue">{usd(vmSvc.price * starterQty)}</p>
-                      : <p className="text-xs text-text-muted">-</p>
-                    }
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {tab === 'bundles' && (
-              <div className="grid gap-4 sm:grid-cols-3">
-                {BUNDLES.map((bundle) => {
-                  const isSelected = selectedBundle?.id === bundle.id;
-                  const save = bundle.originalPrice - bundle.price;
-                  const savePct = Math.round((save / bundle.originalPrice) * 100);
-                  return (
-                    <button
-                      key={bundle.id}
-                      onClick={() => selectBundle(isSelected ? null : bundle)}
-                      className={cn(
-                        'relative text-left rounded-2xl border-2 p-5 transition-all duration-200',
-                        isSelected
-                          ? 'border-primary-blue bg-gradient-to-br from-primary-blue/5 to-primary-purple/5 shadow-md'
-                          : bundle.highlight
-                          ? 'border-primary-purple/30 hover:border-primary-purple bg-surface-card'
-                          : 'border-neutral-border hover:border-primary-blue/40 bg-surface-card',
-                      )}
-                    >
-                      {bundle.badge && (
-                        <span className={cn('absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-0.5 text-xs font-bold whitespace-nowrap', bundle.badgeClass)}>
-                          {bundle.badge}
-                        </span>
-                      )}
-
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={cn(
-                          'flex h-9 w-9 items-center justify-center rounded-xl',
-                          isSelected ? 'bg-gradient-to-br from-primary-blue to-primary-purple text-white' : 'bg-bg-secondary text-text-muted',
-                        )}>
-                          <Layers size={16} />
-                        </div>
-                        {isSelected && <CheckCircle2 size={18} className="text-primary-blue shrink-0" />}
+            {tab === 'bundles' && (() => {
+              const cur = billingCurrency;
+              const micro = formatCents(computeDeltaCents('micro', cur), cur);
+              const small = formatCents(computeDeltaCents('small', cur), cur);
+              const perContainer = formatCents(proContainerCents(cur), cur);
+              const sharedTiers = [
+                {
+                  id: 'starter' as const, label: PRO.tiers.starter.label, icon: <Boxes size={16} />,
+                  tagline: 'Launch a single service on shared infrastructure.',
+                  base: proBaseCents('starter', cur), incl: PRO.tiers.starter.base_includes_containers,
+                  features: [
+                    `${PRO.tiers.starter.base_includes_containers} nano container included`,
+                    `+${perContainer}/mo per additional container`,
+                    `Compute upgrades: micro (+${micro}) · small (+${small})`,
+                    'Deploy from a GitHub repo',
+                  ],
+                },
+                {
+                  id: 'pro' as const, label: PRO.tiers.pro.label, icon: <Boxes size={16} />,
+                  tagline: 'Run a full backend on shared infrastructure.',
+                  base: proBaseCents('pro', cur), incl: PRO.tiers.pro.base_includes_containers,
+                  features: [
+                    `${PRO.tiers.pro.base_includes_containers} nano containers included`,
+                    'Backend (Auth · Data · Storage · Functions): 3 containers, included',
+                    'Observability: metrics, query performance & logs',
+                    `+${perContainer}/mo per additional container`,
+                    `Compute upgrades: micro (+${micro}) · small (+${small})`,
+                    'Deploy from a GitHub repo',
+                  ],
+                },
+              ];
+              const enterpriseFeatures = [
+                'Designated support manager',
+                'Uptime SLAs',
+                'BYO Cloud supported',
+                '24×7×365 premium enterprise support',
+                'Private Slack channel',
+                'Custom security questionnaires',
+              ];
+              return (
+                <div className="grid gap-4 sm:grid-cols-3 max-w-4xl">
+                  {sharedTiers.map((t) => (
+                    <div key={t.id} className="relative flex flex-col rounded-2xl border-2 border-neutral-border bg-surface-card p-5">
+                      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-secondary text-text-muted">{t.icon}</div>
+                      <h3 className="font-bold text-text-primary leading-tight">{t.label}</h3>
+                      <p className="text-xs text-text-muted mt-0.5 mb-3">{t.tagline}</p>
+                      <div className="mb-3">
+                        <span className="text-xl font-bold font-mono text-text-primary">{formatCents(t.base, billingCurrency)}</span>
+                        <span className="text-xs text-text-muted"> /mo</span>
+                        <p className="text-xs text-text-muted mt-0.5">Includes {t.incl} container{t.incl > 1 ? 's' : ''} · +{perContainer}/container</p>
                       </div>
-
-                      <h3 className="font-bold text-text-primary leading-tight">{bundle.name}</h3>
-                      <p className="text-xs text-text-muted mt-0.5 mb-2">{bundle.tagline}</p>
-
-                      <div className="mb-4">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[10px] font-medium text-primary-blue">
-                          <Users size={9} />
-                          {bundle.bestFor}
-                        </span>
-                      </div>
-
-                      <ul className="space-y-2 mb-4">
-                        {(Object.entries(bundle.items) as [ServiceId, number][]).map(([id, qty]) => {
-                          const svc = SERVICES.find((s) => s.id === id)!;
-                          const linePrice = svc.price * qty;
-                          return (
-                            <li key={id} className="flex items-center gap-2">
-                              <div className={cn('flex h-5 w-5 items-center justify-center rounded shrink-0', svc.iconBg)}>
-                                <svc.Icon size={10} className={svc.iconColor} />
-                              </div>
-                              <span className="text-xs text-text-secondary flex-1 min-w-0 truncate">
-                                {qty > 1 ? `${qty}x ` : ''}{svc.name}
-                              </span>
-                              <span className="text-xs font-mono font-medium text-text-primary shrink-0">
-                                {usd(linePrice)}
-                              </span>
-                            </li>
-                          );
-                        })}
+                      <ul className="space-y-2 mb-4 flex-1">
+                        {t.features.map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-xs text-text-secondary"><Check size={12} className="mt-0.5 shrink-0 text-emerald-500" />{f}</li>
+                        ))}
                       </ul>
-
-                      <div className="border-t border-neutral-border pt-3">
-                        <div className="flex items-baseline justify-between">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-bold font-mono text-text-primary">{usd(bundle.price)}</span>
-                            <span className="text-xs text-text-muted">/mo</span>
+                      {user?.plan === t.id ? (
+                        <div className="mt-auto space-y-2">
+                          <div className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-700">
+                            <Check size={14} /> Current plan
                           </div>
-                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 rounded-full px-2 py-0.5">
-                            -{savePct}%
-                          </span>
+                          <Link href="/dashboard/projects" className="block text-center text-xs font-medium text-primary-blue hover:underline">
+                            Deploy a container →
+                          </Link>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs text-text-muted line-through">{usd(bundle.originalPrice)}</span>
-                          <span className="text-xs text-text-muted">a la carte</span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                      ) : (
+                        <button onClick={() => startProCheckout(t.id)} disabled={proRouting !== null}
+                          className="mt-auto flex w-full items-center justify-center rounded-xl bg-primary-blue py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                          {proRouting === t.id ? 'Loading…' : `Choose ${t.label}`}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Enterprise — contact us */}
+                  <div className="relative flex flex-col rounded-2xl border-2 border-neutral-border bg-surface-card p-5">
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-bg-secondary text-text-muted"><Building2 size={16} /></div>
+                    <h3 className="font-bold text-text-primary leading-tight">Enterprise</h3>
+                    <p className="text-xs text-text-muted mt-0.5 mb-3">For large-scale applications running internet-scale workloads.</p>
+                    <div className="mb-3"><span className="text-xl font-bold font-mono text-text-primary">Custom</span></div>
+                    <ul className="space-y-2 mb-4 flex-1">
+                      {enterpriseFeatures.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-xs text-text-secondary"><Check size={12} className="mt-0.5 shrink-0 text-emerald-500" />{f}</li>
+                      ))}
+                    </ul>
+                    <Link href="/contact" className="mt-auto flex w-full items-center justify-center rounded-xl border border-neutral-border py-2.5 text-sm font-semibold text-text-primary hover:bg-bg-secondary">
+                      Contact us →
+                    </Link>
+                  </div>
+                </div>
+              );
+            })()}
 
             {tab === 'custom' && (
               <div className="space-y-3">
@@ -1019,7 +848,8 @@ export default function BillingPage() {
             )}
           </div>
 
-          {/* Right - order summary */}
+          {/* Right - order summary (Individual Services only) */}
+          {tab === 'custom' && (
           <div className="space-y-4">
             <div className={cn(
               'rounded-2xl border-2 p-6 transition-all duration-300',
@@ -1031,7 +861,7 @@ export default function BillingPage() {
 
               {!hasSelection ? (
                 <p className="text-sm text-text-muted text-center py-6">
-                  {tab === 'starter' ? 'Select quantity using + to get started.' : tab === 'bundles' ? 'Select a bundle to get started.' : 'Add services using the + button.'}
+                  Add services using the + button.
                 </p>
               ) : (
                 <>
@@ -1080,26 +910,8 @@ export default function BillingPage() {
               )}
             </div>
 
-            {tab === 'bundles' && (
-              <div className="rounded-xl border border-neutral-border bg-surface-card p-5 space-y-3">
-                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">What you get</p>
-                {SERVICES.map((svc) => (
-                  <div key={svc.id} className="flex items-center gap-3">
-                    <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg shrink-0', svc.iconBg)}>
-                      <svc.Icon size={13} className={svc.iconColor} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-text-primary">{svc.name}</p>
-                      <p className="text-xs text-text-muted truncate">{svc.specs}</p>
-                    </div>
-                    <p className="text-xs font-bold font-mono text-text-primary shrink-0">
-                      {usd(svc.price)}<span className="font-normal text-text-muted">/mo</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+          )}
         </div>
       )}
 
@@ -1116,6 +928,21 @@ export default function BillingPage() {
             </p>
           </div>
           {token && <InvoiceList token={token} />}
+
+          {(user?.plan === 'pro' || user?.plan === 'starter') && (
+            <div className="mt-8 rounded-xl border border-red-200 bg-red-50/50 p-4">
+              <h4 className="text-sm font-semibold text-text-primary">Cancel plan</h4>
+              <p className="mt-1 text-xs text-text-muted">
+                Stops all your shared containers and cancels active subscriptions. Your projects and settings stay,
+                but running containers are taken offline. This can&apos;t be undone.
+              </p>
+              {unsubNotice && <p className="mt-2 rounded-lg bg-surface-card px-3 py-2 text-xs text-text-secondary">{unsubNotice}</p>}
+              <button onClick={handleCancelPro} disabled={unsubscribing}
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
+                {unsubscribing ? 'Cancelling…' : 'Cancel plan'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1258,6 +1085,9 @@ export default function BillingPage() {
                           {creditPurchasing ? <RefreshCw size={14} className="animate-spin" /> : <CreditCard size={14} />}
                           Review &amp; Pay ${pack.price_usd}
                         </button>
+                        {creditError && (
+                          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{creditError}</p>
+                        )}
                         <p className="mt-3 text-center text-xs text-text-muted">One-time · Credits never expire · Shared across team</p>
                       </>
                     );
@@ -1416,13 +1246,18 @@ export default function BillingPage() {
         className="flex items-center gap-4 rounded-xl px-5 py-3 shadow-sm"
         style={{ background: 'linear-gradient(135deg, rgba(71,126,247,0.08) 0%, rgba(130,96,246,0.08) 100%)', border: '1px solid rgba(130,96,246,0.2)' }}
       >
-        <Image
-          src="/arka-microstacks.png"
-          alt="Arka Microstacks"
-          width={120}
-          height={40}
-          className="h-10 w-auto object-contain flex-shrink-0"
-        />
+        {/* Real ARKA logo (same asset as the marketing site). The navy lockup needs a light
+            ground, so dark mode gives it a white chip. */}
+        <span className="flex-shrink-0 rounded-lg dark:bg-white dark:px-3 dark:py-1.5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- static partner asset */}
+          <img
+            src="/images/partners/arka-microstacks.png"
+            alt="ARKA MicroStacks"
+            className="h-8 w-auto"
+            width={900}
+            height={402}
+          />
+        </span>
         <div className="h-8 w-px flex-shrink-0" style={{ background: 'rgba(130,96,246,0.25)' }} />
         <p className="text-sm text-text-secondary leading-snug">
           Partnered with{' '}
@@ -1432,5 +1267,15 @@ export default function BillingPage() {
       </div>}
 
     </div>
+  );
+}
+
+// `useSearchParams()` requires a Suspense boundary for the production build — every
+// other page that reads search params is wrapped the same way (go-live audit P0 #6a).
+export default function BillingPage() {
+  return (
+    <Suspense>
+      <BillingPageInner />
+    </Suspense>
   );
 }

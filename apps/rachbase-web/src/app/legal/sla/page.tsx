@@ -25,7 +25,7 @@ export default function SLAPage() {
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
             <p>
-              Rach Dev LLP commits to maintaining 99.9% monthly uptime for all
+              Rach Dev LLP commits to maintaining 99.95% monthly uptime for all
               production infrastructure, including managed databases, API
               endpoints, authentication services, and the AI agent runtime
               environment. This commitment applies to all paid plans.
@@ -111,8 +111,8 @@ export default function SLAPage() {
               </li>
             </ul>
             <p>
-              For example, in a 30-day month (43,200 total minutes), 99.9%
-              uptime allows for a maximum of 43.2 minutes of unplanned downtime.
+              For example, in a 30-day month (43,200 total minutes), 99.95%
+              uptime allows for a maximum of 21.6 minutes of unplanned downtime.
             </p>
           </div>
         </section>
@@ -143,7 +143,7 @@ export default function SLAPage() {
                 </thead>
                 <tbody className="text-ink-2">
                   <tr className="border-b border-line">
-                    <td className="py-3 pr-6">99.0% &ndash; 99.9%</td>
+                    <td className="py-3 pr-6">99.0% &ndash; 99.95%</td>
                     <td className="py-3">10% of monthly fee</td>
                   </tr>
                   <tr className="border-b border-line">

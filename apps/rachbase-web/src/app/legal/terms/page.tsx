@@ -264,7 +264,10 @@ export default function TermsOfServicePage() {
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
             <p>
-              We target 99.9% monthly uptime for our production infrastructure.
+              {/* 99.95% — the ONE SLA number, matching /legal/sla and the status page
+                  (go-live audit: Terms is contractual and said 99.9 while the SLA page
+                  said 99.95; the committed number is 99.95, decided 7 Sep 2026). */}
+              We target 99.95% monthly uptime for our production infrastructure.
               Detailed terms regarding uptime commitments, service credits, and
               incident response are outlined in our{" "}
               <a

@@ -2,35 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Box, GitBranch, Rocket, Globe, Gauge, Activity, GitPullRequestArrow,
-  Loader2, Lock, RotateCcw, Cpu, MemoryStick, HardDrive, Copy, Plus,
-  Terminal as TerminalIcon, Database,
+  Loader2, Lock, RotateCcw, Cpu, MemoryStick, HardDrive, Copy, Plus, Trash2,
+  Terminal as TerminalIcon, Database, ChevronRight, ChevronDown, FileText,
 } from 'lucide-react';
 import { cn } from '@rach/ui/lib/utils';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { projects as api, type Service, type Deployment } from '@rach/ui/lib/api';
+import { projects as api, site, type Service, type Deployment } from '@rach/ui/lib/api';
+import { PRO, COMPUTE_SIZES, formatCents, proContainerCents, computeDeltaCents, type ComputeSize, type BillingCurrency } from '@rach/ui/lib/catalog';
 import { ResourceTabs, useResourceTab } from '@/components/dashboard/ResourceTabs';
 import { Terminal } from '@/components/dashboard/Terminal';
 import { DbConsole } from '@/components/dashboard/database/DbConsole';
-
-declare global {
-  interface Window {
-    Razorpay: new (opts: Record<string, unknown>) => { open(): void };
-  }
-}
-function loadRazorpay(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (document.getElementById('rzp-script')) { resolve(true); return; }
-    const s = document.createElement('script');
-    s.id = 'rzp-script';
-    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
-    document.body.appendChild(s);
-  });
-}
+import DeployPanel from '@/components/dashboard/DeployPanel';
+import EnvPanel from '@/components/dashboard/EnvPanel';
 
 const TABS = [
   { key: 'deploy', label: 'Deploy', icon: Rocket },
@@ -52,13 +38,17 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ServiceDetailPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const params = useParams();
+  const router = useRouter();
   const projectId = Number(params.id);
   const sid = Number(params.sid);
+  const siteAppId = `a-svc${String(sid).padStart(8, '0')}`;
 
   const [service, setService] = useState<Service | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [host, setHost] = useState('');
+  const [placed, setPlaced] = useState(true); // assume placed until told otherwise (avoids a redundant reconcile)
   const [loading, setLoading] = useState(true);
   const isPg = service?.source_type === 'postgres';
   const tabs = isPg ? [DATA_TAB, ...TABS] : TABS;
@@ -66,74 +56,137 @@ export default function ServiceDetailPage() {
   const [deploying, setDeploying] = useState(false);
   const [buying, setBuying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [size, setSize] = useState<ComputeSize>('nano');
 
-  async function load() {
+  // Tenant billing currency for every price shown on this page. This page used to hardcode
+  // "$10 / +$10 / +$20" — quoting USD to India-billed customers who are then charged
+  // ₹500/₹400/₹800 + GST at checkout (go-live audit H3). Server-quoted via proQuote, same
+  // source the billing page uses; USD until known.
+  const [cur, setCur] = useState<BillingCurrency>('USD');
+  useEffect(() => {
+    if (!token) return;
+    site.proQuote(token, 'starter')
+      .then((q) => { if (q.currency === 'INR' || q.currency === 'USD') setCur(q.currency); })
+      .catch(() => {}); // display-only: worst case we show USD, the server still charges correctly
+  }, [token]);
+  // Localized price fragments (delta strings are '' for nano, e.g. " (+₹400)" for micro).
+  const containerFee = formatCents(proContainerCents(cur), cur);
+  const deltaStr = (s: ComputeSize) => {
+    const d = computeDeltaCents(s, cur);
+    return d ? ` (+${formatCents(d, cur)})` : '';
+  };
+
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  async function load(silent = false) {
     if (!token || !sid) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const data = await api.getService(token, projectId, sid);
       setService(data.service);
       setDeployments(data.deployments);
+      setHost(data.host || '');
+      setPlaced(data.placed !== false);
+      if (data.service.compute_size) setSize(data.service.compute_size);
+      setLoadErr(null);
+    } catch (e) {
+      // An API/network failure is NOT "Service not found" — telling a paying customer their
+      // container is gone during a backend hiccup is a trust incident (go-live audit H8).
+      // Keep any already-loaded service on a failed silent poll; surface a retryable error.
+      if (!silent) setLoadErr((e as Error).message || 'Could not load this service.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [token, projectId, sid]);
 
-  async function handleDeploy() {
-    if (!token) return;
-    setDeploying(true);
+  // Live-update while a deploy is in flight: poll silently until the service settles to a
+  // terminal state (online/crashed/stopped), so the header + history flip without a manual
+  // refresh — regardless of who triggered the deploy. Stops when settled; ~5 min safety cap.
+  const transitional = service?.status === 'deploying'
+    || deployments.some((d) => d.status === 'deploying' || d.status === 'queued');
+  useEffect(() => {
+    if (!transitional) return;
+    let ticks = 0;
+    const id = setInterval(() => { ticks += 1; load(true); if (ticks >= 75) clearInterval(id); }, 4000);
+    return () => clearInterval(id);
+    /* eslint-disable-next-line */
+  }, [transitional, token, projectId, sid]);
+
+  const [deleting, setDeleting] = useState(false);
+  const [expandedDeploy, setExpandedDeploy] = useState<number | null>(null);
+  async function handleDelete() {
+    if (!token || !service) return;
+    if (!window.confirm(`Delete "${service.name}"? This stops its billing and removes the container. This can't be undone.`)) return;
+    setDeleting(true);
     try {
-      await api.deploy(token, projectId, sid, {});
+      await api.deleteService(token, projectId, sid);
+      router.push(`/dashboard/projects/${projectId}`);
+    } catch (e) {
+      setPayError((e as Error).message);
+      setDeleting(false);
+    }
+  }
+
+  // Deploy / roll back via the in-house GitHub build (same path as the Deploy panel):
+  // pin the latest commit, or a specific one for rollback. Surfaces errors (no crash).
+  async function redeploy(commitSha?: string) {
+    if (!token || user?.tenant_id == null) return;
+    setDeploying(true);
+    setPayError(null);
+    try {
+      if (!placed) await site.reconcileTenant(token, user.tenant_id); // place the tenant only if not yet placed
+      await site.deployRepo(token, user.tenant_id, siteAppId, { service_id: sid, ...(commitSha ? { commit_sha: commitSha } : {}) });
       await load();
+    } catch (e) {
+      setPayError((e as Error).message || 'Deploy failed');
     } finally {
       setDeploying(false);
     }
   }
 
-  // Buy one Service Unit ($15/mo). First unit brings a draft online; each extra scales live.
-  async function handleBuyUnit() {
-    if (!token || !service) return;
+  // Bring the container online (or resize) at the chosen compute size. The server prices
+  // it: an included (free) container is applied in place here; anything with a charge is
+  // sent to the shared Billing checkout page (review + GST/tax + Razorpay live there).
+  async function handleBringOnline(chosen: ComputeSize) {
+    if (!token || !service || user?.tenant_id == null) return;
     setBuying(true);
     setPayError(null);
     try {
-      const loaded = await loadRazorpay();
-      if (!loaded) throw new Error('Failed to load Razorpay checkout. Please try again.');
-      const co = await api.checkoutUnit(token, projectId, sid);
-      await new Promise<void>((resolve, reject) => {
-        const rzp = new window.Razorpay({
-          key: co.razorpay_key_id,
-          order_id: co.razorpay_order_id,
-          amount: co.amount,
-          currency: co.currency,
-          name: 'RachBase',
-          description: `Service Unit — ${service.name} (0.5 vCPU · 0.5 GB · 0.5 GB)`,
-          handler: async (r: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            try {
-              await api.verifyUnit(token, projectId, sid, {
-                razorpay_order_id: r.razorpay_order_id,
-                razorpay_payment_id: r.razorpay_payment_id,
-                razorpay_signature: r.razorpay_signature,
-              });
-              await load();
-              resolve();
-            } catch (e) { reject(e); }
-          },
-          modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
-        });
-        rzp.open();
+      const q = await site.deployQuote(token, user.tenant_id, sid, chosen);
+      if (q.free) {
+        await api.checkoutContainer(token, projectId, sid, chosen); // included — no charge
+        await load();
+        return;
+      }
+      const qs = new URLSearchParams({
+        pro: 'container',
+        project: String(projectId),
+        service: String(sid),
+        size: chosen,
+        name: service.name,
+        amount: String(q.amount),
+        currency: q.currency,
       });
+      router.push(`/dashboard/billing/checkout?${qs.toString()}`);
     } catch (e) {
       setPayError((e as Error).message);
-    } finally {
       setBuying(false);
     }
   }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-text-muted"><Loader2 className="animate-spin" /></div>;
+  if (!service && loadErr) return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <p className="font-medium">Couldn&apos;t load this service right now.</p>
+      <p className="mt-0.5 text-xs">{loadErr}</p>
+      <button onClick={() => load()} className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 px-3 py-1 text-xs font-medium hover:bg-amber-100">
+        <RotateCcw size={12} /> Retry
+      </button>
+    </div>
+  );
   if (!service) return <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">Service not found</p>;
 
-  const domain = `${service.name}.rachbase.app`;
+  const domain = host || `${service.name}.rachbase.app`;
 
   return (
     <div className="max-w-4xl">
@@ -152,19 +205,37 @@ export default function ServiceDetailPage() {
             {service.repo_full_name && <><span className="text-neutral-border">·</span><GitBranch size={11} /> {service.repo_full_name}</>}
           </p>
         </div>
+        {(user?.role === 'admin' || user?.role === 'tenant_admin') && (
+          <button onClick={handleDelete} disabled={deleting}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Delete
+          </button>
+        )}
       </div>
 
       {/* Pay-to-online banner for a draft / awaiting-payment service */}
       {(service.status === 'draft' || service.status === 'pending_payment') && (
         <div className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-text-primary">This service is not online yet</p>
-            <p className="text-xs text-text-muted">Add your first Service Unit — 0.5 vCPU · 0.5 GB · 0.5 GB for $15/mo — to bring it online.</p>
+            <p className="text-sm font-semibold text-text-primary">This container is not online yet</p>
+            <p className="text-xs text-text-muted">
+              Pick a compute size and bring it online. Containers within your plan&apos;s included allowance are free;
+              each additional container is {containerFee}/mo, plus any compute upgrade. Billed monthly{cur === 'INR' ? ' (+ GST)' : ''}.
+            </p>
           </div>
-          <button onClick={handleBuyUnit} disabled={buying}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-            {buying ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} />} Add unit &amp; go live · $15/mo
-          </button>
+          <div className="flex items-center gap-2">
+            <select value={size} onChange={(e) => setSize(e.target.value as ComputeSize)}
+              className="rounded-full border border-neutral-border bg-surface-card px-3 py-2 text-sm">
+              {COMPUTE_SIZES.map((s) => (
+                <option key={s} value={s}>{s} · {PRO.compute_sizes[s].specs}{deltaStr(s)}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleBringOnline(size)} disabled={buying}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {buying ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} />} Bring online
+            </button>
+          </div>
         </div>
       )}
       {payError && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{payError}</p>}
@@ -182,35 +253,74 @@ export default function ServiceDetailPage() {
       {/* ── Deploy ── */}
       {tab === 'deploy' && (
         <div className="space-y-5">
+          {user?.tenant_id != null && (user.role === 'admin' || user.role === 'tenant_admin') && (
+            <DeployPanel tenantId={user.tenant_id} projectId={projectId} appId={siteAppId} serviceId={sid} repoFullName={service.repo_full_name} branch={service.branch} deployments={deployments} placed={placed} onDeployed={load} />
+          )}
           <Panel title="Source">
             <Row label="Type" value={service.source_type === 'github_repo' ? 'GitHub Repository' : 'Docker Image'} />
             {service.repo_full_name && <Row label="Repository" value={service.repo_full_name} />}
             <Row label="Branch" value={service.branch} />
           </Panel>
-          <div className="flex items-center justify-between rounded-xl border border-neutral-border bg-surface-card p-4">
-            <div>
-              <p className="text-sm font-semibold text-text-primary">Trigger a deployment</p>
-              <p className="text-xs text-text-muted">Builds the latest commit and rolls it out with zero downtime.</p>
-            </div>
-            <button onClick={handleDeploy} disabled={deploying}
-              className="inline-flex items-center gap-2 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              {deploying ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} />} Deploy
-            </button>
-          </div>
           <Panel title="Deployment history">
             {deployments.length === 0 ? (
               <p className="py-2 text-sm text-text-muted">No deployments yet.</p>
             ) : (
               <div className="divide-y divide-neutral-border">
-                {deployments.map((d) => (
-                  <div key={d.id} className="flex items-center gap-3 py-2.5 text-sm">
-                    <span className={cn('h-2 w-2 rounded-full', STATUS_COLOR[d.status] || 'bg-neutral-400')} />
-                    <span className="font-mono text-text-secondary">#{d.id}</span>
-                    <span className="text-text-primary">{d.status}</span>
-                    {d.commit_sha && <span className="font-mono text-xs text-text-muted">{d.commit_sha.slice(0, 7)}</span>}
-                    <span className="ml-auto text-xs text-text-muted">{new Date(d.created_at).toLocaleString()}</span>
+                {deployments.map((d) => {
+                  const open = expandedDeploy === d.id;
+                  return (
+                  <div key={d.id} className="text-sm">
+                    <button
+                      onClick={() => setExpandedDeploy(open ? null : d.id)}
+                      className="flex w-full items-center gap-3 py-2.5 text-left hover:bg-bg-secondary/60"
+                    >
+                      {open ? <ChevronDown size={14} className="text-text-muted" /> : <ChevronRight size={14} className="text-text-muted" />}
+                      <span className={cn('h-2 w-2 rounded-full', STATUS_COLOR[d.status] || 'bg-neutral-400')} />
+                      <span className="font-mono text-text-secondary">#{d.id}</span>
+                      <span className="text-text-primary">{d.status}</span>
+                      {d.commit_sha && <span className="font-mono text-xs text-text-muted">{d.commit_sha.slice(0, 7)}</span>}
+                      <span className="ml-auto text-xs text-text-muted">{new Date(d.created_at).toLocaleString()}</span>
+                    </button>
+
+                    {open && (
+                      <div className="space-y-3 pb-3 pl-7 pr-1">
+                        {/* Metadata */}
+                        <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1 text-xs">
+                          <dt className="text-text-muted">Artifact</dt>
+                          <dd className="font-mono text-text-primary break-all">{d.image_tag || d.commit_sha || '—'}</dd>
+                          <dt className="text-text-muted">Triggered by</dt>
+                          <dd className="text-text-secondary">{d.triggered_by || 'manual'}</dd>
+                          <dt className="text-text-muted">When</dt>
+                          <dd className="text-text-secondary">{new Date(d.created_at).toLocaleString()}</dd>
+                          {d.op_state && (<><dt className="text-text-muted">Operation</dt><dd className="font-mono text-text-secondary">{d.op_state}</dd></>)}
+                        </dl>
+
+                        {/* Deploy log = the site outcome / failure reason */}
+                        <div>
+                          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-secondary"><FileText size={12} /> Deploy log</p>
+                          {d.status === 'failed' ? (
+                            <pre className="whitespace-pre-wrap break-all rounded-lg bg-red-50 px-3 py-2 font-mono text-xs leading-snug text-red-600">
+                              {d.error_reason || 'Deploy failed — no reason was reported by the site.'}
+                            </pre>
+                          ) : d.status === 'success' ? (
+                            <pre className="whitespace-pre-wrap rounded-lg bg-emerald-50 px-3 py-2 font-mono text-xs text-emerald-700">Deploy succeeded — workload is running.</pre>
+                          ) : (
+                            <pre className="whitespace-pre-wrap rounded-lg bg-bg-secondary px-3 py-2 font-mono text-xs text-text-muted">Deploy in progress…</pre>
+                          )}
+                        </div>
+
+                        {/* Runtime logs — pending the site logs endpoint */}
+                        <div>
+                          <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-secondary"><FileText size={12} /> Runtime logs</p>
+                          <pre className="whitespace-pre-wrap rounded-lg bg-bg-secondary px-3 py-2 font-mono text-xs text-text-muted">
+                            Live container logs aren&apos;t available yet for this service. They&apos;ll appear here once streaming from the cluster is enabled.
+                          </pre>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Panel>
@@ -222,16 +332,27 @@ export default function ServiceDetailPage() {
         <div className="space-y-5">
           <Panel title="Public networking">
             <div className="flex items-center justify-between py-1">
-              <div className="flex items-center gap-2 text-sm text-text-primary"><Globe size={15} className="text-text-muted" /> {domain}</div>
-              <button className="text-text-muted hover:text-text-primary"><Copy size={15} /></button>
+              <a href={`https://${domain}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-text-primary hover:underline"><Globe size={15} className="text-text-muted" /> {domain}</a>
+              <button onClick={() => navigator.clipboard?.writeText(domain)} className="text-text-muted hover:text-text-primary" aria-label="Copy domain"><Copy size={15} /></button>
             </div>
             <Row label="SSL" value="Automatic (Let's Encrypt)" />
-            <Row label="Custom domain" value="Add one — available once the service is running" muted />
+            <Row label="Static outbound IP" value="Provisioned by your site — allowlist it with your DB / provider" muted />
+            {(user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'developer') && (
+              <CustomDomainEditor
+                token={token!} projectId={projectId} sid={sid}
+                current={service.custom_domain ?? ''} fallback={`${service.name}.rachbase.app`}
+                onSaved={load}
+              />
+            )}
           </Panel>
           <Panel title="Private networking">
             <Row label="Internal hostname" value={`${service.name}.internal`} />
-            <Row label="Port" value="8080" />
-            <p className="pt-1 text-xs text-text-muted">Services in this project reach each other over the private network — no config.</p>
+            {(user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'developer') ? (
+              <PortEditor token={token!} projectId={projectId} sid={sid} current={service.port ?? null} onSaved={load} />
+            ) : (
+              <Row label="Port" value={String(service.port ?? 8080)} />
+            )}
+            <p className="pt-1 text-xs text-text-muted">The port your container listens on. Services in this project reach each other over the private network — no config.</p>
           </Panel>
         </div>
       )}
@@ -239,22 +360,30 @@ export default function ServiceDetailPage() {
       {/* ── Scale ── */}
       {tab === 'scale' && (
         <div className="space-y-5">
-          <Panel title="Resources (per unit)">
+          <Panel title="Compute size">
             <div className="grid grid-cols-3 gap-3">
-              <Metric icon={<Cpu size={16} />} label="CPU" value={`${service.cpu} vCPU`} />
-              <Metric icon={<MemoryStick size={16} />} label="Memory" value={`${(service.memory_mb / 1024).toFixed(1)} GB`} />
+              <Metric icon={<Cpu size={16} />} label="CPU" value={PRO.compute_sizes[(service.compute_size ?? 'nano')].cpu} />
+              <Metric icon={<MemoryStick size={16} />} label="Memory" value={`${(PRO.compute_sizes[(service.compute_size ?? 'nano')].memory_mb / 1024).toFixed(1)} GB`} />
               <Metric icon={<HardDrive size={16} />} label="Disk" value={`${service.disk_gb} GB`} />
             </div>
           </Panel>
-          <Panel title="Units">
-            <Row label="Active units" value={String(service.units ?? 0)} />
-            <Row label="Total allocated" value={`${(Number(service.cpu) * (service.units ?? 0)).toFixed(1)} vCPU · ${((service.memory_mb * (service.units ?? 0)) / 1024).toFixed(1)} GB · ${(Number(service.disk_gb) * (service.units ?? 0)).toFixed(1)} GB`} />
-            <Row label="Monthly cost" value={`$${(15 * (service.units ?? 0)).toLocaleString()}/mo`} />
-            <button onClick={handleBuyUnit} disabled={buying}
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              {buying ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Add power (+1 unit · $15/mo)
-            </button>
-            <p className="pt-2 text-xs text-text-muted">Each unit is 0.5 vCPU / 0.5 GB / 0.5 GB ($15/mo). Adding a unit scales the service live — the rolling update runs with zero downtime.</p>
+          <Panel title="Billing">
+            <Row label="Current size" value={`${service.compute_size ?? 'nano'} · ${PRO.compute_sizes[(service.compute_size ?? 'nano')].specs}`} />
+            <Row label="Container fee" value={`${containerFee}/mo per additional container (included ones are free within your plan)`} />
+            <Row label="Compute upgrade" value={computeDeltaCents(service.compute_size ?? 'nano', cur) ? `+${formatCents(computeDeltaCents(service.compute_size ?? 'nano', cur), cur)}/mo` : 'none (nano)'} />
+            <div className="mt-3 flex items-center gap-2">
+              <select value={size} onChange={(e) => setSize(e.target.value as ComputeSize)}
+                className="rounded-full border border-neutral-border bg-surface-card px-3 py-2 text-sm">
+                {COMPUTE_SIZES.map((s) => (
+                  <option key={s} value={s}>{s} · {PRO.compute_sizes[s].specs}{deltaStr(s)}</option>
+                ))}
+              </select>
+              <button onClick={() => handleBringOnline(size)} disabled={buying || size === (service.compute_size ?? 'nano')}
+                className="inline-flex items-center gap-2 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                {buying ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Change size
+              </button>
+            </div>
+            <p className="pt-2 text-xs text-text-muted">Compute size is a per-container add-on: nano (included) · micro (+{formatCents(computeDeltaCents('micro', cur), cur)}) · small (+{formatCents(computeDeltaCents('small', cur), cur)}). Replicas don&apos;t change the price.</p>
           </Panel>
         </div>
       )}
@@ -326,14 +455,18 @@ export default function ServiceDetailPage() {
                   <div key={d.id} className="flex items-center gap-3 py-2.5 text-sm">
                     <RotateCcw size={14} className="text-text-muted" />
                     <span className="font-mono text-text-secondary">#{d.id}</span>
-                    <span className="ml-auto"><button onClick={handleDeploy} className="rounded-full border border-neutral-border px-3 py-1 text-xs hover:bg-bg-secondary">Roll back</button></span>
+                    <span className="ml-auto"><button onClick={() => redeploy(d.commit_sha ?? undefined)} disabled={deploying} className="rounded-full border border-neutral-border px-3 py-1 text-xs hover:bg-bg-secondary disabled:opacity-50">Roll back</button></span>
                   </div>
                 ))}
               </div>
             )}
           </Panel>
           <Panel title="Variables & secrets">
-            <div className="flex items-center gap-2 py-1 text-sm text-text-muted"><Lock size={14} /> Add environment variables and secrets for this service.</div>
+            {token && (user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'developer') ? (
+              <EnvPanel token={token} projectId={projectId} sid={sid} appType={service.app_type} />
+            ) : (
+              <div className="flex items-center gap-2 py-1 text-sm text-text-muted"><Lock size={14} /> You need write access to edit variables for this service.</div>
+            )}
           </Panel>
         </div>
       )}
@@ -362,6 +495,81 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
     <div className="rounded-lg bg-bg-secondary p-3">
       <div className="flex items-center gap-1.5 text-xs text-text-muted">{icon} {label}</div>
       <p className="mt-1 font-display text-lg font-bold text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function PortEditor({ token, projectId, sid, current, onSaved }: {
+  token: string; projectId: number; sid: number; current: number | null; onSaved: () => void;
+}) {
+  const [value, setValue] = useState(current != null ? String(current) : '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save() {
+    const n = value.trim() === '' ? null : Number(value);
+    if (n !== null && (!Number.isInteger(n) || n < 1 || n > 65535)) { setErr('Port must be 1–65535'); return; }
+    setSaving(true); setErr('');
+    try { await api.setConfig(token, projectId, sid, { port: n }); onSaved(); }
+    catch (e) { setErr((e as Error).message || 'Could not save'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="flex items-center justify-between py-1.5 text-sm">
+      <span className="text-text-muted">Port</span>
+      <div className="flex items-center gap-2">
+        <input
+          value={value} onChange={(e) => { setValue(e.target.value.replace(/[^0-9]/g, '')); setErr(''); }}
+          placeholder="8080" inputMode="numeric"
+          className="w-24 rounded-lg border border-neutral-border bg-white px-2.5 py-1 text-right font-mono text-sm text-text-primary placeholder:text-text-muted"
+        />
+        <button onClick={save} disabled={saving || value.trim() === (current != null ? String(current) : '')}
+          className="rounded-full border border-neutral-border px-3 py-1 text-xs font-medium text-text-secondary hover:bg-bg-secondary disabled:opacity-50">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      {err && <span className="ml-2 text-xs text-red-600">{err}</span>}
+    </div>
+  );
+}
+
+function CustomDomainEditor({ token, projectId, sid, current, fallback, onSaved }: {
+  token: string; projectId: number; sid: number; current: string; fallback: string; onSaved: () => void;
+}) {
+  const [value, setValue] = useState(current);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setSaving(true); setErr(''); setSaved(false);
+    try {
+      await api.setConfig(token, projectId, sid, { custom_domain: value.trim() || null });
+      setSaved(true); onSaved();
+    } catch (e) { setErr((e as Error).message || 'Could not save'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="mt-3 border-t border-neutral-border pt-3">
+      <label className="mb-1 block text-xs font-medium text-text-secondary">Custom domain</label>
+      <div className="flex items-center gap-2">
+        <input
+          value={value}
+          onChange={(e) => { setValue(e.target.value); setSaved(false); }}
+          placeholder={fallback}
+          className="flex-1 rounded-lg border border-neutral-border bg-white px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-muted"
+        />
+        <button onClick={save} disabled={saving || value.trim() === current.trim()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+        </button>
+      </div>
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      <p className="mt-1 text-xs text-text-muted">
+        Blank uses the platform domain <span className="font-mono">{fallback}</span>. Point a CNAME at your site&apos;s edge, then redeploy to apply.
+      </p>
     </div>
   );
 }

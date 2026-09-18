@@ -1,0 +1,16 @@
+{
+  "name": "@rach/baas-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase per-project BaaS gateway (Phase 3). Verifies the project key/token and proxies <ref>.rachbase.app/{auth,rest,storage,functions}/v1/* to the primitive upstreams. Stateless; one per project.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@rach/baas": "*",
+    "dotenv": "^16.0.0"
+  }
+}

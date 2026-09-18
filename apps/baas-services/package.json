@@ -1,0 +1,20 @@
+{
+  "name": "@rach/baas-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RachBase combined BaaS services (Phase 3): Auth + Storage + Functions in one container, dispatched by the x-baas-primitive header the gateway sets. Halves the per-project container count (gateway + this + PostgREST = 3).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@rach/baas": "*",
+    "@rach/baas-auth": "*",
+    "@rach/baas-storage": "*",
+    "@rach/baas-functions": "*",
+    "dotenv": "^16.0.0",
+    "pg": "^8.11.0"
+  }
+}

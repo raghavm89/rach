@@ -8,6 +8,7 @@ const { vmBelongsToTenant } = require('../lib/tenantVms');
 const { provisionPostgres } = require('../services/postgresProvision');
 const caddy = require('../services/caddyManager');
 const godaddy = require('../services/godaddy');
+const hostRegistry = require('../services/hostRegistry');
 const { VmKey } = require('../models/vmKey');
 const keyCrypto = require('../services/keyCrypto');
 const { hasLogsForVm } = require('../lib/entitlements');
@@ -921,6 +922,13 @@ exports.addDomain = async (req, res) => {
   const { rows: srows } = await pool.query('SELECT config FROM deployment_services WHERE id = $1', [svc.id]);
   const port = Number(srows[0]?.config?.port) || 3000;
 
+  // Reserve globally first (audit P0 #7): a custom VM domain must not collide with any other host.
+  // kind 'custom' — the SAME kind migration 128 backfilled for pre-existing custom domains;
+  // the runtime briefly wrote 'vm_custom', so an owner re-adding their own pre-existing domain
+  // got a 409 from the claim's kind-equality ownership check (re-audit follow-up).
+  const reg = await hostRegistry.claim({ hostname, tenantId: req.user.tenant_id, kind: 'custom', ref: svc.id });
+  if (!reg.claimed) return res.status(409).json({ error: 'Hostname already in use' });
+
   let domain;
   try {
     const { rows } = await pool.query(
@@ -931,6 +939,7 @@ exports.addDomain = async (req, res) => {
     domain = rows[0];
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Hostname already in use' });
+    await hostRegistry.release({ hostname }).catch(() => {});
     throw e;
   }
 
@@ -983,6 +992,12 @@ exports.addAutoDomain = async (req, res) => {
   const port = Number(srows[0]?.config?.port) || 3000;
   const hostname = godaddy.fqdn(sub);
 
+  // Cross-namespace claim FIRST (audit P0 #7): reserving in the global registry blocks claiming a
+  // hostname already owned by ANY namespace — another tenant's container slug, a BaaS project ref,
+  // or a custom domain — which is what let a VM auto-domain hijack (and DNS-clobber) a foreign host.
+  const reg = await hostRegistry.claim({ hostname, tenantId: req.user.tenant_id, kind: 'vm_domain', ref: svc.id });
+  if (!reg.claimed) return res.status(409).json({ error: 'That hostname is already taken' });
+
   let domain;
   try {
     const { rows } = await pool.query(
@@ -992,7 +1007,10 @@ exports.addAutoDomain = async (req, res) => {
     );
     domain = rows[0];
   } catch (e) {
+    // 23505 here means deployment_domains already has this hostname — our own prior claim (the
+    // registry said it's ours), so leave the reservation in place. Other errors: release it.
     if (e.code === '23505') return res.status(409).json({ error: 'That domain is already taken' });
+    await hostRegistry.release({ hostname }).catch(() => {}); // don't leak a reservation on failure
     throw e;
   }
 
@@ -1031,6 +1049,7 @@ exports.removeDomain = async (req, res) => {
   }
 
   await pool.query('DELETE FROM deployment_domains WHERE id = $1', [d.id]);
+  await hostRegistry.release({ hostname: d.hostname }).catch(() => {}); // free the global reservation
   res.json({ ok: true });
 };
 
@@ -1123,12 +1142,22 @@ exports.setVmSshConfig = async (req, res) => {
 // ── POST /api/deployment/github/webhook ──────────────────────────────────────
 
 exports.handleWebhook = async (req, res) => {
+  // Fail closed: with no configured secret, HMAC would key on an empty string and an attacker who
+  // knows the payload could forge a valid signature. Reject rather than verify against '' .
+  if (!GITHUB_WEBHOOK_SECRET) {
+    console.error('[deploy] GITHUB_APP_WEBHOOK_SECRET is not set — refusing to process webhooks.');
+    return res.status(503).json({ error: 'Webhook processing is not configured' });
+  }
   const sig     = req.headers['x-hub-signature-256'] || '';
   const payload = req.rawBody || Buffer.from(JSON.stringify(req.body));
   const expected = 'sha256=' + crypto.createHmac('sha256', GITHUB_WEBHOOK_SECRET)
     .update(payload).digest('hex');
 
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  // Length-guard before timingSafeEqual (it throws on unequal-length buffers → 500 on a
+  // malformed/absent header). A wrong-length signature is simply invalid.
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
     return res.status(401).json({ error: 'Invalid webhook signature' });
   }
 

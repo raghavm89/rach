@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Box, Plus, X, Loader2, GitBranch, ArrowLeft, Database } from 'lucide-react';
+import { Box, Plus, X, Loader2, GitBranch, ArrowLeft, Database, CheckCircle2, Boxes } from 'lucide-react';
 import { cn } from '@rach/ui/lib/utils';
 import { useAuth } from '@rach/ui/contexts/AuthContext';
-import { projects as api, type Project, type Service, type Environment } from '@rach/ui/lib/api';
+import { projects as api, deployment, type Project, type Service, type Environment, type GithubRepo } from '@rach/ui/lib/api';
+import { PRO } from '@rach/ui/lib/catalog';
 
 const DOT_GRID: React.CSSProperties = {
   backgroundImage: 'radial-gradient(circle, var(--dot-color) 1px, transparent 1px)',
@@ -30,7 +31,74 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState<{ name: string; repo_full_name: string; source: 'github_repo' | 'postgres' }>({ name: '', repo_full_name: '', source: 'github_repo' });
+  const [form, setForm] = useState<{ name: string; repo_full_name: string; branch: string; source: 'github_repo' | 'postgres' }>({ name: '', repo_full_name: '', branch: 'main', source: 'github_repo' });
+  const [branches, setBranches] = useState<{ list: string[]; loading: boolean }>({ list: [], loading: false });
+
+  // GitHub App connection (tenant-level, shared with VM deployment). Lets the user link
+  // their account and pick a repo instead of typing owner/repo by hand.
+  const [gh, setGh] = useState<{ connected: boolean; account: string | null; repos: GithubRepo[]; loading: boolean; connecting: boolean }>({
+    connected: false, account: null, repos: [], loading: false, connecting: false,
+  });
+
+  async function loadGithub() {
+    if (!token) return;
+    setGh((g) => ({ ...g, loading: true }));
+    try {
+      const status = await deployment.getGithubStatus(token);
+      const repos = status.connected ? (await deployment.listRepos(token)).repos : [];
+      setGh((g) => ({ ...g, connected: status.connected, account: status.github_account || null, repos, loading: false }));
+    } catch {
+      setGh((g) => ({ ...g, loading: false }));
+    }
+  }
+  // Fetch connection state when the modal opens on the GitHub source.
+  useEffect(() => {
+    if (showCreate && form.source === 'github_repo' && !gh.connected && !gh.loading) loadGithub();
+    /* eslint-disable-next-line */
+  }, [showCreate, form.source]);
+
+  // Pick a repo → default to its default branch and load the branch list.
+  async function selectRepo(fullName: string) {
+    const repo = gh.repos.find((r) => r.full_name === fullName);
+    setForm((f) => ({ ...f, repo_full_name: fullName, branch: repo?.default_branch || 'main' }));
+    setBranches({ list: [], loading: Boolean(fullName) });
+    if (fullName && token) {
+      try {
+        const { branches: list } = await deployment.listBranches(token, fullName);
+        setBranches({ list, loading: false });
+      } catch {
+        setBranches({ list: [], loading: false });
+      }
+    }
+  }
+
+  async function connectGithub() {
+    if (!token) return;
+    setGh((g) => ({ ...g, connecting: true }));
+    try {
+      const { install_url } = await deployment.getInstallUrl(token);
+      window.open(install_url, '_blank', 'noopener');
+      // GitHub's post-install redirect may not return here, so poll reconcile.
+      const poll = setInterval(async () => {
+        try {
+          const status = await deployment.reconcileGithub(token);
+          if (status.connected) {
+            clearInterval(poll);
+            const repos = (await deployment.listRepos(token)).repos;
+            setGh({ connected: true, account: status.github_account || null, repos, loading: false, connecting: false });
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+      setTimeout(() => { clearInterval(poll); setGh((g) => ({ ...g, connecting: false })); }, 300000);
+    } catch (e) {
+      setError((e as Error).message);
+      setGh((g) => ({ ...g, connecting: false }));
+    }
+  }
+  // Required inputs per source: a GitHub repo, or a container image (Postgres needs neither).
+  // A GitHub-repo service requires a repo; Postgres needs no source. (A plain container
+  // image is provided later at "Deploy a container", not here.)
+  const canCreate = Boolean(form.name.trim()) && (form.source === 'github_repo' ? Boolean(form.repo_full_name.trim()) : true);
   const [creating, setCreating] = useState(false);
 
   async function load() {
@@ -51,16 +119,18 @@ export default function ProjectDetailPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [token, projectId]);
 
   async function handleCreate() {
-    if (!token || !form.name.trim()) return;
+    if (!token || !canCreate) return;
     setCreating(true);
     setError(null);
     try {
       await api.createService(token, projectId, {
         name: form.name.trim(),
         source_type: form.source,
-        repo_full_name: form.source === 'github_repo' ? (form.repo_full_name.trim() || undefined) : undefined,
+        repo_full_name: form.source === 'github_repo' ? form.repo_full_name.trim() : undefined,
+        branch: form.source === 'github_repo' ? (form.branch.trim() || 'main') : undefined,
       });
-      setForm({ name: '', repo_full_name: '', source: 'github_repo' });
+      setForm({ name: '', repo_full_name: '', branch: 'main', source: 'github_repo' });
+      setBranches({ list: [], loading: false });
       setShowCreate(false);
       await load();
     } catch (e) {
@@ -131,13 +201,22 @@ export default function ProjectDetailPage() {
                     <div className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
                       <span className={cn('h-2 w-2 rounded-full', STATUS_COLOR[s.status] || 'bg-neutral-400')} />
                       {s.status}
-                      <span className="ml-auto font-mono">{Number(s.cpu) * (s.units ?? 1)} vCPU · {((s.memory_mb * (s.units ?? 1)) / 1024).toFixed(1)} GB</span>
+                      <span className="ml-auto font-mono">{PRO.compute_sizes[(s.compute_size ?? 'nano')].specs}</span>
                     </div>
                   </Link>
                 ))}
               </div>
             )}
           </div>
+
+          <Link href={`/dashboard/backend/${project.id}`} className="mt-6 flex items-center gap-3 rounded-2xl border border-neutral-border bg-surface-card p-4 hover:border-primary-blue">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-primary-blue"><Boxes size={18} /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary">Backend (BaaS)</p>
+              <p className="text-xs text-text-muted">Auth, Data, Storage &amp; Functions for this project&apos;s end-users.</p>
+            </div>
+            <span className="ml-auto text-sm text-primary-blue">Manage →</span>
+          </Link>
         </>
       )}
 
@@ -153,12 +232,12 @@ export default function ProjectDetailPage() {
             <label className="mt-5 block text-sm font-medium text-text-primary">Source</label>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setForm({ ...form, source: 'github_repo' })}
-                className={cn('flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                className={cn('flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
                   form.source === 'github_repo' ? 'border-primary-blue bg-blue-50 text-text-primary' : 'border-neutral-border text-text-secondary hover:bg-bg-secondary')}>
                 <GitBranch size={16} /> GitHub Repo
               </button>
               <button type="button" onClick={() => setForm({ ...form, source: 'postgres' })}
-                className={cn('flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+                className={cn('flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
                   form.source === 'postgres' ? 'border-primary-blue bg-blue-50 text-text-primary' : 'border-neutral-border text-text-secondary hover:bg-bg-secondary')}>
                 <Database size={16} /> Postgres
               </button>
@@ -170,16 +249,67 @@ export default function ProjectDetailPage() {
 
             {form.source === 'github_repo' && (
               <>
-                <label className="mt-4 block text-sm font-medium text-text-primary">GitHub repository <span className="font-normal text-text-muted">(optional)</span></label>
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-border px-3">
-                  <GitBranch size={16} className="text-text-muted" />
-                  <input value={form.repo_full_name} onChange={(e) => setForm({ ...form, repo_full_name: e.target.value })}
-                    placeholder="acme/api" className="w-full py-2 text-sm outline-none" />
-                </div>
+                <label className="mt-4 block text-sm font-medium text-text-primary">GitHub repository</label>
+
+                {gh.loading ? (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-border px-3 py-2.5 text-sm text-text-muted">
+                    <Loader2 size={15} className="animate-spin" /> Checking GitHub connection…
+                  </div>
+                ) : !gh.connected ? (
+                  <div className="mt-2 rounded-lg border border-neutral-border p-3">
+                    <p className="text-xs text-text-muted">Link your GitHub account to pick a repository to deploy.</p>
+                    <button type="button" onClick={connectGithub} disabled={gh.connecting}
+                      className="mt-2 inline-flex items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
+                      {gh.connecting ? <Loader2 size={15} className="animate-spin" /> : <GitBranch size={15} />}
+                      {gh.connecting ? 'Waiting for GitHub…' : 'Connect GitHub account'}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600">
+                      <CheckCircle2 size={13} /> Connected{gh.account ? ` as @${gh.account}` : ''}
+                    </div>
+                    {gh.repos.length > 0 ? (
+                      <select value={form.repo_full_name} onChange={(e) => selectRepo(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-neutral-border px-3 py-2 text-sm outline-none focus:border-primary-blue">
+                        <option value="">Select a repository…</option>
+                        {gh.repos.map((r) => (
+                          <option key={r.id} value={r.full_name}>{r.full_name}{r.private ? ' (private)' : ''}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-border px-3">
+                        <GitBranch size={16} className="text-text-muted" />
+                        <input value={form.repo_full_name} onChange={(e) => setForm({ ...form, repo_full_name: e.target.value })}
+                          placeholder="acme/api" className="w-full py-2 text-sm outline-none" />
+                      </div>
+                    )}
+
+                    {form.repo_full_name && (
+                      <>
+                        <label className="mt-4 block text-sm font-medium text-text-primary">Branch</label>
+                        {branches.loading ? (
+                          <div className="mt-2 flex items-center gap-2 rounded-lg border border-neutral-border px-3 py-2.5 text-sm text-text-muted">
+                            <Loader2 size={15} className="animate-spin" /> Loading branches…
+                          </div>
+                        ) : branches.list.length > 0 ? (
+                          <select value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })}
+                            className="mt-2 w-full rounded-lg border border-neutral-border px-3 py-2 text-sm outline-none focus:border-primary-blue">
+                            {branches.list.map((b) => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        ) : (
+                          <input value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })}
+                            placeholder="main" className="mt-2 w-full rounded-lg border border-neutral-border px-3 py-2 text-sm outline-none focus:border-primary-blue" />
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
-            <p className="mt-3 text-xs text-text-muted">Runs as a Service — 0.5 vCPU · 0.5 GB · 0.5 GB at $15/mo per unit. Scale live by adding units.</p>
-            <button onClick={handleCreate} disabled={creating || !form.name.trim()}
+
+            <p className="mt-3 text-xs text-text-muted">Created as a draft — free until you bring it online. Containers within your plan&apos;s allowance are free; each additional is $10/mo.</p>
+            <button onClick={handleCreate} disabled={creating || !canCreate}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary-blue py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
               {creating && <Loader2 size={16} className="animate-spin" />} Create Service
             </button>

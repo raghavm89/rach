@@ -1,0 +1,126 @@
+# RachBase site-controller — ALL-IN-ONE production deployment.
+#
+# Runs all four profiles (api + tenant + workload + build) in a SINGLE Deployment under
+# ONE ServiceAccount that holds the UNION of their RBAC. This is the operationally-simple
+# alternative to the split model in site-controller.yaml.
+#
+# ⚠ Trade-off (contract §11.2): the Internet-facing `api` listener now shares a process +
+# token with the components that create namespaces and workloads. A compromise of the HTTP
+# surface therefore reaches namespace/workload/RBAC writes. Choose this only if you accept
+# that blast radius in exchange for one Deployment instead of four.
+#
+# Namespaces (must match the controller's env):
+#   spaceark-site-system    → the CONTROLLER: the ServiceAccount + Deployment live here, and it
+#                             is SITE_CONTROLLER_NAMESPACE — the namespace every per-tenant
+#                             rb-workload/rb-build RoleBinding subject points at.
+#   spaceark-site-requests  → the request CRDs (TenantClaim/App/Release) + leader-election Leases.
+#
+# NOTE: this bundle's per-tenant binding subject is `site-controller@spaceark-site-system`,
+# which DIFFERS from the split bundle's `site-controller-workload@spaceark-site-system`. Pick
+# ONE model; switching bundles changes the subject and requires re-provisioning tenants.
+#
+# Replace IMAGE and SITE_ID/OAUTH_* (from the secret store) before applying.
+# Leader election means replicas>1 is safe: every replica serves the api; only the leader
+# of each reconciler lease actually reconciles.
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: spaceark-site-system }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: site-controller, namespace: spaceark-site-system }
+---
+# Namespaced Role: request CRDs (api + reconcilers) + leader-election Leases (reconcilers).
+# Both live in spaceark-site-requests; the subject SA lives in spaceark-site-system.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: site-controller, namespace: spaceark-site-requests }
+rules:
+  - apiGroups: [rachbase.io]
+    resources: [tenantclaims, apps, releases, tenantclaims/status, apps/status, releases/status]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: site-controller, namespace: spaceark-site-requests }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: site-controller }
+subjects: [{ kind: ServiceAccount, name: site-controller, namespace: spaceark-site-system }]
+---
+# Cluster-scoped: the tenant reconciler's namespace/quota/limits/SA/NetworkPolicy/RBAC grants
+# (namespaces are cluster-scoped). Workload/build writes into rb-t-<id> stay least-privilege:
+# the tenant reconciler still creates the per-tenant rb-workload/rb-build RoleBindings that
+# bind THIS SA (set via WORKLOAD_RECONCILER_SA/BUILD_RECONCILER_SA below) — no broad grant here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: site-controller }
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, resourcequotas, limitranges, serviceaccounts, configmaps]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch]
+  # bind should be scoped to the exact rb-workload/rb-build roleRefs by SpaceArk SRE (§11.2).
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [get, list, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: site-controller }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: site-controller }
+subjects: [{ kind: ServiceAccount, name: site-controller, namespace: spaceark-site-system }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site-controller, namespace: spaceark-site-system }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: site-controller } }
+  template:
+    metadata: { labels: { app: site-controller } }
+    spec:
+      serviceAccountName: site-controller
+      automountServiceAccountToken: true # the reconcilers need the in-cluster API
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: site-controller
+          image: IMAGE
+          imagePullPolicy: IfNotPresent   # works for a registry pull OR a local k3s ctr import
+          env:
+            - { name: SITE_CONTROLLER_PROFILE, value: "api,tenant,workload,build" }
+            - { name: SITE_ID, value: site1 }
+            - { name: API_PORT, value: "8443" }
+            # Verifies RachBase's partner JWT (RS256). Mounted from the rachbase-oauth secret.
+            - { name: OAUTH_PUBLIC_KEY_FILE, value: /etc/rachbase/oauth/public.pem }
+            # Optional: must match the BFF's issuer if it sets one.
+            # - { name: OAUTH_ISSUER, value: https://issuer.rachbase.app }
+            # Namespaces + the SA the per-tenant rb-workload/rb-build RoleBindings must bind
+            # (THIS SA, not the split-mode names), so the reconcilers can write into rb-t-<id>.
+            - { name: SITE_CONTROLLER_NAMESPACE, value: spaceark-site-system }
+            - { name: SITE_REQUESTS_NAMESPACE, value: spaceark-site-requests }
+            - { name: WORKLOAD_RECONCILER_SA, value: site-controller }
+            - { name: BUILD_RECONCILER_SA, value: site-controller }
+            # Public per-app Ingress (see RUNBOOK-ingress.md). Match your ingress controller.
+            - { name: SITE_SELF_INGRESS, value: "1" }
+            - { name: SITE_INGRESS_CERTRESOLVER, value: le }
+          ports: [{ containerPort: 8443 }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 150m, memory: 192Mi }, limits: { cpu: "1", memory: 512Mi } }
+          readinessProbe: { httpGet: { path: /v1/site, port: 8443 }, initialDelaySeconds: 3, periodSeconds: 10 }
+          volumeMounts:
+            - { name: oauth-public-key, mountPath: /etc/rachbase/oauth, readOnly: true }
+      volumes:
+        - name: oauth-public-key
+          secret: { secretName: rachbase-oauth, items: [{ key: public.pem, path: public.pem }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: site-controller, namespace: spaceark-site-system }
+spec:
+  selector: { app: site-controller }
+  ports: [{ port: 443, targetPort: 8443 }]

@@ -14,7 +14,29 @@ const { pool } = require('@rach/core');
 const { runDeploy, getSshPrivateKey } = require('@rach/deploy');
 const { NodeSSH } = require('node-ssh');
 const { ServiceUsage } = require('../models/serviceAlert');
+const { Project } = require('../models/project');
 const alerting = require('../services/alerting');
+
+// POST /internal/baas/metrics  { ref, samples: [{metric,value,labels?,ts?}] } → { recorded }
+// Producers (the per-project gateway, the site controller) push Observability samples here.
+exports.baasMetricsIngest = async (req, res) => {
+  const { ref, samples } = req.body || {};
+  if (!ref || !Array.isArray(samples)) return res.status(400).json({ error: 'ref and samples[] required' });
+  const project = await Project.findByRef(String(ref));
+  if (!project) return res.status(404).json({ error: 'unknown_ref' });
+  const recorded = await require('../services/baasMetrics').record(project.id, samples);
+  return res.json({ recorded });
+};
+
+// POST /internal/baas/introspect  { ref, key } → { valid, role, type }
+// The per-project BaaS gateway validates opaque publishable/secret keys here (they carry no
+// claims, so they must be looked up). serviceAuth-guarded; the gateway holds the service token.
+exports.baasIntrospect = async (req, res) => {
+  const { ref, key } = req.body || {};
+  if (!ref || !key) return res.status(400).json({ valid: false, error: 'ref and key required' });
+  const result = await Project.introspectKey(String(ref), String(key));
+  return res.json(result);
+};
 
 // POST /internal/deploy  { tenant_id, service_id }
 exports.deploy = async (req, res) => {

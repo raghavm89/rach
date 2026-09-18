@@ -31,6 +31,7 @@ export default function AboutPage() {
             <div className="relative mx-auto mb-10 aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
               <Image
                 src="/illustrations/pages/about-journey.png"
+              unoptimized
                 alt="RachBase — from a development agency to one unified platform"
                 fill
                 className="object-contain p-6"
@@ -112,7 +113,7 @@ export default function AboutPage() {
             <StatBlock value="60" label="Agent Templates" />
           </AnimateIn>
           <AnimateIn delay={0.4}>
-            <StatBlock value="99.9%" label="Uptime Target" />
+            <StatBlock value="99.95%" label="Uptime Target" /> {/* the ONE SLA number — matches /legal/sla + Terms */}
           </AnimateIn>
         </div>
       </SectionWrapper>
