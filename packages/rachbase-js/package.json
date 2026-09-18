@@ -1,0 +1,13 @@
+{
+  "name": "@rachbase/js",
+  "version": "0.1.0",
+  "description": "RachBase JavaScript client — a supabase-js-shaped SDK for the RachBase BaaS (data, auth, storage, functions, realtime). Migrate from Supabase by changing one import + the URL/key.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["rachbase", "baas", "supabase", "postgrest", "sdk"],
+  "license": "MIT"
+}

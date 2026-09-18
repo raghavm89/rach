@@ -32,7 +32,8 @@
       "specs": "1 vCPU · 2 GB RAM · 5 GB SSD",
       "unit_price_cents": 2000,
       "unit": "per cluster / month",
-      "orderable": true
+      "orderable": false,
+      "hidden": true
     },
     {
       "id": "svc",
@@ -157,6 +158,52 @@
       }
     }
   ],
+  "pro": {
+    "$comment": [
+      "Shared managed-container pricing (compute_target='shared'). GEO-BASED: prices are NATIVE",
+      "per region, NOT a currency-pegged conversion. `regions` is the authority — one block per",
+      "billing currency (USD = Rest-of-World, INR = India). Region is resolved from the tenant's",
+      "billing address (India/GST -> INR, else USD); the client never picks it.",
+      "Two subscription tiers on both regions: starter (includes 1 nano container), pro (includes 3).",
+      "Each container beyond the allowance = region.container_cents. Compute size is a per-container",
+      "ADD-ON delta on top of the container fee (nano +0). Billing is PER SERVICE (replicas do not",
+      "change price). India amounts are ex-GST (18% GST added at checkout).",
+      "  RoW  ($): Starter $10, Pro $30, +container $10, micro +$10, small +$20.",
+      "  India (INR, +GST): Starter Rs500, Pro Rs1,500, +container Rs500, micro +Rs400, small +Rs800.",
+      "Top-level base_cents/container_cents + compute_sizes.delta_cents mirror the USD region for",
+      "back-compat/display defaults; `tiers` holds region-independent labels + included allowance."
+    ],
+    "base_cents": 1000,
+    "base_includes_containers": 1,
+    "default_tier": "starter",
+    "default_region": "USD",
+    "tiers": {
+      "starter": { "label": "Starter", "base_includes_containers": 1 },
+      "pro":     { "label": "Pro",     "base_includes_containers": 3 }
+    },
+    "container_cents": 1000,
+    "inr_per_usd": 96,
+    "regions": {
+      "USD": {
+        "currency": "USD",
+        "tiers": { "starter": { "base_cents": 1000 }, "pro": { "base_cents": 3000 } },
+        "container_cents": 1000,
+        "compute_delta_cents": { "nano": 0, "micro": 1000, "small": 2000 }
+      },
+      "INR": {
+        "currency": "INR",
+        "tiers": { "starter": { "base_cents": 50000 }, "pro": { "base_cents": 150000 } },
+        "container_cents": 50000,
+        "compute_delta_cents": { "nano": 0, "micro": 40000, "small": 80000 }
+      }
+    },
+    "default_compute_size": "nano",
+    "compute_sizes": {
+      "nano":  { "delta_cents": 0,    "memory_mb": 512,  "cpu_millicores": 500,  "cpu": "shared",     "specs": "0.5 GB · shared CPU" },
+      "micro": { "delta_cents": 1000, "memory_mb": 1024, "cpu_millicores": 2000, "cpu": "2-core ARM", "specs": "1 GB · 2-core ARM" },
+      "small": { "delta_cents": 2000, "memory_mb": 2048, "cpu_millicores": 2000, "cpu": "2-core ARM", "specs": "2 GB · 2-core ARM" }
+    }
+  },
   "usage_based": [
     {
       "id": "pg_backup",

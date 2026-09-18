@@ -13,6 +13,7 @@ const SAFE_FIELDS = `
   u.created_at, u.updated_at,
   t.name AS tenant_name,
   t.industry AS tenant_industry,
+  t.plan AS tenant_plan,
   t.kind AS tenant_kind
 `;
 
@@ -25,7 +26,7 @@ const User = {
   async findByEmail(email) {
     if (!email) return null;
     const { rows } = await pool.query(
-      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE lower(u.email) = lower($1)`,
+      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.plan AS tenant_plan, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE lower(u.email) = lower($1)`,
       [String(email).trim()]
     );
     return rows[0] || null;
@@ -33,7 +34,7 @@ const User = {
 
   async findByPhone(phone) {
     const { rows } = await pool.query(
-      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE u.phone_number = $1`,
+      `SELECT u.*, t.name AS tenant_name, t.industry AS tenant_industry, t.plan AS tenant_plan, t.kind AS tenant_kind ${FROM_CLAUSE} WHERE u.phone_number = $1`,
       [phone]
     );
     return rows[0] || null;
@@ -144,6 +145,22 @@ const User = {
        WHERE id = $2
        RETURNING id, name, email, phone_number, phone_verified, address, role, tenant_id, pve_pool, created_at, updated_at`,
       [pvePool || null, id]
+    );
+    return rows[0] || null;
+  },
+
+  // Right to erasure — anonymize PII in place + stamp deleted_at. The row survives so invoices
+  // (retained for tax/accounting) stay referential; the placeholder email locks out login.
+  async anonymize(id) {
+    const email = `deleted+${id}@rachbase.invalid`;
+    const { rows } = await pool.query(
+      `UPDATE users SET name = 'Deleted user', email = $2, phone_number = NULL, address = NULL,
+         account_type = 'individual', business_name = NULL, business_website = NULL,
+         business_industry = NULL, gstin = NULL, billing_address = NULL,
+         deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id, deleted_at`,
+      [id, email]
     );
     return rows[0] || null;
   },

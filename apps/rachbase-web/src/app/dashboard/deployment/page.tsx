@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus, GitBranch, Database, Layers, Box, Zap, Archive,
   Server, Cpu, MemoryStick, RefreshCw, AlertCircle, ServerOff,
@@ -240,7 +240,7 @@ function Arrows({ vms, services, pos }: { vms: VM[]; services: DeploymentService
 
 // ─── Main page ──────────────────────────────────────────────────────────────
 
-export default function DeploymentPage() {
+function DeploymentPageInner() {
   const { token, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1663,5 +1663,15 @@ function VariablesTab({ service, token }: { service: DeploymentService; token: s
       </div>
       <p className="text-[11px] text-black/35 mt-3">Secrets are encrypted at rest.</p>
     </div>
+  );
+}
+
+// `useSearchParams()` requires a Suspense boundary for the production build — every
+// other page that reads search params is wrapped the same way (go-live audit P0 #6a).
+export default function DeploymentPage() {
+  return (
+    <Suspense>
+      <DeploymentPageInner />
+    </Suspense>
   );
 }

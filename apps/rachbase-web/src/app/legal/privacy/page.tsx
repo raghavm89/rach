@@ -438,6 +438,42 @@ export default function PrivacyPolicyPage() {
             </ul>
           </div>
         </section>
+
+        {/* 12. Grievance Officer (DPDP Act, 2023) */}
+        <section>
+          <h2 className="font-display text-xl font-bold text-ink">
+            12. Grievance Officer (India — DPDP Act, 2023)
+          </h2>
+          <div className="mt-4 space-y-4 leading-relaxed text-ink-2">
+            <p>
+              In accordance with the Digital Personal Data Protection Act, 2023, you may contact our
+              Grievance Officer to raise concerns about the processing of your personal data or to
+              exercise your rights as a Data Principal (access, correction, erasure, and grievance
+              redressal). We aim to acknowledge grievances within a reasonable period.
+            </p>
+            <ul className="list-none space-y-1">
+              <li>
+                <span className="font-semibold text-ink">Grievance Officer:</span>{" "}
+                Data Protection &amp; Grievance Officer, Rach Dev LLP
+              </li>
+              <li>
+                <span className="font-semibold text-ink">Email:</span>{" "}
+                <a href="mailto:grievance@rachdev.com" className="text-accent underline hover:text-accent">
+                  grievance@rachdev.com
+                </a>
+              </li>
+              <li>
+                <span className="font-semibold text-ink">Address:</span>{" "}
+                Rach Dev LLP, Noida, Uttar Pradesh, India
+              </li>
+            </ul>
+            <p className="text-sm text-ink-3">
+              You can exercise your data rights directly from your dashboard (Settings → Privacy):
+              export your data or delete your account. If you are unsatisfied with our response, you
+              may escalate to the Data Protection Board of India.
+            </p>
+          </div>
+        </section>
       </div>
     </>
   );

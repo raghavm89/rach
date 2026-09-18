@@ -20,6 +20,8 @@ const TRUTHY = new Set(['1', 'true', 'on', 'yes']);
 const FLAGS = Object.freeze({
   // Pro (shared-pool, scale-to-zero) tier. OFF until Phase 1 is validated.
   pro_tier: 'FEATURE_PRO_TIER',
+  // Phase 3 BaaS primitives (Auth/Data/Storage/Functions). OFF until the slices land.
+  baas: 'FEATURE_BAAS',
 });
 
 /** Is a registered feature flag enabled? Unknown flags are always false. */

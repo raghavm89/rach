@@ -1,10 +1,9 @@
 'use strict';
 
-const geoip     = require('geoip-lite');
 const pool      = require('@rach/core').pool;
 const razorpay  = require('@rach/billing').razorpay;
 const { priceCart, getBundle, PricingError } = require('@rach/billing').catalog;
-const { verifyOrderPayment } = require('@rach/billing').paymentSecurity;
+const { assertOrderPaid } = require('../services/paymentVerify');
 const purchase = require('@rach/billing').purchase;
 const Subscription = require('@rach/billing').Subscription;
 const asyncHandler = require('@rach/core').asyncHandler;
@@ -206,23 +205,9 @@ async function provisionVmKeysForOrder(order, vmCount) {
  * rows by FK (migration 029), moving pending → fulfilled by an admin.
  */
 
-// Resolve the real client IP, accounting for reverse proxies / ngrok.
-function clientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return req.socket?.remoteAddress || req.ip || '';
-}
-
-// Returns the ISO 3166-1 alpha-2 country code for the request's IP, or null.
-function countryFromReq(req) {
-  const ip = clientIp(req);
-  // Skip loopback / private ranges — geoip-lite returns null for these
-  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
-    return null;
-  }
-  const geo = geoip.lookup(ip);
-  return geo?.country ?? null;
-}
+// One shared, TRUST_PROXY-aware definition — this file used to carry its own XFF-parsing
+// copy, exactly the drift the shared helper exists to prevent (go-live audit M3).
+const { clientIp, countryFromReq } = require('../lib/geo');
 
 // ── VM Packages ───────────────────────────────────────────────────────────────
 
@@ -334,16 +319,21 @@ async function verifyExpansionPayment(req, res) {
   if (!pkgRows.length) return res.status(404).json({ error: 'Package not found' });
   const pkg = pkgRows[0];
 
-  // Unconditional — see verifyOrderPayment. This check used to be skippable by
-  // omitting any one of the three fields.
-  verifyOrderPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
+  // Verify the money actually moved AND that it equals THIS package's price — closes the
+  // "pay for the cheap package, verify with the expensive package_id" bypass. Throws on failure.
+  await assertOrderPaid({
+    razorpay_order_id, razorpay_payment_id, razorpay_signature,
+    expectedAmount: pkg.price_cents, expectedCurrency: pkg.currency,
+  });
 
-  // Create expansion request
+  // Create expansion request. ON CONFLICT on the order id makes a replayed verify a no-op
+  // (one paid order can no longer fan out into multiple fulfilments).
   const { rows } = await pool.query(
     `INSERT INTO vm_expansion_requests
        (tenant_id, package_id, requested_by, razorpay_order_id, razorpay_payment_id,
         amount_paid, currency, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+     ON CONFLICT (razorpay_order_id) WHERE razorpay_order_id IS NOT NULL DO NOTHING
      RETURNING *`,
     [
       caller.tenant_id,
@@ -355,6 +345,14 @@ async function verifyExpansionPayment(req, res) {
       pkg.currency,
     ]
   );
+
+  // No row → this order was already fulfilled (replay). Return it idempotently, do NOT re-provision.
+  if (!rows.length) {
+    const { rows: existing } = await pool.query(
+      'SELECT * FROM vm_expansion_requests WHERE razorpay_order_id = $1 LIMIT 1', [razorpay_order_id]
+    );
+    return res.status(200).json({ message: 'Already recorded.', request: existing[0] || null, package: pkg, replay: true });
+  }
 
   // Notify admin the order completed (fire-and-forget)
   const pkgLabel = pkg.vm_count ? `${pkg.name} (${pkg.vm_count} VMs)` : pkg.name;
@@ -602,9 +600,12 @@ async function verifyCustomPayment(req, res) {
   const total_cents = priced.subtotal_cents;
   const currency = priced.currency;
 
-  // Unconditional. Previously this was wrapped in a truthiness check on the
-  // same fields it verifies, so omitting the signature skipped it entirely.
-  verifyOrderPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
+  // Verify the payment is captured AND equals the SERVER-priced cart total (not a cheaper
+  // order replayed against a more expensive basket). Throws on failure.
+  await assertOrderPaid({
+    razorpay_order_id, razorpay_payment_id, razorpay_signature,
+    expectedAmount: total_cents, expectedCurrency: currency,
+  });
 
   const description = items.map((i) => `${i.qty}× ${i.name}`).join(', ');
 
@@ -613,6 +614,7 @@ async function verifyCustomPayment(req, res) {
        (tenant_id, requested_by, razorpay_order_id, razorpay_payment_id,
         amount_paid, currency, status, custom_description, items_json)
      VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
+     ON CONFLICT (razorpay_order_id) WHERE razorpay_order_id IS NOT NULL DO NOTHING
      RETURNING *`,
     [
       caller.tenant_id,
@@ -625,6 +627,14 @@ async function verifyCustomPayment(req, res) {
       JSON.stringify(items),
     ]
   );
+
+  // Replayed order → return idempotently without re-provisioning.
+  if (!rows.length) {
+    const { rows: existing } = await pool.query(
+      'SELECT * FROM vm_expansion_requests WHERE razorpay_order_id = $1 LIMIT 1', [razorpay_order_id]
+    );
+    return res.status(200).json({ message: 'Already recorded.', request: existing[0] || null, replay: true });
+  }
 
   // Notify admin the order completed (fire-and-forget)
   notifyOrderPlaced(rows[0], (items || []).map((i) => ({ name: i.name, qty: i.qty })));

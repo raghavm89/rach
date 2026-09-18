@@ -44,6 +44,49 @@ export interface UsageBasedItem {
   price_cents_per_gb: number;
 }
 
+export type ComputeSize = 'nano' | 'micro' | 'small';
+
+export interface ProComputeSize {
+  delta_cents: number;
+  memory_mb: number;
+  cpu: string;
+  specs: string;
+}
+
+export type PlanTier = 'starter' | 'pro';
+export type BillingCurrency = 'USD' | 'INR';
+
+export interface ProTier {
+  label: string;
+  /** Region-independent included allowance. Native price lives in `regions`. */
+  base_includes_containers: number;
+  /** @deprecated moved to `regions[currency].tiers` — may be absent. */
+  base_cents?: number;
+}
+
+/** Native price block for one billing region (USD = Rest-of-World, INR = India). */
+export interface ProRegion {
+  currency: BillingCurrency;
+  tiers: Record<PlanTier, { base_cents: number }>;
+  container_cents: number;
+  compute_delta_cents: Record<ComputeSize, number>;
+}
+
+export interface ProPricing {
+  /** Back-compat: mirrors the USD region's STARTER tier. */
+  base_cents: number;
+  base_includes_containers: number;
+  default_tier: PlanTier;
+  default_region: BillingCurrency;
+  tiers: Record<PlanTier, ProTier>;
+  /** Geo-native prices — the display + charge authority per region. */
+  regions: Record<BillingCurrency, ProRegion>;
+  container_cents: number;
+  inr_per_usd: number;
+  default_compute_size: ComputeSize;
+  compute_sizes: Record<ComputeSize, ProComputeSize>;
+}
+
 interface CatalogShape {
   currency: string;
   sac_code: string;
@@ -52,6 +95,7 @@ interface CatalogShape {
   usage_based: UsageBasedItem[];
   included: string[];
   footnotes: string[];
+  pro: ProPricing;
 }
 
 const catalog = catalogJson as unknown as CatalogShape;
@@ -68,6 +112,37 @@ export const VISIBLE_SERVICES: CatalogService[] = catalog.services.filter((s) =>
 export const USAGE_BASED: UsageBasedItem[] = catalog.usage_based;
 export const INCLUDED: string[] = catalog.included;
 export const FOOTNOTES: string[] = catalog.footnotes;
+
+// Pro container pricing (display only — the server prices every charge). Mirrors
+// packages/billing/src/proPricing.js. GEO-NATIVE: each region has its own price block.
+export const PRO: ProPricing = catalog.pro;
+export const COMPUTE_SIZES: ComputeSize[] = Object.keys(PRO.compute_sizes) as ComputeSize[];
+
+/** The native price block for a billing currency (falls back to the default region). */
+export function proRegion(currency: BillingCurrency = 'USD'): ProRegion {
+  return PRO.regions[currency] ?? PRO.regions[PRO.default_region] ?? PRO.regions.USD;
+}
+
+/** Tier base price in the region's native minor units. */
+export function proBaseCents(tier: PlanTier, currency: BillingCurrency = 'USD'): number {
+  return proRegion(currency).tiers[tier].base_cents;
+}
+
+/** Additional-container fee in the region's native minor units. */
+export function proContainerCents(currency: BillingCurrency = 'USD'): number {
+  return proRegion(currency).container_cents;
+}
+
+/** Per-container compute add-on delta for a size, in the region's native minor units. */
+export function computeDeltaCents(size: ComputeSize, currency: BillingCurrency = 'USD'): number {
+  return proRegion(currency).compute_delta_cents[size] ?? 0;
+}
+
+/** Display monthly cost of one container: fee (waived on the free app slot) + compute delta. */
+export function containerMonthlyCents(size: ComputeSize, isFreeAppSlot: boolean, currency: BillingCurrency = 'USD'): number {
+  const fee = isFreeAppSlot ? 0 : proContainerCents(currency);
+  return fee + computeDeltaCents(size, currency);
+}
 
 const SERVICE_BY_ID = new Map(SERVICES.map((s) => [s.id, s]));
 
@@ -117,7 +192,7 @@ export function getBundle(id: string): CatalogBundle | null {
  */
 export function formatCents(cents: number, currency = CURRENCY): string {
   const whole = cents % 100 === 0;
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
     style: 'currency',
     currency,
     minimumFractionDigits: whole ? 0 : 2,

@@ -1,0 +1,116 @@
+<svg viewBox="0 0 1120 720" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .title{font-size:26px;font-weight:700;fill:#0f172a}
+      .sub{font-size:13px;fill:#64748b}
+      .box{fill:#ffffff;stroke:#cbd5e1;stroke-width:1.5;rx:12}
+      .h{font-size:15px;font-weight:700;fill:#0f172a}
+      .t{font-size:12px;fill:#475569}
+      .chip{font-size:11.5px;fill:#1e293b}
+      .lbl{font-size:11px;fill:#64748b}
+      .agent{fill:#eef2ff;stroke:#c7d2fe;stroke-width:1.2}
+      .flow{stroke:#475569;stroke-width:1.6;fill:none}
+    </style>
+  </defs>
+
+  <rect width="1120" height="720" fill="#f8fafc"/>
+  <text x="40" y="46" class="title">RachDev — On-Prem AI Operations Layer (AFMS)</text>
+  <text x="40" y="68" class="sub">Hardware capture → on-prem AI server + 7 agents → system of record (Dhanvantri). Air-gapped; clinician-in-the-loop.</text>
+
+  <!-- Security boundary -->
+  <rect x="300" y="92" width="600" height="520" rx="16" fill="#f0fdf4" stroke="#86efac" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="315" y="114" font-size="12.5" font-weight="700" fill="#15803d">HOSPITAL SECURITY BOUNDARY · air-gapped · encrypted at rest &amp; in transit · RBAC · audit</text>
+
+  <!-- ── Left: hardware capture ── -->
+  <text x="40" y="120" class="lbl" font-weight="700">EDGE / CAPTURE (hardware)</text>
+
+  <rect x="40" y="135" width="230" height="88" class="box"/>
+  <text x="58" y="162" class="h">🎙  Voice pocket device</text>
+  <text x="58" y="184" class="t">Doctor &amp; reception, worn.</text>
+  <text x="58" y="202" class="t">Ambient audio → on-prem ASR.</text>
+
+  <rect x="40" y="240" width="230" height="88" class="box"/>
+  <text x="58" y="267" class="h">💳  Encrypted patient card</text>
+  <text x="58" y="289" class="t">Portable, offline record file —</text>
+  <text x="58" y="307" class="t">travels across postings/hospitals.</text>
+
+  <rect x="40" y="345" width="230" height="88" class="box"/>
+  <text x="58" y="372" class="h">🖨  Reception scanner</text>
+  <text x="58" y="394" class="t">Reads/decrypts card → local server;</text>
+  <text x="58" y="412" class="t">updates card on discharge.</text>
+
+  <rect x="40" y="450" width="230" height="98" class="box"/>
+  <text x="58" y="477" class="h">🩺  ICU device gateway</text>
+  <text x="58" y="499" class="t">Monitors · ventilator · pumps · LIS</text>
+  <text x="58" y="516" class="t">HL7 / IEEE 11073 → normalize →</text>
+  <text x="58" y="533" class="t">POST observations (source=device)</text>
+
+  <!-- capture → server arrows -->
+  <path class="flow" d="M270,179 C 320,179 330,300 380,300" marker-end="url(#arrow)"/>
+  <path class="flow" d="M270,284 C 330,284 340,300 380,300" marker-end="url(#arrow)"/>
+  <path class="flow" d="M270,389 C 330,389 340,320 380,315" marker-end="url(#arrow)"/>
+  <path class="flow" d="M270,499 C 330,499 350,330 398,313" marker-end="url(#arrow)"/>
+  <text x="284" y="470" class="lbl">→ Umeed (live vitals/labs)</text>
+
+  <!-- ── Center: on-prem AI server ── -->
+  <rect x="380" y="150" width="300" height="300" rx="14" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  <text x="400" y="178" class="h">On-prem AI server(s) · GPU</text>
+  <text x="400" y="197" class="t">Local LLM + vernacular ASR (Sarvam / Claude)</text>
+
+  <!-- agents grid -->
+  <g>
+    <rect x="398" y="212" width="126" height="34" rx="8" class="agent"/><text x="408" y="234" class="chip">Asha · Intake</text>
+    <rect x="536" y="212" width="126" height="34" rx="8" class="agent"/><text x="546" y="234" class="chip">Vihaan · Triage</text>
+    <rect x="398" y="254" width="126" height="34" rx="8" class="agent"/><text x="408" y="276" class="chip">Naina · Scribe</text>
+    <rect x="536" y="254" width="126" height="34" rx="8" class="agent"/><text x="546" y="276" class="chip">Ira · Knowledge</text>
+    <rect x="398" y="296" width="126" height="34" rx="8" class="agent"/><text x="408" y="318" class="chip">Umeed · ICU</text>
+    <rect x="536" y="296" width="126" height="34" rx="8" class="agent"/><text x="546" y="318" class="chip">Rhea · Coding</text>
+    <rect x="398" y="338" width="126" height="34" rx="8" class="agent"/><text x="408" y="360" class="chip">Kabir · Coord.</text>
+    <rect x="536" y="338" width="126" height="34" rx="8" class="agent"/><text x="546" y="360" class="chip">Kiran · Pharmacy</text>
+  </g>
+  <rect x="398" y="382" width="264" height="50" rx="8" fill="#fef9c3" stroke="#fde68a"/>
+  <text x="410" y="402" class="chip" font-weight="700">Governance</text>
+  <text x="410" y="420" class="lbl">Human-in-the-loop · append-only audit · DPDP consent · RBAC</text>
+
+  <!-- ── Right: systems of record ── -->
+  <text x="720" y="120" class="lbl" font-weight="700">SYSTEM OF RECORD &amp; DATA</text>
+
+  <rect x="720" y="135" width="165" height="80" class="box"/>
+  <text x="738" y="162" class="h">Dhanvantri HIS</text>
+  <text x="738" y="183" class="t">Existing record —</text>
+  <text x="738" y="201" class="t">unchanged. Seam sync.</text>
+
+  <rect x="720" y="232" width="165" height="80" class="box"/>
+  <text x="738" y="259" class="h">Local DB + keys</text>
+  <text x="738" y="280" class="t">Encrypted store,</text>
+  <text x="738" y="298" class="t">key store, audit log.</text>
+
+  <rect x="720" y="329" width="165" height="80" class="box"/>
+  <text x="738" y="356" class="h">Integration seams</text>
+  <text x="738" y="377" class="t">ABDM (ABHA) ·</text>
+  <text x="738" y="395" class="t">ECHS · LIS/RIS.</text>
+
+  <!-- server <-> record arrows -->
+  <path class="flow" d="M680,180 L720,180" marker-end="url(#arrow)"/>
+  <path class="flow" d="M720,190 L680,205" marker-end="url(#arrow)"/>
+  <path class="flow" d="M680,270 L720,270" marker-end="url(#arrow)"/>
+  <path class="flow" d="M680,360 L720,362" marker-end="url(#arrow)"/>
+
+  <!-- ── Controlled internet bypass ── -->
+  <rect x="915" y="470" width="170" height="96" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="932" y="497" class="h">🌐 Web references</text>
+  <text x="932" y="518" class="t">Ira knowledge bypass —</text>
+  <text x="932" y="535" class="t">OFF by default, admin-</text>
+  <text x="932" y="552" class="t">gated, no PHI, logged.</text>
+
+  <!-- the only outbound path crosses the boundary -->
+  <path d="M662,271 C 820,271 900,430 960,470" stroke="#ea580c" stroke-width="1.8" fill="none" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+  <text x="812" y="452" font-size="11" fill="#ea580c" font-weight="700">only controlled outbound path</text>
+
+  <!-- footer note -->
+  <text x="40" y="640" class="lbl">Same agents run on Claude (pilot) or on-prem Sarvam (production) — a config change, not a rewrite. Hardware shown for workflow; not part of the software demo.</text>
+  <text x="40" y="662" class="lbl">Flow: card scan + voice capture → on-prem agents (clinician-approved) → Dhanvantri/EMR + encrypted card updated for cross-hospital continuity.</text>
+</svg>

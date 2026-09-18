@@ -27,6 +27,14 @@ export interface BillingAddress {
   country: string;
 }
 
+/** Billing details sent WITH a Pro/BaaS checkout call. The server persists them onto the
+ * caller's profile before pricing, so currency + GST resolve from what was just typed.
+ * GSTIN is optional (B2B input-credit detail) — GST is charged for India either way. */
+export interface CheckoutBilling extends Partial<BillingAddress> {
+  gstin?:   string;
+  company?: string;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -40,6 +48,8 @@ export interface User {
   tenant_industry?: string | null;
   /** 'personal' (self-serve owner → "Member") | 'org' (enterprise). */
   tenant_kind?: string | null;
+  /** Tenant tier — 'starter'/'pro' unlock managed container deploys; 'max' = default/unsubscribed. */
+  plan?: 'starter' | 'pro' | 'max' | null;
   pve_pool?: string | null;
   // Business profile (migration 018)
   account_type?:        'individual' | 'business';
@@ -389,6 +399,21 @@ export const users = {
     apiFetch<{ message: string }>('/api/users/me/password', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }, token),
+
+  // ── Data-principal rights (DPDP §11/§12) ──────────────────────────────────
+  // Right to access: download the personal data RachBase holds on your account.
+  exportMe: (token: string) =>
+    apiFetch<{ exported_at: string; account: Record<string, unknown>; note: string }>(
+      '/api/users/me/export', {}, token,
+    ),
+
+  // Right to erasure: anonymize PII + revoke sessions. Irreversible — the API
+  // requires an explicit { confirm: 'DELETE' } body.
+  deleteMe: (token: string) =>
+    apiFetch<{ erased: boolean; message: string }>('/api/users/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm: 'DELETE' }),
     }, token),
 };
 
@@ -1241,16 +1266,108 @@ export interface Service {
   repo_full_name: string | null;
   branch: string;
   image: string | null;
+  /** Auto-detected app type from the repo (node, python, postgres, static, …); drives `image`. */
+  app_type?: string | null;
   units?: number;
   cpu: string | number;
   memory_mb: number;
   disk_gb: string | number;
   replicas: number;
   compute_target?: string;
+  /** Pro container compute size — 'nano' (default) | 'micro' | 'small'. */
+  compute_size?: 'nano' | 'micro' | 'small';
   vm_id?: string | null;
+  /** User run command; empty/null → the built image's own ENTRYPOINT/CMD runs. */
+  start_command?: string | null;
+  /** User custom domain; empty/null → the platform host <slug>.rachbase.app. */
+  custom_domain?: string | null;
+  /** Container listen port; empty/null → platform default 8080. */
+  port?: number | null;
   status: string;
   created_at: string;
 }
+
+/** Public BaaS config for a project (Phase 3). The publishable key is public (client apps);
+ *  secret keys are managed via the keys endpoints and never returned here. */
+export interface BaasConfig {
+  ref: string;
+  url: string;
+  publishable_key: string | null;
+}
+
+/** BaaS backend compute size (applied to all 3 containers) + its per-backend price delta. */
+export interface BaasCompute {
+  size: string;
+  containers: number;
+  per_container: { cpu: string; memory_mb: number };
+  monthly_delta_cents: number;
+  sizes: string[];
+}
+
+/** An opaque API key (Supabase's current model). Secret keys expose only `last4`; the plaintext
+ *  `key` is present on a publishable key (public) or once at creation for a new secret key. */
+export interface BaasApiKey {
+  id: number;
+  type: 'publishable' | 'secret';
+  name: string;
+  last4: string;
+  key?: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+}
+
+/** Per-plan BaaS quotas. */
+export interface BaasLimits { projects: number; functions: number; storage_gb: number }
+
+/** A project row in the tenant BaaS overview. */
+export interface BaasProjectSummary { id: number; name: string; ref: string | null; baas_enabled: boolean; url: string | null }
+export interface BaasBackup { id: number; kind: string; status: string; size_bytes: number | null; error: string | null; started_at: string; completed_at: string | null; expires_at: string | null }
+export interface BaasRestore { id: number; backup_id: number | null; status: string; target_db: string; error: string | null; started_at: string; completed_at: string | null }
+export interface RealtimeTable { schema: string; table: string }
+
+/** BaaS Auth configuration (Supabase-parity). Control-plane state; OAuth secrets are masked
+ *  on read (secret is '' with secret_set indicating whether one is stored). */
+export interface AuthProviderConfig { enabled: boolean; client_id?: string; secret?: string; secret_set?: boolean }
+export interface AuthConfig {
+  signups: { allow_signups: boolean; confirm_email: boolean; allow_anonymous: boolean; allow_manual_linking: boolean };
+  sessions: { jwt_expiry: number; refresh_rotation: boolean; refresh_reuse_interval: number; single_session: boolean; timebox_hours: number; inactivity_timeout_hours: number };
+  rate_limits: { emails_per_hour: number; sms_per_hour: number; token_refresh_per_5min: number; token_verify_per_5min: number; anonymous_per_hour: number; signin_per_5min: number };
+  url_config: { site_url: string; redirect_urls: string[] };
+  oauth_server: { enabled: boolean; authorization_path: string; allow_dynamic: boolean };
+  providers: Record<string, AuthProviderConfig>;
+}
+
+/** A registered OAuth client app (project-as-IdP). `client_secret` is present only once, at creation. */
+export interface OAuthApp {
+  id?: number;
+  client_id: string;
+  client_type: 'public' | 'confidential';
+  name: string;
+  redirect_uris: string[];
+  created_at?: string;
+  client_secret?: string;
+}
+export type AuthConfigPatch = {
+  signups?: Partial<AuthConfig['signups']>;
+  sessions?: Partial<AuthConfig['sessions']>;
+  rate_limits?: Partial<AuthConfig['rate_limits']>;
+  url_config?: Partial<AuthConfig['url_config']>;
+  oauth_server?: Partial<AuthConfig['oauth_server']>;
+  providers?: Record<string, Partial<AuthProviderConfig>>;
+};
+
+/** BaaS management console entities (from the deployed backend). */
+export interface BaasUser { id: number; email: string; created_at: string }
+export interface BaasFunction { name: string; version: number; updated_at: string }
+/** Observability (Pro) metrics. */
+export interface ObsMetric { value: number; ts: string }
+export interface ObsSeriesPoint { ts: string; value: number; total: number }
+export interface FunctionSecret { name: string; digest: string; updated_at: string }
+export interface BaasBucket { name: string; visibility: string; created_at: string }
+export interface StorageConfig { image_transformation: boolean; file_size_limit_bytes: number; s3_enabled: boolean; region: string }
+export interface S3Key { id: number; name: string; access_key_id: string; created_at: string; secret_access_key?: string }
+export interface BaasTable { table_schema: string; table_name: string; columns: number }
 
 export interface Deployment {
   id: number;
@@ -1261,6 +1378,10 @@ export interface Deployment {
   status: string;
   triggered_by: string;
   created_at: string;
+  /** Site failure reason for a failed deploy (from the outbox / operation), e.g. a rejected App CRD field. */
+  error_reason?: string | null;
+  /** The linked site operation's state (ACCEPTED/RECONCILING/SUCCEEDED/FAILED/SUPERSEDED…), if any. */
+  op_state?: string | null;
 }
 
 export interface NewServiceInput {
@@ -1273,24 +1394,32 @@ export interface NewServiceInput {
   vm_id?: string;
 }
 
-export interface ServiceUnit {
-  id: number;
-  service_id: number;
-  status: string;
-  price_cents: number;
-  currency: string;
-  created_at: string;
-  activated_at: string | null;
+/** Recurring pay-to-online for a container. `resized` = repriced in place (no checkout). */
+export interface ContainerCheckout {
+  message: string;
+  resized?: boolean;
+  free?: boolean;
+  /** UPSIZE needs a one-time delta payment: open Razorpay with `order_id`, then verifyResize. */
+  resize_checkout?: boolean;
+  order_id?: string;
+  /** The new monthly recurring amount once the upsize applies (display only). */
+  recurring_amount?: number;
+  subscription_id?: string;
+  razorpay_key_id?: string;
+  amount?: number;
+  currency?: string;
+  compute_size?: 'nano' | 'micro' | 'small';
+  /** 'base' = funds the tenant's monthly Pro base; 'container' = an add-on subscription. */
+  kind?: 'base' | 'container';
+  service: Service;
 }
 
-export interface UnitCheckout {
-  message: string;
-  unit_id: number;
-  razorpay_order_id: string;
-  razorpay_key_id: string;
-  amount: number;
-  currency: string;
-}
+// Caller's IP country (ISO alpha-2) or null — used to hide India-only fields (GSTIN).
+export const geo = {
+  // Public endpoint — token optional (marketing pages call it anonymously).
+  country: (token?: string) =>
+    apiFetch<{ country: string | null }>('/api/geo/country', {}, token),
+};
 
 export const projects = {
   list: (token: string) =>
@@ -1307,6 +1436,126 @@ export const projects = {
       `/api/projects/${id}`, {}, token,
     ),
 
+  // BaaS (Phase 3) — tenant overview: projects + plan limits/usage.
+  baasOverview: (token: string) =>
+    apiFetch<{ plan: string; limits: BaasLimits; used: { projects: number }; projects: BaasProjectSummary[] }>(
+      '/api/projects/baas/overview', {}, token,
+    ),
+
+  // BaaS (Phase 3) — enable a project's backend primitives + fetch its keys.
+  enableBaas: (token: string, projectId: number) =>
+    apiFetch<{ baas: BaasConfig; keys: BaasApiKey[]; db_ready: boolean; deploy: unknown }>(
+      `/api/projects/${projectId}/baas/enable`, { method: 'POST' }, token),
+  getBaas: (token: string, projectId: number) =>
+    apiFetch<{ baas: BaasConfig; keys: BaasApiKey[]; compute: BaasCompute; capabilities?: { vector?: boolean } }>(`/api/projects/${projectId}/baas`, {}, token),
+  // PAY-FIRST resize. Same size → { unchanged }. Downsize/free → { resized } (applied now).
+  // Upsize → { resize_checkout, order_id, ... }: open Razorpay, then baasVerifyCompute.
+  // `billing` (address + optional GSTIN) is persisted server-side before pricing, so GST and
+  // currency resolve from the details the customer just typed — GSTIN optional, GST is not.
+  baasSetCompute: (token: string, projectId: number, compute_size: string, billing?: CheckoutBilling) =>
+    apiFetch<{
+      unchanged?: boolean;
+      resized?: boolean;
+      resize_checkout?: boolean;
+      order_id?: string;
+      razorpay_key_id?: string;
+      amount?: number;
+      currency?: string;
+      compute_size?: string;
+      compute: BaasCompute;
+      deploy?: unknown;
+    }>(`/api/projects/${projectId}/baas/compute`, { method: 'POST', body: JSON.stringify({ compute_size, billing }) }, token),
+  baasVerifyCompute: (token: string, projectId: number, payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch<{ message: string; compute: BaasCompute; deploy: unknown }>(
+      `/api/projects/${projectId}/baas/compute/verify`, { method: 'POST', body: JSON.stringify(payload) }, token),
+  deployBaas: (token: string, projectId: number) =>
+    apiFetch<{ deploy: unknown }>(`/api/projects/${projectId}/baas/deploy`, { method: 'POST' }, token),
+
+  // BaaS API keys (opaque publishable/secret, revocable) — control-plane managed, no deploy needed.
+  baasKeys: (token: string, projectId: number) =>
+    apiFetch<{ keys: BaasApiKey[] }>(`/api/projects/${projectId}/baas/keys`, {}, token),
+  baasCreateSecretKey: (token: string, projectId: number, name: string) =>
+    apiFetch<{ key: BaasApiKey }>(`/api/projects/${projectId}/baas/keys`, { method: 'POST', body: JSON.stringify({ name }) }, token),
+  baasRevokeKey: (token: string, projectId: number, keyId: number) =>
+    apiFetch<{ revoked: boolean; keys: BaasApiKey[] }>(`/api/projects/${projectId}/baas/keys/${keyId}`, { method: 'DELETE' }, token),
+
+  // Observability (Pro plan): metrics summary + time series. 402 when the tenant isn't on Pro.
+  baasObsSummary: (token: string, projectId: number) =>
+    apiFetch<{ metrics: Record<string, ObsMetric> }>(`/api/projects/${projectId}/baas/observability/summary`, {}, token),
+  baasObsSeries: (token: string, projectId: number, metric: string, minutes = 60) =>
+    apiFetch<{ series: ObsSeriesPoint[] }>(`/api/projects/${projectId}/baas/observability/series?metric=${encodeURIComponent(metric)}&minutes=${minutes}`, {}, token),
+
+  // Backups (managed Postgres): list, on-demand backup, restore-into-new-DB, presigned download.
+  baasBackups: (token: string, projectId: number) =>
+    apiFetch<{ backups: BaasBackup[]; restores: BaasRestore[]; storageConfigured: boolean }>(`/api/projects/${projectId}/baas/backups`, {}, token),
+  baasCreateBackup: (token: string, projectId: number) =>
+    apiFetch<{ message: string; retentionDays: number }>(`/api/projects/${projectId}/baas/backups`, { method: 'POST' }, token),
+  baasRestoreBackup: (token: string, projectId: number, backupId: number) =>
+    apiFetch<{ message: string }>(`/api/projects/${projectId}/baas/backups/${backupId}/restore`, { method: 'POST' }, token),
+  baasBackupDownload: (token: string, projectId: number, backupId: number) =>
+    apiFetch<{ url: string }>(`/api/projects/${projectId}/baas/backups/${backupId}/download`, {}, token),
+
+  // Realtime: list/enable/disable per-table realtime (postgres_changes via triggers).
+  baasRealtime: (token: string, projectId: number) =>
+    apiFetch<{ tables: RealtimeTable[]; wsPath: string; ref: string }>(`/api/projects/${projectId}/baas/realtime`, {}, token),
+  baasEnableRealtime: (token: string, projectId: number, table: string, schema = 'public') =>
+    apiFetch<{ tables: RealtimeTable[] }>(`/api/projects/${projectId}/baas/realtime/tables`, { method: 'POST', body: JSON.stringify({ table, schema }) }, token),
+  baasDisableRealtime: (token: string, projectId: number, table: string, schema = 'public') =>
+    apiFetch<{ tables: RealtimeTable[] }>(`/api/projects/${projectId}/baas/realtime/tables/${encodeURIComponent(table)}?schema=${encodeURIComponent(schema)}`, { method: 'DELETE' }, token),
+
+  // BaaS Auth configuration (Supabase-parity) — control-plane, works before deploy.
+  getAuthConfig: (token: string, projectId: number) =>
+    apiFetch<{ config: AuthConfig }>(`/api/projects/${projectId}/baas/auth/config`, {}, token),
+  setAuthConfig: (token: string, projectId: number, patch: AuthConfigPatch) =>
+    apiFetch<{ config: AuthConfig }>(`/api/projects/${projectId}/baas/auth/config`, { method: 'PUT', body: JSON.stringify(patch) }, token),
+
+  // BaaS management console (proxied to the deployed backend).
+  baasUsers: (token: string, projectId: number) =>
+    apiFetch<{ users: BaasUser[]; total: number }>(`/api/projects/${projectId}/baas/users`, {}, token),
+  baasCreateUser: (token: string, projectId: number, body: { email: string; password: string; auto_confirm?: boolean }) =>
+    apiFetch<BaasUser>(`/api/projects/${projectId}/baas/users`, { method: 'POST', body: JSON.stringify(body) }, token),
+  baasDeleteUser: (token: string, projectId: number, uid: number) =>
+    apiFetch<{ deleted: number }>(`/api/projects/${projectId}/baas/users/${uid}`, { method: 'DELETE' }, token),
+  baasOAuthApps: (token: string, projectId: number) =>
+    apiFetch<{ apps: OAuthApp[] }>(`/api/projects/${projectId}/baas/oauth/apps`, {}, token),
+  baasCreateOAuthApp: (token: string, projectId: number, body: { name: string; redirect_uris: string[]; client_type?: string }) =>
+    apiFetch<OAuthApp>(`/api/projects/${projectId}/baas/oauth/apps`, { method: 'POST', body: JSON.stringify(body) }, token),
+  baasDeleteOAuthApp: (token: string, projectId: number, clientId: string) =>
+    apiFetch<{ deleted: string }>(`/api/projects/${projectId}/baas/oauth/apps/${clientId}`, { method: 'DELETE' }, token),
+  baasFunctions: (token: string, projectId: number) =>
+    apiFetch<{ functions: BaasFunction[] }>(`/api/projects/${projectId}/baas/functions`, {}, token),
+  baasGetFunction: (token: string, projectId: number, name: string) =>
+    apiFetch<{ function: { name: string; code: string; version: number } }>(`/api/projects/${projectId}/baas/functions/${name}`, {}, token),
+  baasDeployFunction: (token: string, projectId: number, body: { name: string; code: string }) =>
+    apiFetch<{ function: BaasFunction }>(`/api/projects/${projectId}/baas/functions`, { method: 'POST', body: JSON.stringify(body) }, token),
+  baasDeleteFunction: (token: string, projectId: number, name: string) =>
+    apiFetch<{ deleted: string }>(`/api/projects/${projectId}/baas/functions/${name}`, { method: 'DELETE' }, token),
+  baasInvokeFunction: (token: string, projectId: number, name: string, body: unknown) =>
+    apiFetch<{ status: number; body: unknown }>(`/api/projects/${projectId}/baas/functions/${name}/invoke`, { method: 'POST', body: JSON.stringify(body ?? {}) }, token),
+  baasFunctionSecrets: (token: string, projectId: number) =>
+    apiFetch<{ secrets: FunctionSecret[] }>(`/api/projects/${projectId}/baas/functions/secrets`, {}, token),
+  baasSetFunctionSecrets: (token: string, projectId: number, secrets: { name: string; value: string }[]) =>
+    apiFetch<{ saved: number }>(`/api/projects/${projectId}/baas/functions/secrets`, { method: 'POST', body: JSON.stringify({ secrets }) }, token),
+  baasDeleteFunctionSecret: (token: string, projectId: number, name: string) =>
+    apiFetch<{ deleted: string }>(`/api/projects/${projectId}/baas/functions/secrets/${name}`, { method: 'DELETE' }, token),
+  baasBuckets: (token: string, projectId: number) =>
+    apiFetch<{ buckets: BaasBucket[] }>(`/api/projects/${projectId}/baas/buckets`, {}, token),
+  baasCreateBucket: (token: string, projectId: number, body: { name: string; visibility?: string }) =>
+    apiFetch<{ bucket: BaasBucket }>(`/api/projects/${projectId}/baas/buckets`, { method: 'POST', body: JSON.stringify(body) }, token),
+  baasStorageConfig: (token: string, projectId: number) =>
+    apiFetch<{ config: StorageConfig; s3: { endpoint: string; region: string }; keys: S3Key[] }>(`/api/projects/${projectId}/baas/storage/config`, {}, token),
+  baasSetStorageConfig: (token: string, projectId: number, patch: Partial<StorageConfig>) =>
+    apiFetch<{ config: StorageConfig }>(`/api/projects/${projectId}/baas/storage/config`, { method: 'PUT', body: JSON.stringify(patch) }, token),
+  baasCreateS3Key: (token: string, projectId: number, name: string) =>
+    apiFetch<{ key: S3Key }>(`/api/projects/${projectId}/baas/storage/s3-keys`, { method: 'POST', body: JSON.stringify({ name }) }, token),
+  baasDeleteS3Key: (token: string, projectId: number, keyId: number) =>
+    apiFetch<{ deleted: boolean }>(`/api/projects/${projectId}/baas/storage/s3-keys/${keyId}`, { method: 'DELETE' }, token),
+  baasTables: (token: string, projectId: number) =>
+    apiFetch<{ tables: BaasTable[] }>(`/api/projects/${projectId}/baas/tables`, {}, token),
+  baasQuery: (token: string, projectId: number, sql: string) =>
+    apiFetch<{ fields: string[]; rows: Record<string, unknown>[]; rowCount: number }>(
+      `/api/projects/${projectId}/baas/query`, { method: 'POST', body: JSON.stringify({ sql }) }, token),
+
   createService: (token: string, projectId: number, input: NewServiceInput) =>
     apiFetch<{ service: Service; quota?: { used: number; limit: number } }>(
       `/api/projects/${projectId}/services`, {
@@ -1316,8 +1565,14 @@ export const projects = {
     ),
 
   getService: (token: string, projectId: number, sid: number) =>
-    apiFetch<{ service: Service; deployments: Deployment[]; units: ServiceUnit[] }>(
+    apiFetch<{ service: Service; deployments: Deployment[]; host: string; placed?: boolean }>(
       `/api/projects/${projectId}/services/${sid}`, {}, token,
+    ),
+
+  // Delete a service/container — stops its billing and removes it.
+  deleteService: (token: string, projectId: number, sid: number) =>
+    apiFetch<{ message: string; id: number }>(
+      `/api/projects/${projectId}/services/${sid}`, { method: 'DELETE' }, token,
     ),
 
   deploy: (token: string, projectId: number, sid: number, body: { commit_sha?: string; image_tag?: string } = {}) =>
@@ -1328,17 +1583,60 @@ export const projects = {
       }, token,
     ),
 
-  // Buy one Service Unit ($15/mo) — used both to bring a draft online and to "Add power".
-  checkoutUnit: (token: string, projectId: number, sid: number) =>
-    apiFetch<UnitCheckout>(
-      `/api/projects/${projectId}/services/${sid}/units/checkout`, { method: 'POST' }, token,
+  // Pay-to-online: bring a container online. Pass the compute size; the server prices
+  // it (free for the first/app container at nano). `free:true` means it went online
+  // with no charge; otherwise open Razorpay checkout with the returned order, then verify.
+  checkoutContainer: (token: string, projectId: number, sid: number, computeSize: 'nano' | 'micro' | 'small' = 'nano', billing?: CheckoutBilling) =>
+    apiFetch<ContainerCheckout>(
+      `/api/projects/${projectId}/services/${sid}/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({ compute_size: computeSize, billing }),
+      }, token,
     ),
 
-  verifyUnit: (token: string, projectId: number, sid: number, payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
-    apiFetch<{ message: string; service: Service; unit: ServiceUnit }>(
-      `/api/projects/${projectId}/services/${sid}/units/verify`, {
+  verifyContainer: (token: string, projectId: number, sid: number, payload: { razorpay_subscription_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch<{ message: string; service: Service }>(
+      `/api/projects/${projectId}/services/${sid}/verify`, {
         method: 'POST',
         body: JSON.stringify(payload),
+      }, token,
+    ),
+
+  // Verify the one-time UPSIZE delta payment (order signature) → applies the new size.
+  verifyResize: (token: string, projectId: number, sid: number, payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch<{ message: string; service: Service }>(
+      `/api/projects/${projectId}/services/${sid}/verify-resize`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }, token,
+    ),
+
+  // Remove a deploy history entry (e.g. a stale queued one).
+  deleteDeployment: (token: string, projectId: number, sid: number, did: number) =>
+    apiFetch<{ ok: boolean; id: number }>(
+      `/api/projects/${projectId}/services/${sid}/deployments/${did}`, { method: 'DELETE' }, token,
+    ),
+
+  // Per-service env vars + run command (applied on the next deploy).
+  getEnv: (token: string, projectId: number, sid: number) =>
+    apiFetch<{ vars: ServiceEnvVar[]; start_command: string | null }>(
+      `/api/projects/${projectId}/services/${sid}/env`, {}, token,
+    ),
+
+  setEnv: (token: string, projectId: number, sid: number, vars: ServiceEnvVar[]) =>
+    apiFetch<{ ok: boolean; count: number }>(
+      `/api/projects/${projectId}/services/${sid}/env`, {
+        method: 'PUT',
+        body: JSON.stringify({ vars }),
+      }, token,
+    ),
+
+  // Update the run command; empty string clears it (falls back to the image default).
+  setConfig: (token: string, projectId: number, sid: number, config: { start_command?: string | null; custom_domain?: string | null; port?: number | null }) =>
+    apiFetch<{ service: Service; host?: string }>(
+      `/api/projects/${projectId}/services/${sid}/config`, {
+        method: 'PATCH',
+        body: JSON.stringify(config),
       }, token,
     ),
 };
@@ -2549,6 +2847,100 @@ export interface TicketMessage {
 }
 
 export interface ChatOption { label: string; intent?: string; action?: string }
+
+// ─── SpaceArk site integration (Pro; flagged server-side) ─────────────────────
+
+export interface SiteOperation {
+  operationId: string;
+  state: 'ACCEPTED' | 'RECONCILING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'BLOCKED';
+  resource: { type: string; id: string };
+  observedGeneration: number;
+  reason: string | null;
+  message: string | null;
+  updatedAt: string | null;
+  /** Public URL of the deployed app — present once an app operation is ACTIVE. */
+  url?: string | null;
+}
+
+/** A container image available in the tenant's site registry. */
+export interface RegistryImage {
+  ref: string;                 // pullable reference (repository[:tag]@sha256:… or repository:tag)
+  repository?: string | null;
+  tag?: string | null;
+  digest?: string | null;
+  pushedAt?: string | null;
+  sizeBytes?: number | null;
+}
+
+export interface SiteAccepted {
+  operationId: string;
+  siteId?: string;
+  resourceId: string;
+  state: string;
+  statusUrl: string;
+}
+
+export const site = {
+  /** Place/reconcile a tenant onto its SpaceArk site (async → 202 + operation). */
+  reconcileTenant: (token: string, tenantId: number) =>
+    apiFetch<SiteAccepted>(`/api/site/tenants/${tenantId}/reconcile`, { method: 'POST' }, token),
+
+  /** Create/update an app's runtime spec (image = approved digest for BYO/registry). */
+  upsertApp: (token: string, tenantId: number, appId: string, body: { image?: string | null; port?: number }) =>
+    apiFetch<SiteAccepted>(`/api/site/tenants/${tenantId}/apps/${appId}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  /** Deploy a release — an approved image digest, or an exact commit (SpaceArk builds it). */
+  createRelease: (token: string, tenantId: number, appId: string, body: { deploymentId?: string; image?: string | null; source?: { provider: string; installationRef?: string; repositoryRef?: string; commitSha: string } | null }) =>
+    apiFetch<SiteAccepted>(`/api/site/tenants/${tenantId}/apps/${appId}/releases`, { method: 'POST', body: JSON.stringify(body) }, token),
+
+  /** In-house build + deploy from the service's GitHub repo. Pins the branch head (or a
+   *  given commit for redeploy/rollback) and records the deploy. Returns the pinned commit. */
+  deployRepo: (token: string, tenantId: number, appId: string, body: { service_id: number; commit_sha?: string }) =>
+    apiFetch<SiteAccepted & { commit_sha?: string; image?: string }>(
+      `/api/site/tenants/${tenantId}/apps/${appId}/deploy-repo`, { method: 'POST', body: JSON.stringify(body) }, token,
+    ),
+
+  /** Poll a normalized operation's status. */
+  getOperation: (token: string, operationId: string) =>
+    apiFetch<SiteOperation>(`/api/site/operations/${operationId}`, {}, token),
+
+  /** Approved registry images for the tenant (for the "Browse registry" picker). */
+  registryImages: (token: string, tenantId: number) =>
+    apiFetch<{ images: RegistryImage[] }>(`/api/site/tenants/${tenantId}/registry/images`, {}, token),
+
+  /** Base amount for a tier (no side effects) for the checkout review. */
+  proQuote: (token: string, tier: 'starter' | 'pro' = 'starter') =>
+    apiFetch<{ kind: 'base'; tier: 'starter' | 'pro'; amount: number; currency: string; already_pro: boolean; current_plan: string }>(
+      `/api/site/pro/quote?tier=${tier}`, {}, token,
+    ),
+
+  /** Marginal amount to bring a container online at `size` (no side effects). */
+  deployQuote: (token: string, tenantId: number, serviceId: number, size: string) =>
+    apiFetch<{ kind: 'container'; amount: number; currency: string; free: boolean; size: string; service_name: string | null; mode?: 'upsize' | 'downsize'; recurring?: number }>(
+      `/api/site/tenants/${tenantId}/deploy-quote?serviceId=${serviceId}&size=${encodeURIComponent(size)}`, {}, token,
+    ),
+
+  /** Subscribe to a tier (starter/pro) — create its base subscription. `already` = base already active.
+   * `billing` (address + optional GSTIN) is persisted server-side BEFORE pricing, so currency and
+   * GST resolve from the details the customer just typed — an Indian buyer pays GST with or
+   * without a GSTIN. The server rejects with `billing_country_required` when it can't tell. */
+  subscribePro: (token: string, tier: 'starter' | 'pro' = 'starter', billing?: CheckoutBilling) =>
+    apiFetch<{ message?: string; already?: boolean; upgraded?: boolean; promoted_containers?: number; plan?: string; tier?: string; subscription_id?: string; razorpay_key_id?: string; amount?: number; currency?: string }>(
+      '/api/site/pro/subscribe', { method: 'POST', body: JSON.stringify({ tier, billing }) }, token,
+    ),
+
+  /** Verify the Pro base subscription payment → tenant plan flips to 'pro'. */
+  verifyProSubscription: (token: string, payload: { razorpay_subscription_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    apiFetch<{ message: string; plan: string }>(
+      '/api/site/pro/verify', { method: 'POST', body: JSON.stringify(payload) }, token,
+    ),
+
+  /** Cancel Pro: stop all shared containers + cancel active subscriptions. */
+  unsubscribe: (token: string) =>
+    apiFetch<{ message: string; stopped_containers: number; cancelled_subscriptions: number }>(
+      '/api/site/unsubscribe', { method: 'POST' }, token,
+    ),
+};
 
 export const support = {
   /** Rule-based support bot (no LLM): send a message or a quick-reply intent. */

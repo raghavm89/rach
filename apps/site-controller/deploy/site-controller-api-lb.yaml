@@ -1,0 +1,22 @@
+# OPTIONAL — test/dev exposure for the api facade on :8443.
+#
+# The split bundle's `site-controller-api` Service is ClusterIP (not reachable off-cluster). This
+# LoadBalancer Service publishes the api on the node at :8443 so the RachBase BFF can reach it
+# during testing (k3s servicelb binds the node IP).
+#
+# ⚠ PRODUCTION: do NOT use this. The api facade must sit behind a TLS + mTLS edge gateway
+# (DEPLOY.md §7) that terminates TLS, requires the RachBase client cert, and applies the
+# BFF-egress /32 allowlist. This plain-HTTP LoadBalancer carries the partner JWT in cleartext.
+apiVersion: v1
+kind: Service
+metadata:
+  name: site-controller-api-lb
+  namespace: spaceark-site-system
+spec:
+  type: LoadBalancer
+  selector:
+    app: site-controller-api
+  ports:
+    - name: api
+      port: 8443
+      targetPort: 8443

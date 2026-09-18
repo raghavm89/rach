@@ -7,5 +7,37 @@ dist/
 *.log
 .DS_Store
 
+# Secrets & credentials — NEVER commit. `secrets/` holds the mTLS CA key, OAuth signing key, etc.
+secrets/
+*.pem
+*.key
+!**/public.key
+# Real customer PII lived in this script input; only the .example template is tracked.
+apps/rachbase-backend/scripts/invoice-input.json
+
+# Build caches
+tsconfig.tsbuildinfo
+**/*.tsbuildinfo
+
 # FUSE mount artifacts (orphaned handles from in-place edits)
 .fuse_hidden*
+
+# Build/package artifacts — produced by build-and-package.sh, never committed
+*.tar.gz
+*.tgz
+site-controller-handoff-*.zip
+_to_delete/
+tmp.*
+
+# Founder working files kept beside the repo (not part of the codebase)
+post-*.png
+post-*.md
+post-graphics-kit.zip
+Invoice_*.pdf
+*.docx
+*.pptx
+RachDev-LinkedIn-Playbook.md
+Raghav-Personal-Brand-Month1.md
+ARKA_contract_asks.md
+docs/SOCIAL_BRAND_CONSULTANCY_STRATEGY_*.md
+docs/COMPETITOR_LANDSCAPE_*.md

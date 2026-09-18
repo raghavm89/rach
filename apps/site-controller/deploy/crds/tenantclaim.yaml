@@ -1,0 +1,51 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tenantclaims.rachbase.io
+# SpaceArk SRE owns CRD installation (the controller RBAC cannot create CRDs). This
+# is the definition the api facade writes instances of and the tenant reconciler
+# watches. `status` is a subresource, owned by the reconciler.
+spec:
+  group: rachbase.io
+  names:
+    kind: TenantClaim
+    plural: tenantclaims
+    singular: tenantclaim
+    shortNames: [tc]
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [tenantId, plan, operationId]
+              properties:
+                tenantId: { type: string }
+                plan: { type: string, enum: [free, pro, enterprise] }
+                customerRef: { type: string }
+                generation: { type: integer }
+                operationId: { type: string }
+                desiredState: { type: string, enum: [ACTIVE, SUSPENDED, DELETED] }
+                suspendMode: { type: string, enum: [MUTATIONS_BLOCKED, WORKLOADS_STOPPED, SECURITY_ISOLATED] }
+            status:
+              type: object
+              properties:
+                state: { type: string }        # ACCEPTED|RECONCILING|SUCCEEDED|FAILED|...
+                observedGeneration: { type: integer }
+                reason: { type: string }
+                message: { type: string }
+                updatedAt: { type: string }
+      additionalPrinterColumns:
+        - name: Plan
+          type: string
+          jsonPath: .spec.plan
+        - name: State
+          type: string
+          jsonPath: .status.state

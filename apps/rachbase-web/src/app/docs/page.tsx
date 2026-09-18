@@ -82,6 +82,7 @@ export default function DocsPage() {
           <div className="relative mx-auto aspect-[16/9] w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-band shadow-well-sm">
             <Image
               src="/illustrations/pages/docs-guide.png"
+              unoptimized
               alt="An open documentation book with code brackets, section tabs, and a search magnifier"
               fill
               className="object-contain p-6"

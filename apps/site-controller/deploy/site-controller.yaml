@@ -1,0 +1,224 @@
+# RachBase site-controller — in-cluster deployment (contract §11). Four profiles, each its OWN
+# Deployment + ServiceAccount + minimal RBAC (a defect in the Internet-facing api facade must
+# not grant namespace/workload mutation rights). SpaceArk SRE owns the final RBAC + release.
+#
+# TWO namespaces, and they must stay consistent with the controller's env:
+#   spaceark-site-system    → the CONTROLLER: all reconciler ServiceAccounts + Deployments.
+#                             This is SITE_CONTROLLER_NAMESPACE, and it is the namespace every
+#                             per-tenant `rb-workload` / `rb-build` RoleBinding subject points at.
+#   spaceark-site-requests  → the request CRDs (TenantClaim/App/Release) the BFF writes.
+#
+# CRITICAL: the workload/build reconciler SAs live in spaceark-site-system, so the per-tenant
+# RoleBindings the tenant reconciler creates (subject = <sa>@spaceark-site-system) resolve.
+# If you rename this namespace, set SITE_CONTROLLER_NAMESPACE to match on EVERY Deployment.
+#
+# Replace IMAGE and SITE_ID/OAUTH_* (from the secret store) before applying.
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: spaceark-site-system }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: site-controller-api, namespace: spaceark-site-system }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: site-controller-tenant, namespace: spaceark-site-system }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: site-controller-workload, namespace: spaceark-site-system }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: site-controller-build, namespace: spaceark-site-system }
+---
+# api facade: request CRDs ONLY (no Secrets/Namespace/RBAC/workloads). The CRDs live in
+# spaceark-site-requests, so the Role is there; the subject SA lives in spaceark-site-system.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: site-controller-api, namespace: spaceark-site-requests }
+rules:
+  - apiGroups: [rachbase.io]
+    resources: [tenantclaims, apps, releases, tenantclaims/status, apps/status, releases/status]
+    verbs: [get, list, watch, create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: site-controller-api, namespace: spaceark-site-requests }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: site-controller-api }
+subjects: [{ kind: ServiceAccount, name: site-controller-api, namespace: spaceark-site-system }]
+---
+# workload + build reconcilers must WATCH App/Release CRDs (in spaceark-site-requests) and patch
+# their status. The per-tenant rb-workload/rb-build Roles (namespace mutations in rb-t-<id>) are
+# created by the tenant reconciler at provision time — not here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: site-controller-crd-reader, namespace: spaceark-site-requests }
+rules:
+  - apiGroups: [rachbase.io]
+    resources: [apps, releases, apps/status, releases/status]
+    verbs: [get, list, watch, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: site-controller-crd-reader, namespace: spaceark-site-requests }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: site-controller-crd-reader }
+subjects:
+  - { kind: ServiceAccount, name: site-controller-workload, namespace: spaceark-site-system }
+  - { kind: ServiceAccount, name: site-controller-build,    namespace: spaceark-site-system }
+---
+# tenant reconciler: namespace/quota/limits/SA/NetworkPolicy/approved RoleBindings +
+# TenantClaim status. (ClusterRole because Namespaces are cluster-scoped.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: site-controller-tenant }
+rules:
+  # Namespaces (rb-t-<id> and the build boundary rb-b-<id>) are cluster-scoped → ClusterRole.
+  # configmaps = the opaque tenant-registry boundary (§9.5 step 9). serviceaccounts covers the
+  # tokenless runtime SA + patching the namespace `default` SA tokenless (§9.5 step 4).
+  - apiGroups: [""]
+    resources: [namespaces, resourcequotas, limitranges, serviceaccounts, configmaps]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch]
+  # roles = the per-tenant rb-workload / rb-build Roles; rolebindings bind them to the
+  # workload/build reconciler SAs. NOTE: binding a Role requires the creator to hold the
+  # granted verbs or `bind` on that Role — SpaceArk SRE finalizes this without granting
+  # broad `escalate`/`bind` (§11.2); scope `bind` to the exact rb-workload/rb-build roleRefs.
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [get, list, create, update, patch]
+  - apiGroups: [rachbase.io]
+    resources: [tenantclaims, tenantclaims/status]
+    verbs: [get, list, watch, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: site-controller-tenant }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: site-controller-tenant }
+subjects: [{ kind: ServiceAccount, name: site-controller-tenant, namespace: spaceark-site-system }]
+---
+# ── Deployments (all in spaceark-site-system) ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site-controller-api, namespace: spaceark-site-system }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: site-controller-api } }
+  template:
+    metadata: { labels: { app: site-controller-api } }
+    spec:
+      serviceAccountName: site-controller-api
+      # The api facade writes request CRDs via the in-cluster client (loadFromDefault → the
+      # standard token path), so it needs its projected SA token at the DEFAULT mount. Least
+      # privilege comes from this SA's minimal Role (CRD create/patch in spaceark-site-requests
+      # ONLY — no namespace/workload rights), not from withholding the token.
+      automountServiceAccountToken: true
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      volumes:
+        - name: oauth-public-key
+          secret: { secretName: rachbase-oauth, items: [{ key: public.pem, path: public.pem }] }
+      containers:
+        - name: api
+          image: IMAGE
+          imagePullPolicy: IfNotPresent   # works for a registry pull OR a local k3s ctr import
+          env:
+            - { name: SITE_CONTROLLER_PROFILE, value: api }
+            - { name: SITE_ID, value: site1 }
+            - { name: API_PORT, value: "8443" }
+            - { name: SITE_REQUESTS_NAMESPACE, value: spaceark-site-requests }
+            # Verifies RachBase's partner JWT (RS256) — without it every mutation is 401.
+            - { name: OAUTH_PUBLIC_KEY_FILE, value: /etc/rachbase/oauth/public.pem }
+          ports: [{ containerPort: 8443 }]
+          readinessProbe: { httpGet: { path: /v1/site, port: 8443 }, initialDelaySeconds: 3, periodSeconds: 10 }
+          volumeMounts:
+            - { name: oauth-public-key, mountPath: /etc/rachbase/oauth, readOnly: true }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: site-controller-api, namespace: spaceark-site-system }
+spec:
+  selector: { app: site-controller-api }
+  ports: [{ port: 443, targetPort: 8443 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site-controller-tenant, namespace: spaceark-site-system }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: site-controller-tenant } }
+  template:
+    metadata: { labels: { app: site-controller-tenant } }
+    spec:
+      serviceAccountName: site-controller-tenant
+      automountServiceAccountToken: true # reconciler needs the in-cluster API
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: tenant
+          image: IMAGE
+          imagePullPolicy: IfNotPresent   # works for a registry pull OR a local k3s ctr import
+          env:
+            - { name: SITE_CONTROLLER_PROFILE, value: tenant }
+            - { name: SITE_ID, value: site1 }
+            - { name: SITE_CONTROLLER_NAMESPACE, value: spaceark-site-system }
+            - { name: SITE_REQUESTS_NAMESPACE, value: spaceark-site-requests }
+            - { name: WORKLOAD_RECONCILER_SA, value: site-controller-workload }
+            - { name: BUILD_RECONCILER_SA, value: site-controller-build }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site-controller-workload, namespace: spaceark-site-system }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: site-controller-workload } }
+  template:
+    metadata: { labels: { app: site-controller-workload } }
+    spec:
+      serviceAccountName: site-controller-workload
+      automountServiceAccountToken: true
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: workload
+          image: IMAGE
+          imagePullPolicy: IfNotPresent   # works for a registry pull OR a local k3s ctr import
+          env:
+            - { name: SITE_CONTROLLER_PROFILE, value: workload }
+            - { name: SITE_ID, value: site1 }
+            - { name: SITE_CONTROLLER_NAMESPACE, value: spaceark-site-system }
+            - { name: SITE_REQUESTS_NAMESPACE, value: spaceark-site-requests }
+            # Public per-app Ingress (see RUNBOOK-ingress.md). Match your ingress controller.
+            - { name: SITE_SELF_INGRESS, value: "1" }
+            - { name: SITE_INGRESS_CERTRESOLVER, value: le }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: site-controller-build, namespace: spaceark-site-system }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: site-controller-build } }
+  template:
+    metadata: { labels: { app: site-controller-build } }
+    spec:
+      serviceAccountName: site-controller-build
+      automountServiceAccountToken: true
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: build
+          image: IMAGE
+          imagePullPolicy: IfNotPresent   # works for a registry pull OR a local k3s ctr import
+          env:
+            - { name: SITE_CONTROLLER_PROFILE, value: build }
+            - { name: SITE_ID, value: site1 }
+            - { name: SITE_CONTROLLER_NAMESPACE, value: spaceark-site-system }
+            - { name: SITE_REQUESTS_NAMESPACE, value: spaceark-site-requests }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { requests: { cpu: 100m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }

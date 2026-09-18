@@ -15,15 +15,9 @@
 
 const { pool } = require('@rach/core');
 const { credits, purchase } = require('@rach/billing');
-const geoip = require('geoip-lite');
-
-// ISO country from the request IP (proxy-aware), or null for local/private IPs.
-function countryFromReq(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || req.ip || '');
-  if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) return null;
-  return geoip.lookup(ip)?.country ?? null;
-}
+// One shared, TRUST_PROXY-aware definition — this file used to carry its own XFF-parsing
+// copy, exactly the drift the shared helper exists to prevent (go-live audit M3).
+const { countryFromReq } = require('../lib/geo');
 
 // GET /api/agent/credits
 exports.getCredits = async (req, res) => {

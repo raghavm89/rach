@@ -11,8 +11,12 @@
 const pool = require('@rach/core').pool;
 const asyncHandler = require('@rach/core').asyncHandler;
 const { purchasedQty } = require('../lib/entitlements');
+const { assertPublicTarget } = require('../lib/ssrfGuard');
 
-const METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']);
+// Health checks OBSERVE — they never mutate. POST/PUT/DELETE/OPTIONS used to be accepted,
+// which turned the control-plane prober into a state-changing SSRF oracle against anything
+// it could reach (go-live audit H3). The prober coerces legacy rows to GET too.
+const METHODS = new Set(['GET', 'HEAD']);
 
 function validUrl(u) {
   try {
@@ -77,6 +81,9 @@ async function createEndpoint(req, res) {
   const e = sanitize(req.body);
   if (!e.name) return res.status(400).json({ error: 'name is required' });
   if (!validUrl(e.url)) return res.status(400).json({ error: 'A valid http(s) URL is required' });
+  // The prober will fetch this URL from the control plane — refuse private/internal targets.
+  try { await assertPublicTarget(e.url); }
+  catch (err) { return res.status(err.status || 400).json({ error: err.message, code: err.code }); }
 
   const [quota, used] = await Promise.all([purchasedQty(tid, 'mon'), usedCount(tid)]);
   if (used >= quota) {
@@ -119,7 +126,12 @@ async function updateEndpoint(req, res) {
   const set = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
 
   if (req.body.name !== undefined) { if (!e.name) return res.status(400).json({ error: 'name cannot be empty' }); set('name', e.name); }
-  if (req.body.url !== undefined) { if (!validUrl(e.url)) return res.status(400).json({ error: 'A valid http(s) URL is required' }); set('url', e.url); }
+  if (req.body.url !== undefined) {
+    if (!validUrl(e.url)) return res.status(400).json({ error: 'A valid http(s) URL is required' });
+    try { await assertPublicTarget(e.url); }
+    catch (err) { return res.status(err.status || 400).json({ error: err.message, code: err.code }); }
+    set('url', e.url);
+  }
   if (req.body.method !== undefined) set('method', e.method);
   if (req.body.expected_status !== undefined) set('expected_status', e.expected_status);
   if (req.body.interval_seconds !== undefined) set('interval_seconds', e.interval_seconds);

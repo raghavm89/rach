@@ -13,6 +13,8 @@ const {
   deleteUser,
   updateMe,
   changePassword,
+  exportMe,
+  deleteMe,
 } = require('../controllers/userController');
 
 // NOTE: VM-assignment routes (getUserVMs/assignVMs/removeVM) were previously
@@ -29,6 +31,9 @@ router.use(authenticate);
 // ── Self-service profile routes (must come before /:id to avoid conflict) ────
 router.patch('/me',          updateMe);
 router.post('/me/password',  changePassword);
+// Data-principal rights (DPDP §11/§12): export your data, erase your account.
+router.get('/me/export',     exportMe);
+router.delete('/me',         deleteMe);
 
 // GET /api/users
 //   admin        → all users (optional ?role= filter)

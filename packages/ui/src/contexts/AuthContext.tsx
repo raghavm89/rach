@@ -30,7 +30,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, redirectTo?: string) => Promise<void>;
   register: (name: string, email: string, password: string, phone?: string, workspaceName?: string) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => void;
@@ -131,12 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, [state.token, state.expiresIn]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, redirectTo = '/dashboard') => {
     const { access_token, user, expires_in } = await auth.login(email, password);
     localStorage.setItem(TOKEN_KEY, access_token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     setState({ user, token: access_token, loading: false, expiresIn: expires_in });
-    router.push('/dashboard');
+    // Only allow same-origin app paths as a redirect target (never an external URL).
+    router.push(redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/dashboard');
   }, [router]);
 
   /**
